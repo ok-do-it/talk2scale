@@ -1,0 +1,13 @@
+Tech stack questions:
+
+monorepo - turborepo - pnpm etc?
+backend - TS - tRPC / nestjs ?
+
+phone app:
+android native / react native ?
+
+DB for backend: postgres
+
+DB for phone app cache? - tbd
+
+
