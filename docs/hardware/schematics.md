@@ -1,6 +1,6 @@
 # Load cells → HX711 → ESP32 wiring
 
-This note covers a **four-corner kitchen scale** with **four 3-wire load cells** (wires often labeled **red, white, black**) wired as **one full Wheatstone bridge** into a single **HX711** module, then to an **ESP32** dev board (including ESP32-S3 variants).
+This note covers a **four-corner kitchen scale** with **four 3-wire load cells** (wires often labeled **red, white, black**) wired as **one full Wheatstone bridge** into a single **HX711** module, then to an **ESP32 DevKit** (or compatible ESP32 dev board).
 
 ---
 
@@ -47,8 +47,8 @@ HX711 modules expose **serial interface** pins (names vary slightly by PCB silks
 |-----------|------------------|
 | `VCC` | `3.3 V` (simplest with 3.3 V logic) **or** `5 V` if your module and wiring are verified for that supply |
 | `GND` | `GND` |
-| `DT` / `DOUT` / `DO` | A **GPIO** you choose for data (example: `GPIO16`) |
-| `SCK` / `CLK` | A **GPIO** you choose for clock (example: `GPIO4`) |
+| `DT` / `DOUT` / `DO` | A **GPIO** you choose for data (example: `GPIO4`) |
+| `SCK` / `CLK` | A **GPIO** you choose for clock (example: `GPIO16`) |
 
 Use **short wires** for DT/SCK and a **common ground** between HX711 and ESP32.
 

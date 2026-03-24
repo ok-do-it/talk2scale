@@ -5,7 +5,7 @@ This folder holds **schematics, wiring diagrams, and hardware notes** for the Ta
 ## Contents (as you add them)
 
 - [Load cell → HX711 → ESP32 wiring](schematics.md) (text + diagrams)  
-- Connection diagram: load cells → HX711 → ESP32-S3  
+- Connection diagram: load cells → HX711 → ESP32 DevKit  
 - GPIO map (tare button, power, optional battery sense)  
 - BOM snippets for the custom PCB or breadboard build  
 - Photos or PDFs exported from your CAD tool  

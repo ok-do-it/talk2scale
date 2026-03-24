@@ -16,9 +16,9 @@ A smart kitchen scale that combines hardware weight sensing with AI-powered voic
 |--------|------|
 | **Backend** (TypeScript) | API keys and proxy for Whisper (if used), LLM (food parsing), USDA, Garmin OAuth; persistence; optional job queue for offline sync |
 | **Mobile app** (React Native) | BLE to the scale, on-device or cloud STT, logging UI, dashboard, offline queue |
-| **Firmware** (ESP32, PlatformIO) | HX711 reads, stability detection, BLE GATT service, tare, optional WiFi OTA |
+| **Firmware** (ESP32, PlatformIO; see `esp32/`) | HX711 reads, stability detection, BLE GATT service, tare, optional WiFi OTA |
 
-Each module will live in its own top-level directory once bootstrapped (e.g. `backend/`, `mobile/`, `firmware/`).
+Each module will live in its own top-level directory once bootstrapped (e.g. `backend/`, `mobile/`, `esp32/`).
 
 ## User flow (end-to-end)
 
@@ -43,7 +43,7 @@ The app can use **Android built-in recognition** from React Native (e.g. [`@reac
 ## Hardware (summary)
 
 - Repurposed kitchen scale enclosure, platform, and load cells  
-- ESP32-S3, HX711, tare button on GPIO  
+- ESP32 DevKit, HX711, tare button on GPIO  
 - Detail and schematics: [`docs/hardware/`](docs/hardware/)
 
 ## BLE protocol (sketch)
@@ -56,7 +56,7 @@ Custom GATT service with characteristics such as:
 - **BATTERY** (read) — level where applicable  
 - **STATUS** (notify) — device state  
 
-Exact UUIDs and payload layouts belong in firmware and app docs as they are implemented.
+Exact UUIDs and payload layouts belong in `esp32/` firmware and app docs as they are implemented.
 
 ## Data model (RDBMS sketch)
 
