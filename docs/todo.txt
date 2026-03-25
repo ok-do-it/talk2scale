@@ -4,7 +4,7 @@ monorepo - turborepo - pnpm etc?
 backend - TS - tRPC / nestjs ?
 
 phone app:
-android native / react native ?
+android native (Java) ← decided
 
 DB for backend: postgres
 

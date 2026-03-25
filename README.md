@@ -15,7 +15,7 @@ A smart kitchen scale that combines hardware weight sensing with AI-powered voic
 | Module | Role |
 |--------|------|
 | **Backend** (TypeScript) | API keys and proxy for Whisper (if used), LLM (food parsing), USDA, Garmin OAuth; persistence; optional job queue for offline sync |
-| **Mobile app** (React Native) | BLE to the scale, on-device or cloud STT, logging UI, dashboard, offline queue |
+| **Mobile app** (Native Android, Java) | BLE to the scale, on-device or cloud STT, logging UI, dashboard, offline queue |
 | **Firmware** (ESP32, PlatformIO; see `esp32/`) | HX711 reads, stability detection, BLE GATT service, tare, optional WiFi OTA |
 
 Each module will live in its own top-level directory once bootstrapped (e.g. `backend/`, `mobile/`, `esp32/`).
@@ -31,7 +31,7 @@ Scale (stable weight) ──BLE──► Mobile app ──► Backend ──► 
 
 ## Speech-to-text (mobile)
 
-The app can use **Android built-in recognition** from React Native (e.g. [`@react-native-voice/voice`](https://github.com/react-native-voice/voice), which wraps `SpeechRecognizer`) or send audio to **Whisper** via the backend. Parsed text still goes to an LLM and USDA the same way.
+The app can use **Android built-in recognition** (`android.speech.SpeechRecognizer`). Parsed text still goes to an LLM and USDA the same way.
 
 | | Built-in (Android) | Whisper API |
 |--|-------------------|-------------|
