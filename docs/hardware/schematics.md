@@ -66,82 +66,15 @@ Use **short wires** for DT/SCK and a **common ground** between HX711 and ESP32.
 
 ## 2. Diagrams
 
-### 2.1 Topology (four cells + HX711 + ESP32)
-
-```mermaid
-flowchart LR
-  subgraph cells[Four 3-wire load cells]
-    FL[FL cell]
-    FR[FR cell]
-    BL[BL cell]
-    BR[BR cell]
-  end
-
-  subgraph hx[HX711]
-    Eplus[E+]
-    Eminus[E-]
-    Aplus[A+]
-    Aminus[A-]
-    DT[DT]
-    SCK[SCK]
-    VCC[VCC]
-    GND[GND]
-  end
-
-  subgraph esp[ESP32 dev board]
-    G33[3V3]
-    Gg[GND]
-    Gdt[GPIO DT]
-    Gck[GPIO SCK]
-  end
-
-  FL -->|E+ bus| Eplus
-  FR -->|E+ bus| Eplus
-  BL -->|E+ bus| Eplus
-  BR -->|E+ bus| Eplus
-
-  FL -->|E- bus| Eminus
-  FR -->|E- bus| Eminus
-  BL -->|E- bus| Eminus
-  BR -->|E- bus| Eminus
-
-  FL -->|white| Aplus
-  BR -->|white| Aplus
-  FR -->|white| Aminus
-  BL -->|white| Aminus
-
-  VCC --> G33
-  GND --> Gg
-  DT --> Gdt
-  SCK --> Gck
-```
-
-### 2.2 ASCII — bridge bus and whites
-
-```
-                    HX711
-                 +--------+
-    all reds ----| E+     |
-                 |        |---- A+ ---- white_FL --+
-                 |        |                      |
-    all blacks --| E-     |                      +-- white_BR
-                 |        |
-                 |        |---- A- ---- white_FR --+
-                 |        |                      |
-                 +--------+                      +-- white_BL
-
-        (FL/FR/BL/BR = corners of the platform)
-```
-
-### 2.3 ASCII — signal side to ESP32
+### 2.1 ASCII — signal side to ESP32
 
 ```
    HX711                    ESP32 DevKit
   ---------                 ------------
   VCC ---------- 3V3 ------- 3.3V
   GND ---------- GND ------- GND
-  DT  ---------- GPIO ------ (your pin, e.g. GPIO16)
-  SCK ---------- GPIO ------ (your pin, e.g. GPIO4)
+  DT  ---------- GPIO ------ GPIO4
+  SCK ---------- GPIO ------ GPIO16
 ```
 
 ---

@@ -48,15 +48,18 @@ The app can use **Android built-in recognition** from React Native (e.g. [`@reac
 
 ## BLE protocol (sketch)
 
-Custom GATT service with characteristics such as:
+One **notify** characteristic the app subscribes to once. Each notification carries:
 
-- **WEIGHT** (notify) — grams  
-- **STABLE** (notify) — stability flag  
-- **TARE** (write) — app-triggered tare  
-- **BATTERY** (read) — level where applicable  
-- **STATUS** (notify) — device state  
+- **Weight** — e.g. grams (fixed-point or integer; define in firmware)  
+- **Stability** — 1 bit: unstable vs stable reading  
+- **Calibration** — 1 bit: normal (calibrated) vs uncalibrated  
 
-Exact UUIDs and payload layouts belong in `esp32/` firmware and app docs as they are implemented.
+**Write** side (one characteristic with a small command envelope, or separate writes—pick one in firmware):
+
+- **TARE** — zero the scale (same idea as the physical tare button)  
+- **CALIBRATE** — reference mass in grams for the known weight on the platform (firmware derives scale factor from current raw reading and this value)  
+
+Exact UUIDs, byte order, field widths, command opcodes, and error handling belong in `esp32/` firmware and app docs as they are implemented.
 
 ## Data model (RDBMS sketch)
 
