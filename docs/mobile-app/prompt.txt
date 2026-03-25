@@ -1,5 +1,0 @@
-# General
-create react native mobile app, will be deployed to test android phone.
-read docs/esp32/description.md to understand BT communication
-# UI
-single screen
