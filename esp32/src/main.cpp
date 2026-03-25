@@ -2,6 +2,9 @@
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
+#include <BLESecurity.h>
+#include <Preferences.h>
+#include <esp_gap_ble_api.h>
 #include <HX711.h>
 #include <cstring>
 #include <cmath>
@@ -12,6 +15,10 @@ constexpr uint8_t kHx711Sck = 16;
 
 // Hardware tare (see docs/hardware/README.md)
 constexpr uint8_t kTareBtnPin = 15;
+
+// Pair button — long press clears stored bond (see docs/hardware/README.md)
+constexpr uint8_t kPairBtnPin = 13;
+constexpr uint32_t kLongPressMs = 3000;
 
 // Default scale factor until calibrated (see docs/hardware/README.md)
 constexpr float kScaleFactor = 1.0f;
@@ -36,6 +43,9 @@ HX711 scale;
 BLEServer* bleServer = nullptr;
 BLECharacteristic* notifyChar = nullptr;
 
+Preferences prefs;
+bool hasBond = false;
+
 volatile bool deviceConnected = false;
 bool calibrated = false;
 
@@ -45,6 +55,10 @@ float lastWeightForStable = 0.0f;
 bool prevTareDown = false;
 uint32_t lastTarePressMs = 0;
 constexpr uint32_t kTareCooldownMs = 300;
+
+bool prevPairDown = false;
+uint32_t pairDownSince = 0;
+bool pairLongHandled = false;
 
 bool updateStable(float w) {
   if (std::fabs(w - lastWeightForStable) < kStableThreshold) {
@@ -56,15 +70,61 @@ bool updateStable(float w) {
   return stableCount >= kStableWindow;
 }
 
+void startAdvertising() {
+  BLEAdvertising* adv = bleServer->getAdvertising();
+  adv->addServiceUUID(kServiceUuid);
+  adv->setScanResponse(true);
+  adv->setMinPreferred(0x06);
+  adv->setMaxPreferred(0x12);
+  adv->start();
+}
+
+void clearBond() {
+  int count = esp_ble_get_bond_device_num();
+  if (count > 0) {
+    esp_ble_bond_dev_t* devList =
+        static_cast<esp_ble_bond_dev_t*>(malloc(count * sizeof(esp_ble_bond_dev_t)));
+    if (devList) {
+      esp_ble_get_bond_device_list(&count, devList);
+      for (int i = 0; i < count; ++i) {
+        esp_ble_remove_bond_device(devList[i].bd_addr);
+      }
+      free(devList);
+    }
+  }
+  prefs.putBool("bonded", false);
+  hasBond = false;
+  startAdvertising();
+  Serial.println(F("BLE: bond cleared, open advertising"));
+}
+
+class SecurityCB : public BLESecurityCallbacks {
+  uint32_t onPassKeyRequest() override { return 0; }
+  void onPassKeyNotify(uint32_t) override {}
+  bool onConfirmPIN(uint32_t) override { return true; }
+  bool onSecurityRequest() override { return true; }
+
+  void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) override {
+    if (cmpl.success) {
+      prefs.putBool("bonded", true);
+      hasBond = true;
+      Serial.println(F("BLE: bonding complete, stored in NVS"));
+    } else {
+      Serial.print(F("BLE: bonding failed, reason=0x"));
+      Serial.println(cmpl.fail_reason, HEX);
+    }
+  }
+};
+
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* /*p*/) override {
     deviceConnected = true;
     Serial.println(F("BLE: client connected (advertising stopped)"));
   }
 
-  void onDisconnect(BLEServer* p) override {
+  void onDisconnect(BLEServer* /*p*/) override {
     deviceConnected = false;
-    p->getAdvertising()->start();
+    startAdvertising();
     Serial.println(F("BLE: client disconnected; advertising resumed"));
   }
 };
@@ -122,6 +182,7 @@ void setup() {
   delay(500);
 
   pinMode(kTareBtnPin, INPUT_PULLUP);
+  pinMode(kPairBtnPin, INPUT_PULLUP);
 
   scale.begin(kHx711Dt, kHx711Sck);
   scale.set_scale(kScaleFactor);
@@ -129,7 +190,18 @@ void setup() {
 
   calibrated = (kScaleFactor != 1.0f);
 
+  prefs.begin("ble", false);
+  hasBond = prefs.getBool("bonded", false);
+
   BLEDevice::init("TalkToScale");
+  BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
+  BLEDevice::setSecurityCallbacks(new SecurityCB());
+
+  BLESecurity* sec = new BLESecurity();
+  sec->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
+  sec->setCapability(ESP_IO_CAP_NONE);
+  sec->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new ServerCallbacks());
 
@@ -138,23 +210,21 @@ void setup() {
   notifyChar = service->createCharacteristic(
       kNotifyCharUuid,
       BLECharacteristic::PROPERTY_NOTIFY);
+  notifyChar->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
   notifyChar->addDescriptor(new BLE2902());
 
   BLECharacteristic* writeChar = service->createCharacteristic(
       kWriteCharUuid,
       BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+  writeChar->setAccessPermissions(ESP_GATT_PERM_WRITE_ENCRYPTED);
   writeChar->setCallbacks(new CmdCallbacks());
 
   service->start();
+  startAdvertising();
 
-  BLEAdvertising* adv = bleServer->getAdvertising();
-  adv->addServiceUUID(kServiceUuid);
-  adv->setScanResponse(true);
-  adv->setMinPreferred(0x06);
-  adv->setMaxPreferred(0x12);
-  adv->start();
-
-  Serial.println(F("TalkToScale: HX711 + BLE ready; advertising (connect from app)."));
+  Serial.print(F("TalkToScale: HX711 + BLE ready; "));
+  Serial.println(hasBond ? F("bonded device in NVS, advertising.")
+                         : F("no bond, open advertising."));
 }
 
 void loop() {
@@ -169,6 +239,18 @@ void loop() {
     Serial.println(F("Hardware TARE (GPIO15)"));
   }
   prevTareDown = tareDown;
+
+  // Pair button: long press (>=3 s) clears stored bond
+  bool pairDown = digitalRead(kPairBtnPin) == LOW;
+  if (pairDown && !prevPairDown) {
+    pairDownSince = now;
+    pairLongHandled = false;
+  } else if (pairDown && !pairLongHandled &&
+             (now - pairDownSince) >= kLongPressMs) {
+    pairLongHandled = true;
+    clearBond();
+  }
+  prevPairDown = pairDown;
 
   float weight = scale.get_units(10);
   bool stable = updateStable(weight);

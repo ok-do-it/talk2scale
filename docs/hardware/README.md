@@ -6,7 +6,7 @@ This folder holds **schematics, wiring diagrams, and hardware notes** for the Ta
 
 - [Load cell → HX711 → ESP32 wiring](schematics.md) (text + diagrams)  
 - Connection diagram: load cells → HX711 → ESP32 DevKit  
-- GPIO map (tare button, power, optional battery sense)  
+- GPIO map (tare button, pair button, power, optional battery sense)  
 - BOM snippets for the custom PCB or breadboard build  
 - Photos or PDFs exported from your CAD tool  
 
@@ -25,9 +25,23 @@ Persist **HX711 offset** (tare / bias) and **scale factor** (grams per count) so
 
 **Operational note:** keep a **tare** action in the product flow; zero drifts with temperature and mechanical settling. Recalibration or NVS updates when the user runs a calibration routine.
 
-## BLE discovery (firmware behavior)
+## GPIO summary
 
-Advertising **starts after boot** and **resumes after disconnect** so the app can scan and connect whenever the scale is on and not linked. Advertising **stops while a phone is connected**. There is no separate pairing button on GPIO in current firmware (hardware tare uses **GPIO15** only).
+| GPIO | Function | Wiring |
+|------|----------|--------|
+| **4** | HX711 DT (data) | HX711 `DOUT` → GPIO4 |
+| **16** | HX711 SCK (clock) | HX711 `SCK` → GPIO16 |
+| **15** | Tare button | Button to GND, INPUT_PULLUP |
+| **13** | Pair button | Button to GND, INPUT_PULLUP |
+
+## BLE discovery and bonding (firmware behavior)
+
+The firmware uses **BLE Secure Connections bonding** ("Just Works"). A **pair button** on **GPIO13** (INPUT_PULLUP, ties to GND when pressed) allows clearing the stored bond:
+
+- **No bond in NVS:** open advertising after boot; any phone can connect and bond.
+- **Bond in NVS:** advertising resumes normally; the bonded phone auto-reconnects. Characteristics require encrypted access so unbonded phones cannot use them.
+- **Long-press pair button (>= 3 s):** clears all bonded devices from the Bluedroid stack and the NVS flag, restarts open advertising for a new phone to pair.
+- Advertising **stops while a phone is connected** and **resumes after disconnect**.
 
 ## BLE packet layout
 
