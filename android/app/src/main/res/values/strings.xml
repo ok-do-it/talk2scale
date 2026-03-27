@@ -1,3 +1,31 @@
 <resources>
     <string name="app_name">talk2scale</string>
+
+    <!-- Connection overlay -->
+    <string name="status_searching">Searching for scale…</string>
+    <string name="status_reconnecting">Reconnecting…</string>
+    <string name="status_permission_denied">Bluetooth permission denied</string>
+    <string name="btn_connect">Connect</string>
+
+    <!-- Main scale screen -->
+    <string name="weight_placeholder">— g</string>
+    <string name="btn_tare">TARE</string>
+    <string name="btn_mic">MIC</string>
+    <string name="hint_food_name">Food name</string>
+    <string name="btn_apply">APPLY</string>
+
+    <!-- Log table headers -->
+    <string name="header_food">Food</string>
+    <string name="header_weight">Weight</string>
+    <string name="header_cal">Cal</string>
+
+    <!-- Toasts / stubs -->
+    <string name="toast_calibrate">Calibration not implemented yet</string>
+    <string name="toast_mic">Speech recognition not implemented yet</string>
+    <string name="toast_no_food">Enter a food name first</string>
+    <string name="toast_no_stable">No stable weight reading yet</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_connect">Connect to scale</string>
+    <string name="cd_calibrate">Calibrate scale</string>
 </resources>

@@ -1,19 +1,189 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+    <!-- Main scale screen (behind the overlay) -->
+    <LinearLayout
+        android:id="@+id/scaleScreen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Top bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end"
+            android:padding="8dp">
+
+            <ImageButton
+                android:id="@+id/btnConnectTop"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/stat_sys_data_bluetooth"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/cd_connect"
+                android:layout_marginEnd="8dp" />
+
+            <ImageButton
+                android:id="@+id/btnCalibrateTop"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_manage"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/cd_calibrate" />
+        </LinearLayout>
+
+        <!-- Weight display -->
+        <TextView
+            android:id="@+id/weightDisplay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingVertical="24dp"
+            android:text="@string/weight_placeholder"
+            android:textColor="@color/weightUnstable"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <!-- Tare + Mic buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="8dp">
+
+            <Button
+                android:id="@+id/btnTare"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_tare"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnMic"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/btn_mic"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
+
+        <!-- Food name input -->
+        <EditText
+            android:id="@+id/editFoodName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_food_name"
+            android:inputType="text"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Apply button -->
+        <Button
+            android:id="@+id/btnApply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_apply"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Log table header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="4dp"
+            android:background="?attr/colorSurfaceVariant">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:text="@string/header_food"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/header_weight"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:gravity="end" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/header_cal"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:gravity="end" />
+        </LinearLayout>
+
+        <!-- Log RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/logRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+    </LinearLayout>
+
+    <!-- Connection overlay (covers entire screen when visible) -->
+    <FrameLayout
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <ImageView
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:src="@android:drawable/stat_sys_data_bluetooth"
+                android:layout_marginBottom="24dp"
+                android:importantForAccessibility="no" />
+
+            <TextView
+                android:id="@+id/overlayStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/status_searching"
+                android:textSize="18sp"
+                android:layout_marginBottom="16dp" />
+
+            <ProgressBar
+                android:id="@+id/overlaySpinner"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="24dp" />
+
+            <Button
+                android:id="@+id/btnConnectOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_connect" />
+        </LinearLayout>
+    </FrameLayout>
+
+</FrameLayout>
