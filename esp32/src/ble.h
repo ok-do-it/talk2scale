@@ -90,8 +90,7 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
 
     switch (data[0]) {
       case kCmdTare:
-        scale.tare(15);
-        stableCount = 0;
+        performTare();
         Serial.println(F("BLE: TARE"));
         break;
 

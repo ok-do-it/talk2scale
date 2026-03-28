@@ -19,9 +19,15 @@ bool updateStable(float w) {
   return stableCount >= kStableWindow;
 }
 
+void performTare() {
+  scale.tare(50);
+  stableCount = 0;
+  lastWeightForStable = 0.0f;
+}
+
 void setupScale() {
   scale.begin(kHx711Dt, kHx711Sck);
   scale.set_scale(kScaleFactor);
-  scale.tare(15);
+  performTare();
   calibrated = (kScaleFactor != 1.0f);
 }
