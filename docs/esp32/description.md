@@ -28,7 +28,7 @@ There is **no** time limit on advertising while idle.
 
 ## Main loop (`loop`)
 
-Each iteration runs roughly every **200 ms** (~5 Hz).
+Each iteration runs roughly every **333 ms** (~3 Hz).
 
 ### Tare button (GPIO15)
 
@@ -45,13 +45,13 @@ Each iteration runs roughly every **200 ms** (~5 Hz).
 
 - Weight is read with **`get_units(10)`** (10-sample average from the HX711 library).
 - **Stability**: consecutive readings must stay within **2 g** of the **previous** reading. The counter increments up to **5**; when it reaches **5**, the reading is considered **stable**. Any larger jump resets the counter.
-- Weight is rounded to the nearest gram, then **clamped** to the **int16** representable range **−32768 … 32767** g before encoding in the notify payload.
+- Weight is rounded to the nearest gram and encoded as **int32** in the notify payload. When uncalibrated (`kScaleFactor == 1.0`), the value carries raw HX711 counts.
 
 ### BLE notify
 
-- If a **client is connected**, the firmware pushes a **3-byte** notification every loop iteration:
-  - Bytes 0–1: **int16** weight in grams, **little-endian**.
-  - Byte 2: **flags** — bit 0 **stable**, bit 1 **calibrated** (see [`docs/hardware/README.md`](../hardware/README.md)).
+- If a **client is connected**, the firmware pushes a **5-byte** notification every loop iteration:
+  - Bytes 0–3: **int32** weight in grams, **little-endian**.
+  - Byte 4: **flags** — bit 0 **stable**, bit 1 **calibrated** (see [`docs/hardware/README.md`](../hardware/README.md)).
 
 ### Serial
 
@@ -91,6 +91,17 @@ The central writes a byte string; the first byte is the **opcode**.
 | `0x02` | **CALIBRATE** | Bytes 1–2: **uint16** reference mass in grams, **little-endian**. Firmware takes **20-sample** raw average (`read_average(20)`), then `set_scale(avg / ref_mass_g)`. Sets **calibrated** on success. Ignores zero reference mass or zero average. |
 
 Any other opcode is logged as unknown on Serial.
+
+## Calibration procedure (from phone)
+
+The mobile app drives a two-step calibration flow using the opcodes above. No additional firmware commands are required.
+
+1. **Set zero** — the app sends **TARE** (`0x01`). The user must remove all items from the scale first. The firmware runs `scale.tare(15)` and resets the stability counter.
+2. **Set calibration weight** — the user places a known reference mass on the scale and enters its weight in grams in the app. The app sends **CALIBRATE** (`0x02` + `uint16` LE mass). The firmware takes a 20-sample raw average and computes `set_scale(avg / ref_mass_g)`, then marks `calibrated = true`.
+
+After a successful calibration the **calibrated** bit (bit 1 of the flags byte in the 5-byte notify payload) switches to 1 and subsequent weight notifications report values in real grams.
+
+Calibration state is **in-memory only** — both the HX711 scale factor and the `calibrated` flag are lost on power cycle (see "Not implemented" below).
 
 ## Build configuration
 

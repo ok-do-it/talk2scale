@@ -23,17 +23,10 @@ void loop() {
   bool stable = updateStable(weight);
 
   int32_t wg = static_cast<int32_t>(lroundf(weight));
-  if (wg > 32767) {
-    wg = 32767;
-  }
-  if (wg < -32768) {
-    wg = -32768;
-  }
 
-  uint8_t payload[3];
-  int16_t w16 = static_cast<int16_t>(wg);
-  std::memcpy(payload, &w16, sizeof(w16));
-  payload[2] = (stable ? kFlagStable : 0) | (calibrated ? kFlagCalibrated : 0);
+  uint8_t payload[5];
+  std::memcpy(payload, &wg, sizeof(wg));
+  payload[4] = (stable ? kFlagStable : 0) | (calibrated ? kFlagCalibrated : 0);
 
   if (deviceConnected && notifyChar) {
     notifyChar->setValue(payload, sizeof(payload));
@@ -48,5 +41,5 @@ void loop() {
   Serial.print(stable ? F(" stable") : F(" settling"));
   Serial.println();
 
-  delay(200);
+  delay(333);
 }

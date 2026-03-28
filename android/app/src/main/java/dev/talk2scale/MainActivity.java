@@ -47,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout overlay;
     private TextView overlayStatus;
     private ProgressBar overlaySpinner;
+    private FrameLayout calibrationOverlay;
+    private EditText editCalibGrams;
     private TextView weightDisplay;
     private EditText editFoodName;
     private LogAdapter logAdapter;
@@ -113,14 +115,24 @@ public class MainActivity extends AppCompatActivity {
         Button btnApply = findViewById(R.id.btnApply);
         RecyclerView logRecycler = findViewById(R.id.logRecycler);
 
+        calibrationOverlay = findViewById(R.id.calibrationOverlay);
+        editCalibGrams = findViewById(R.id.editCalibGrams);
+        ImageButton btnCloseCalibration = findViewById(R.id.btnCloseCalibration);
+        Button btnSetZero = findViewById(R.id.btnSetZero);
+        Button btnSetCalibWeight = findViewById(R.id.btnSetCalibWeight);
+
         btnConnectOverlay.setOnClickListener(v -> startAssociation());
         btnConnectTop.setOnClickListener(v -> startAssociation());
-        btnCalibrateTop.setOnClickListener(v ->
-                Toast.makeText(this, R.string.toast_calibrate, Toast.LENGTH_SHORT).show());
+        btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
         btnMic.setOnClickListener(v ->
                 Toast.makeText(this, R.string.toast_mic, Toast.LENGTH_SHORT).show());
         btnApply.setOnClickListener(v -> applyLogEntry());
+
+        btnCloseCalibration.setOnClickListener(v ->
+                calibrationOverlay.setVisibility(View.GONE));
+        btnSetZero.setOnClickListener(v -> handleSetZero());
+        btnSetCalibWeight.setOnClickListener(v -> handleSetCalibWeight());
 
         logAdapter = new LogAdapter();
         logRecycler.setLayoutManager(new LinearLayoutManager(this));
@@ -226,6 +238,48 @@ public class MainActivity extends AppCompatActivity {
         viewModel.closeGatt();
         device.connectGatt(this, autoConnect, viewModel.gattCallback,
                 BluetoothDevice.TRANSPORT_LE);
+    }
+
+    private void showCalibrationOverlay() {
+        if (!viewModel.isConnected()) {
+            Toast.makeText(this, R.string.toast_not_connected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        calibrationOverlay.setVisibility(View.VISIBLE);
+    }
+
+    private void handleSetZero() {
+        if (!viewModel.isConnected()) {
+            Toast.makeText(this, R.string.toast_not_connected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        viewModel.sendTare();
+        Toast.makeText(this, R.string.toast_calib_zero_done, Toast.LENGTH_SHORT).show();
+    }
+
+    private void handleSetCalibWeight() {
+        if (!viewModel.isConnected()) {
+            Toast.makeText(this, R.string.toast_not_connected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String text = editCalibGrams.getText().toString().trim();
+        if (text.isEmpty()) {
+            Toast.makeText(this, R.string.toast_calib_no_weight, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int grams;
+        try {
+            grams = Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, R.string.toast_calib_no_weight, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (grams <= 0) {
+            Toast.makeText(this, R.string.toast_calib_no_weight, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        viewModel.sendCalibrate(grams);
+        Toast.makeText(this, R.string.toast_calib_done, Toast.LENGTH_SHORT).show();
     }
 
     private void applyLogEntry() {

@@ -55,6 +55,11 @@ public class ScaleViewModel extends ViewModel {
         logEntries.setValue(updated);
     }
 
+    public boolean isConnected() {
+        Integer state = connectionState.getValue();
+        return state != null && state == BluetoothProfile.STATE_CONNECTED;
+    }
+
     @SuppressWarnings("MissingPermission")
     public void sendTare() {
         if (gatt == null) return;
@@ -63,6 +68,21 @@ public class ScaleViewModel extends ViewModel {
         BluetoothGattCharacteristic writeChar = service.getCharacteristic(WRITE_CHAR_UUID);
         if (writeChar == null) return;
         gatt.writeCharacteristic(writeChar, new byte[]{0x01},
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+    }
+
+    @SuppressWarnings("MissingPermission")
+    public void sendCalibrate(int refMassGrams) {
+        if (gatt == null) return;
+        BluetoothGattService service = gatt.getService(SERVICE_UUID);
+        if (service == null) return;
+        BluetoothGattCharacteristic writeChar = service.getCharacteristic(WRITE_CHAR_UUID);
+        if (writeChar == null) return;
+        byte[] payload = new byte[3];
+        payload[0] = 0x02;
+        payload[1] = (byte) (refMassGrams & 0xFF);
+        payload[2] = (byte) ((refMassGrams >> 8) & 0xFF);
+        gatt.writeCharacteristic(writeChar, payload,
                 BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
     }
 
@@ -123,10 +143,10 @@ public class ScaleViewModel extends ViewModel {
         public void onCharacteristicChanged(BluetoothGatt g,
                 BluetoothGattCharacteristic characteristic, byte[] value) {
             if (!NOTIFY_CHAR_UUID.equals(characteristic.getUuid())) return;
-            if (value.length < 3) return;
-            short weight = ByteBuffer.wrap(value, 0, 2)
-                    .order(ByteOrder.LITTLE_ENDIAN).getShort();
-            int flags = value[2] & 0xFF;
+            if (value.length < 5) return;
+            int weight = ByteBuffer.wrap(value, 0, 4)
+                    .order(ByteOrder.LITTLE_ENDIAN).getInt();
+            int flags = value[4] & 0xFF;
             boolean stable = (flags & 0x01) != 0;
             if (stable) {
                 lastStableWeight = weight;

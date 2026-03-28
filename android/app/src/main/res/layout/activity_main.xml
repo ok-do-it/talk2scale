@@ -141,6 +141,79 @@
             android:layout_weight="1" />
     </LinearLayout>
 
+    <!-- Calibration overlay (covers entire screen when visible) -->
+    <FrameLayout
+        android:id="@+id/calibrationOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btnCloseCalibration"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="8dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/cd_close_calibration" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/calib_title"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="24dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/calib_step1"
+                android:textSize="16sp"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btnSetZero"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_set_zero"
+                android:layout_marginBottom="32dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/calib_step2"
+                android:textSize="16sp"
+                android:layout_marginBottom="12dp" />
+
+            <EditText
+                android:id="@+id/editCalibGrams"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_calib_grams"
+                android:inputType="number"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btnSetCalibWeight"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_set_calib_weight" />
+        </LinearLayout>
+    </FrameLayout>
+
     <!-- Connection overlay (covers entire screen when visible) -->
     <FrameLayout
         android:id="@+id/overlay"

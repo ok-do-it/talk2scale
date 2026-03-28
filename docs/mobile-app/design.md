@@ -124,8 +124,8 @@ Visible once connected. Single-screen layout, top to bottom:
 ```
 
 - **Connect button** — small `ImageButton` (top bar). Opens the `CompanionDeviceManager` association dialog so the user can pair a different scale or re-pair the current one.
-- **Calibrate button** — small `ImageButton` (top bar). Stub for now — shows a `Toast` ("Calibration not implemented yet"). Will later open a dialog to enter reference mass and send opcode `0x02`.
-- **Weight display** — large `TextView`, full width, updated on every BLE notification (~5 Hz). Text color: amber (`#FFA000`) when `stable == false`, blue (`#1976D2`) when `stable == true`. Unit: grams only for now.
+- **Calibrate button** — small `ImageButton` (top bar). Opens a full-screen calibration overlay with a two-step flow (set zero, then set calibration weight). See [`docs/mobile-app/calibration-flow.md`](calibration-flow.md) for details.
+- **Weight display** — large `TextView`, full width, updated on every BLE notification (~3 Hz). Text color: amber (`#FFA000`) when `stable == false`, blue (`#1976D2`) when `stable == true`. Unit: grams only for now.
 - **Tare button** — sends opcode `0x01` to the write characteristic. Scale zeroes; subsequent notifications reflect the new baseline.
 - **Mic button** — starts `SpeechRecognizer` listening. On result, fills the editable food-name `EditText`. User can correct before pressing Apply.
 - **Food name field** — `EditText`, populated by speech recognition, editable by hand.
@@ -135,7 +135,7 @@ Visible once connected. Single-screen layout, top to bottom:
 | Widget | Action | Detail |
 |--------|--------|--------|
 | Connect | CDM dialog | Opens `CompanionDeviceManager.associate()` to pair / re-pair |
-| Calibrate | stub | Shows a `Toast` for now; will send `0x02` later |
+| Calibrate | overlay | Opens calibration overlay ([details](calibration-flow.md)) |
 | Weight display | passive | Updated by BLE notifications; color reflects stable flag |
 | Tare | BLE write | Sends `0x01` to write characteristic |
 | Mic | STT | Starts `SpeechRecognizer`, result fills food name field |
@@ -217,13 +217,13 @@ use the **Connect** button in the app to start a fresh CDM association.
 
 ## Notifications (weight stream)
 
-Firmware pushes a 3-byte notification every ~200 ms (~5 Hz) as soon as a client
+Firmware pushes a 5-byte notification every ~333 ms (~3 Hz) as soon as a client
 is connected and subscribed:
 
 | Offset | Type | Content |
 |--------|------|---------|
-| 0–1 | `int16` LE | Weight in grams (signed, ±32 767) |
-| 2 | `uint8` | Bit 0 = stable, Bit 1 = calibrated |
+| 0–3 | `int32` LE | Weight in grams (signed). When uncalibrated, carries raw HX711 counts. |
+| 4 | `uint8` | Bit 0 = stable, Bit 1 = calibrated |
 
 ### Subscribing
 
@@ -239,8 +239,8 @@ Override the three-arg `onCharacteristicChanged(gatt, characteristic, byte[])`
 (API 33+) to receive the raw bytes directly. Also override the deprecated
 two-arg variant and delegate to the three-arg one for devices running API 31-32.
 
-Parse the 3-byte payload as: `int16` LE weight (bytes 0-1) via
-`ByteBuffer.wrap().order(LITTLE_ENDIAN).getShort()`, then flags byte (byte 2)
+Parse the 5-byte payload as: `int32` LE weight (bytes 0-3) via
+`ByteBuffer.wrap().order(LITTLE_ENDIAN).getInt()`, then flags byte (byte 4)
 — bit 0 = stable, bit 1 = calibrated. Post the result to `LiveData`.
 
 ## Commands (write characteristic)

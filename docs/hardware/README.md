@@ -49,10 +49,10 @@ The firmware uses **BLE Secure Connections bonding** ("Just Works"). A **pair bu
 
 | Field | Type | Bytes | Description |
 |-------|------|-------|-------------|
-| weight | `int16` (LE, signed) | 2 | Grams; signed to allow slight negative drift after tare (range ±32 767 g) |
+| weight | `int32` (LE, signed) | 4 | Grams (signed to allow slight negative drift after tare). When uncalibrated (`kScaleFactor == 1.0`), carries raw HX711 counts. |
 | flags | `uint8` | 1 | Bit 0 — stable (1 = reading settled); Bit 1 — calibrated (1 = scale factor set, 0 = uncalibrated); Bits 2–7 reserved |
 
-**Total payload: 3 bytes** — fits well within the default 20-byte ATT value limit (BLE default MTU 23 − 3 header).
+**Total payload: 5 bytes** — fits well within the default 20-byte ATT value limit (BLE default MTU 23 − 3 header).
 
 ### Write characteristic (commands)
 
