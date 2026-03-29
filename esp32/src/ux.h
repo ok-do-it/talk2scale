@@ -4,6 +4,18 @@
 #include "scale.h"
 #include "ble.h"
 
+// Hardware tare (see docs/hardware/README.md)
+constexpr uint8_t kTareBtnPin = 15;
+constexpr uint32_t kTareCooldownMs = 300;
+
+// Pair button — long press clears stored bond (see docs/hardware/README.md)
+constexpr uint8_t kPairBtnPin = 17;
+constexpr uint32_t kLongPressMs = 3000;
+
+// Onboard LED — blink while pairing, solid when connected
+constexpr uint8_t kLedPin = 2;
+constexpr uint32_t kLedBlinkMs = 250;
+
 // --- Button state -----------------------------------------------------------
 
 bool prevTareDown = false;
@@ -17,7 +29,7 @@ void pollTareButton(uint32_t now) {
   bool tareDown = digitalRead(kTareBtnPin) == LOW;
   if (tareDown && !prevTareDown && (now - lastTarePressMs) >= kTareCooldownMs) {
     lastTarePressMs = now;
-    performTare();
+    performTare(true);
     Serial.println(F("Hardware TARE (GPIO15)"));
   }
   prevTareDown = tareDown;

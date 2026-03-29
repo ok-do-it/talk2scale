@@ -17,9 +17,42 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:gravity="end"
             android:padding="8dp">
+
+            <LinearLayout
+                android:id="@+id/mockToolbarGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_mock_toolbar_group"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp">
+
+                <CheckBox
+                    android:id="@+id/checkMockTop"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="2dp"
+                    android:text="@string/label_mock" />
+
+                <ImageButton
+                    android:id="@+id/btnAddWeightTop"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/cd_add_weight"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_mock_add_weight" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
 
             <ImageButton
                 android:id="@+id/btnConnectTop"

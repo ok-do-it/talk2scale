@@ -16,6 +16,7 @@ import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -52,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView weightDisplay;
     private EditText editFoodName;
     private LogAdapter logAdapter;
+    private CheckBox checkMockTop;
+    private ImageButton btnAddWeightTop;
 
     private ActivityResultLauncher<String> permissionLauncher;
     private ActivityResultLauncher<IntentSenderRequest> cdmLauncher;
@@ -71,7 +74,6 @@ public class MainActivity extends AppCompatActivity {
         registerLaunchers();
         bindViews();
         observeViewModel();
-        startConnectionFlow();
     }
 
     private void registerLaunchers() {
@@ -108,6 +110,8 @@ public class MainActivity extends AppCompatActivity {
         editFoodName = findViewById(R.id.editFoodName);
 
         Button btnConnectOverlay = findViewById(R.id.btnConnectOverlay);
+        checkMockTop = findViewById(R.id.checkMockTop);
+        btnAddWeightTop = findViewById(R.id.btnAddWeightTop);
         ImageButton btnConnectTop = findViewById(R.id.btnConnectTop);
         ImageButton btnCalibrateTop = findViewById(R.id.btnCalibrateTop);
         Button btnTare = findViewById(R.id.btnTare);
@@ -121,8 +125,11 @@ public class MainActivity extends AppCompatActivity {
         Button btnSetZero = findViewById(R.id.btnSetZero);
         Button btnSetCalibWeight = findViewById(R.id.btnSetCalibWeight);
 
-        btnConnectOverlay.setOnClickListener(v -> startAssociation());
-        btnConnectTop.setOnClickListener(v -> startAssociation());
+        btnConnectOverlay.setOnClickListener(v -> startConnectionFlow());
+        checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
+                viewModel.setMockEnabled(isChecked));
+        btnAddWeightTop.setOnClickListener(v -> viewModel.addMockWeight());
+        btnConnectTop.setOnClickListener(v -> startConnectionFlow());
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
         btnMic.setOnClickListener(v ->
@@ -141,18 +148,25 @@ public class MainActivity extends AppCompatActivity {
 
     private void observeViewModel() {
         viewModel.getConnectionState().observe(this, state -> {
-            if (state == BluetoothProfile.STATE_CONNECTED) {
-                overlay.setVisibility(View.GONE);
-            } else {
-                overlay.setVisibility(View.VISIBLE);
+            if (state != BluetoothProfile.STATE_CONNECTED) {
                 overlaySpinner.setVisibility(View.VISIBLE);
                 String mac = getStoredMac();
-                if (mac != null) {
+                if (mac != null && viewModel.isRealConnectionRequested()) {
                     overlayStatus.setText(R.string.status_reconnecting);
                 } else {
                     overlayStatus.setText(R.string.status_searching);
                 }
             }
+        });
+        viewModel.getShowConnectionOverlay().observe(this,
+                show -> overlay.setVisibility(Boolean.TRUE.equals(show) ? View.VISIBLE : View.GONE));
+        viewModel.getMockEnabled().observe(this, enabled ->
+                checkMockTop.setChecked(Boolean.TRUE.equals(enabled)));
+        viewModel.getMockControlsEnabled().observe(this, enabled -> {
+            boolean controlsEnabled = Boolean.TRUE.equals(enabled);
+            btnAddWeightTop.setEnabled(controlsEnabled);
+            float alpha = controlsEnabled ? 1.0f : 0.35f;
+            btnAddWeightTop.setAlpha(alpha);
         });
 
         viewModel.getWeightData().observe(this, data -> {
@@ -169,6 +183,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startConnectionFlow() {
+        viewModel.prepareForRealConnection();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED) {
             permissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT);
@@ -179,8 +194,6 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressWarnings("MissingPermission")
     private void beginConnection() {
-        if (viewModel.getGatt() != null) return;
-
         String mac = getStoredMac();
         if (mac != null) {
             overlayStatus.setText(R.string.status_reconnecting);
@@ -235,9 +248,7 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressWarnings("MissingPermission")
     private void connectToDevice(BluetoothDevice device, boolean autoConnect) {
-        viewModel.closeGatt();
-        device.connectGatt(this, autoConnect, viewModel.gattCallback,
-                BluetoothDevice.TRANSPORT_LE);
+        viewModel.connectToRealDevice(this, device, autoConnect);
     }
 
     private void showCalibrationOverlay() {
@@ -294,6 +305,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         viewModel.addLogEntry(food, weight);
+        viewModel.sendTare();
         editFoodName.setText("");
     }
 

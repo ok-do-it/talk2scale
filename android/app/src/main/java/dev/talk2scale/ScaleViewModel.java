@@ -1,49 +1,77 @@
 package dev.talk2scale;
 
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
-import android.util.Log;
+import android.content.Context;
 
+import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
 public class ScaleViewModel extends ViewModel {
+    static final UUID SERVICE_UUID =
+            UUID.fromString("4c78c001-8118-4aea-8f72-70ddbda3c9b9");
 
-    private static final String TAG = "ScaleViewModel";
-
-    static final UUID SERVICE_UUID     = UUID.fromString("4c78c001-8118-4aea-8f72-70ddbda3c9b9");
-    static final UUID NOTIFY_CHAR_UUID = UUID.fromString("4c78c002-8118-4aea-8f72-70ddbda3c9b9");
-    static final UUID WRITE_CHAR_UUID  = UUID.fromString("4c78c003-8118-4aea-8f72-70ddbda3c9b9");
-    static final UUID CCCD_UUID        = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     private final MutableLiveData<int[]> weightData = new MutableLiveData<>();
-    private final MutableLiveData<Integer> connectionState = new MutableLiveData<>(BluetoothProfile.STATE_DISCONNECTED);
+    private final MutableLiveData<Integer> connectionState =
+            new MutableLiveData<>(BluetoothProfile.STATE_DISCONNECTED);
     private final MutableLiveData<List<LogEntry>> logEntries = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<Boolean> showConnectionOverlay = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> mockControlsEnabled = new MutableLiveData<>(true);
+    private final MutableLiveData<Boolean> mockEnabled = new MutableLiveData<>(true);
 
-    private BluetoothGatt gatt;
     private int lastStableWeight = 0;
     private final Random random = new Random();
+    private boolean realConnectionRequested = false;
 
-    public MutableLiveData<int[]> getWeightData() { return weightData; }
-    public MutableLiveData<Integer> getConnectionState() { return connectionState; }
-    public MutableLiveData<List<LogEntry>> getLogEntries() { return logEntries; }
+    private final BleScaleTransport bleTransport = new BleScaleTransport();
+    private final MockScaleTransport mockTransport = new MockScaleTransport();
+
+    public ScaleViewModel() {
+        bleTransport.setListener(new ScaleTransport.Listener() {
+            @Override
+            public void onConnectionStateChanged(int state) {
+                connectionState.postValue(state);
+                updateConnectionUiState(state);
+            }
+
+            @Override
+            public void onWeightData(int weight, int flags) {
+                publishWeight(weight, flags);
+            }
+        });
+        mockTransport.setListener(new ScaleTransport.Listener() {
+            @Override
+            public void onConnectionStateChanged(int state) {
+                // The app's connection state tracks only real BLE device state.
+            }
+
+            @Override
+            public void onWeightData(int weight, int flags) {
+                if (!isConnected()) {
+                    publishWeight(weight, flags);
+                }
+            }
+        });
+        mockTransport.start();
+    }
+
+    public LiveData<int[]> getWeightData() { return weightData; }
+    public LiveData<Integer> getConnectionState() { return connectionState; }
+    public LiveData<List<LogEntry>> getLogEntries() { return logEntries; }
+    public LiveData<Boolean> getShowConnectionOverlay() { return showConnectionOverlay; }
+    public LiveData<Boolean> getMockControlsEnabled() { return mockControlsEnabled; }
+    public LiveData<Boolean> getMockEnabled() { return mockEnabled; }
 
     public int getLastStableWeight() { return lastStableWeight; }
 
-    public BluetoothGatt getGatt() { return gatt; }
-
-    public void setGatt(BluetoothGatt gatt) { this.gatt = gatt; }
+    public boolean isRealConnectionRequested() { return realConnectionRequested; }
 
     public void addLogEntry(String foodName, int weightGrams) {
         int calories = random.nextInt(300) + 50;
@@ -60,98 +88,84 @@ public class ScaleViewModel extends ViewModel {
         return state != null && state == BluetoothProfile.STATE_CONNECTED;
     }
 
-    @SuppressWarnings("MissingPermission")
+    public void prepareForRealConnection() {
+        realConnectionRequested = true;
+        mockEnabled.setValue(false);
+        Integer state = connectionState.getValue();
+        updateConnectionUiState(state == null ? BluetoothProfile.STATE_DISCONNECTED : state);
+    }
+
+    public void connectToRealDevice(Context context, BluetoothDevice device, boolean autoConnect) {
+        prepareForRealConnection();
+        bleTransport.connectToDevice(context, device, autoConnect);
+    }
+
     public void sendTare() {
-        if (gatt == null) return;
-        BluetoothGattService service = gatt.getService(SERVICE_UUID);
-        if (service == null) return;
-        BluetoothGattCharacteristic writeChar = service.getCharacteristic(WRITE_CHAR_UUID);
-        if (writeChar == null) return;
-        gatt.writeCharacteristic(writeChar, new byte[]{0x01},
-                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        if (isConnected()) {
+            bleTransport.sendTare();
+        } else {
+            mockTransport.sendTare();
+        }
     }
 
-    @SuppressWarnings("MissingPermission")
     public void sendCalibrate(int refMassGrams) {
-        if (gatt == null) return;
-        BluetoothGattService service = gatt.getService(SERVICE_UUID);
-        if (service == null) return;
-        BluetoothGattCharacteristic writeChar = service.getCharacteristic(WRITE_CHAR_UUID);
-        if (writeChar == null) return;
-        byte[] payload = new byte[3];
-        payload[0] = 0x02;
-        payload[1] = (byte) (refMassGrams & 0xFF);
-        payload[2] = (byte) ((refMassGrams >> 8) & 0xFF);
-        gatt.writeCharacteristic(writeChar, payload,
-                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        if (isConnected()) {
+            bleTransport.sendCalibrate(refMassGrams);
+        }
     }
 
-    @SuppressWarnings("MissingPermission")
-    public void closeGatt() {
-        if (gatt != null) {
-            gatt.close();
-            gatt = null;
+    public void addMockWeight() {
+        if (!isConnected()) {
+            mockTransport.addRandomWeight();
+        }
+    }
+
+    public void setMockEnabled(boolean enabled) {
+        Boolean current = mockEnabled.getValue();
+        if (current != null && current == enabled) return;
+        mockEnabled.setValue(enabled);
+        if (enabled) {
+            realConnectionRequested = false;
+            if (isConnected()) {
+                bleTransport.close();
+            } else {
+                Integer state = connectionState.getValue();
+                updateConnectionUiState(state == null
+                        ? BluetoothProfile.STATE_DISCONNECTED : state);
+            }
+        } else {
+            Integer state = connectionState.getValue();
+            updateConnectionUiState(state == null
+                    ? BluetoothProfile.STATE_DISCONNECTED : state);
         }
     }
 
     @Override
     protected void onCleared() {
         super.onCleared();
-        closeGatt();
+        bleTransport.close();
+        mockTransport.close();
     }
 
-    @SuppressWarnings("MissingPermission")
-    final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-
-        @Override
-        public void onConnectionStateChange(BluetoothGatt g, int status, int newState) {
-            Log.d(TAG, "onConnectionStateChange: status=" + status + " newState=" + newState);
-            connectionState.postValue(newState);
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                gatt = g;
-                g.discoverServices();
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                // autoConnect=true handles reconnection; keep the gatt reference alive
-                // unless the ViewModel is being cleared (handled in onCleared)
-            }
+    private void publishWeight(int weight, int flags) {
+        boolean stable = (flags & 0x01) != 0;
+        if (stable) {
+            lastStableWeight = weight;
         }
+        weightData.postValue(new int[]{weight, flags});
+    }
 
-        @Override
-        public void onServicesDiscovered(BluetoothGatt g, int status) {
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.w(TAG, "onServicesDiscovered failed: " + status);
-                return;
-            }
-            BluetoothGattService service = g.getService(SERVICE_UUID);
-            if (service == null) {
-                Log.w(TAG, "Scale service not found");
-                return;
-            }
-            BluetoothGattCharacteristic notifyChar = service.getCharacteristic(NOTIFY_CHAR_UUID);
-            if (notifyChar == null) {
-                Log.w(TAG, "Notify characteristic not found");
-                return;
-            }
-            g.setCharacteristicNotification(notifyChar, true);
-            BluetoothGattDescriptor cccd = notifyChar.getDescriptor(CCCD_UUID);
-            if (cccd != null) {
-                g.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-            }
+    private void updateConnectionUiState(int state) {
+        boolean connected = state == BluetoothProfile.STATE_CONNECTED;
+        boolean mockIsEnabled;
+        if (connected) {
+            mockEnabled.postValue(false);
+            mockIsEnabled = false;
+        } else {
+            Boolean mock = mockEnabled.getValue();
+            mockIsEnabled = Boolean.TRUE.equals(mock);
         }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt g,
-                BluetoothGattCharacteristic characteristic, byte[] value) {
-            if (!NOTIFY_CHAR_UUID.equals(characteristic.getUuid())) return;
-            if (value.length < 5) return;
-            int weight = ByteBuffer.wrap(value, 0, 4)
-                    .order(ByteOrder.LITTLE_ENDIAN).getInt();
-            int flags = value[4] & 0xFF;
-            boolean stable = (flags & 0x01) != 0;
-            if (stable) {
-                lastStableWeight = weight;
-            }
-            weightData.postValue(new int[]{weight, flags});
-        }
-    };
+        mockControlsEnabled.postValue(mockIsEnabled && !connected);
+        showConnectionOverlay.postValue(realConnectionRequested && !connected && !mockIsEnabled);
+    }
 }

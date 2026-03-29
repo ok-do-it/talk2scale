@@ -90,6 +90,7 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
 
     switch (data[0]) {
       case kCmdTare:
+        delay(1000);
         performTare();
         Serial.println(F("BLE: TARE"));
         break;
@@ -106,12 +107,14 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
             Serial.println(F("BLE: CALIBRATE ref mass is zero"));
             break;
           }
-          long avg = scale.read_average(20);
+          xSemaphoreTake(scaleMutex, portMAX_DELAY);
+          long avg = latestRaw - tareOffset;
+          xSemaphoreGive(scaleMutex);
           if (avg == 0) {
             Serial.println(F("BLE: CALIBRATE average is zero"));
             break;
           }
-          scale.set_scale(static_cast<float>(avg) / static_cast<float>(refMassG));
+          scaleFactor = static_cast<float>(avg) / static_cast<float>(refMassG);
           calibrated = true;
           Serial.print(F("BLE: CALIBRATE scale set, ref g="));
           Serial.println(refMassG);

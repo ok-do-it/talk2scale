@@ -14,32 +14,41 @@ void setup() {
   setupBLE();
 }
 
+static uint32_t lastNotifyMs = 0;
+static uint32_t lastPrintMs = 0;
+
 void loop() {
   uint32_t now = millis();
   pollTareButton(now);
   pollPairButton(now);
 
-  float weight = scale.get_units(10);
-  bool stable = updateStable(weight);
+  float weight = getWeight();
+  bool stable = updateStable();
 
-  int32_t wg = static_cast<int32_t>(lroundf(weight));
+  if (now - lastNotifyMs >= 333) {
+    lastNotifyMs = now;
+    int32_t wg = static_cast<int32_t>(lroundf(weight));
 
-  uint8_t payload[5];
-  std::memcpy(payload, &wg, sizeof(wg));
-  payload[4] = (stable ? kFlagStable : 0) | (calibrated ? kFlagCalibrated : 0);
+    uint8_t payload[5];
+    std::memcpy(payload, &wg, sizeof(wg));
+    payload[4] = (stable ? kFlagStable : 0) | (calibrated ? kFlagCalibrated : 0);
 
-  if (deviceConnected && notifyChar) {
-    notifyChar->setValue(payload, sizeof(payload));
-    notifyChar->notify();
+    if (deviceConnected && notifyChar) {
+      notifyChar->setValue(payload, sizeof(payload));
+      notifyChar->notify();
+    }
   }
 
-  Serial.print(F("Weight: "));
-  Serial.print(weight, 2);
-  if (!calibrated) {
-    Serial.print(F(" (uncalibrated)"));
+  if (now - lastPrintMs >= 1000) {
+    lastPrintMs = now;
+    Serial.print(F("Weight: "));
+    Serial.print(weight, 2);
+    if (calibrated) {
+      Serial.print(F(" g"));
+    }
+    Serial.print(stable ? F(" stable") : F(" ~ "));
+    Serial.println();
   }
-  Serial.print(stable ? F(" stable") : F(" settling"));
-  Serial.println();
 
-  delay(333);
+  delay(10);
 }

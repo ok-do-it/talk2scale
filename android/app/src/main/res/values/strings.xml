@@ -8,6 +8,7 @@
     <string name="btn_connect">Connect</string>
 
     <!-- Main scale screen -->
+    <string name="label_mock">Mock</string>
     <string name="weight_placeholder">— g</string>
     <string name="btn_tare">TARE</string>
     <string name="btn_mic">MIC</string>
@@ -41,4 +42,5 @@
     <string name="cd_connect">Connect to scale</string>
     <string name="cd_calibrate">Calibrate scale</string>
     <string name="cd_close_calibration">Close calibration</string>
+    <string name="cd_add_weight">Add mock weight</string>
 </resources>

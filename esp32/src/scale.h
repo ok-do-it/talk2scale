@@ -1,33 +1,67 @@
 #pragma once
 #include <HX711.h>
 #include <cmath>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include "definitions.h"
 
 HX711 scale;
 bool calibrated = false;
 
-int stableCount = 0;
-float lastWeightForStable = 0.0f;
+volatile long latestRaw = 0;
+long tareOffset = 0;
+float scaleFactor = 1.0f;
 
-bool updateStable(float w) {
-  if (std::fabs(w - lastWeightForStable) < kStableThreshold) {
+int stableCount = 0;
+long lastRawForStable = 0;
+
+SemaphoreHandle_t scaleMutex = nullptr;
+
+void scaleTask(void*) {
+  for (;;) {
+    long raw = scale.read_average(3);
+    xSemaphoreTake(scaleMutex, portMAX_DELAY);
+    latestRaw = raw;
+    xSemaphoreGive(scaleMutex);
+    vTaskDelay(10);
+  }
+}
+
+float getWeight() {
+  xSemaphoreTake(scaleMutex, portMAX_DELAY);
+  long raw = latestRaw;
+  long offset = tareOffset;
+  float factor = scaleFactor;
+  xSemaphoreGive(scaleMutex);
+  return static_cast<float>(raw - offset) / factor;
+}
+
+bool updateStable() {
+  xSemaphoreTake(scaleMutex, portMAX_DELAY);
+  long raw = latestRaw;
+  xSemaphoreGive(scaleMutex);
+  if (std::abs(raw - lastRawForStable) < kStableThreshold) {
     stableCount = std::min(stableCount + 1, kStableWindow);
   } else {
     stableCount = 0;
   }
-  lastWeightForStable = w;
+  lastRawForStable = raw;
   return stableCount >= kStableWindow;
 }
 
 void performTare() {
-  scale.tare(50);
+  xSemaphoreTake(scaleMutex, portMAX_DELAY);
+  tareOffset = latestRaw;
+  xSemaphoreGive(scaleMutex);
   stableCount = 0;
-  lastWeightForStable = 0.0f;
+  lastRawForStable = 0;
 }
 
 void setupScale() {
+  scaleMutex = xSemaphoreCreateMutex();
   scale.begin(kHx711Dt, kHx711Sck);
-  scale.set_scale(kScaleFactor);
+  scale.read_average(10); // warm up
+  xTaskCreate(scaleTask, "scale", 2048, nullptr, 2, nullptr);
+  delay(400); // let task get first reading
   performTare();
-  calibrated = (kScaleFactor != 1.0f);
 }
