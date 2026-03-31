@@ -28,9 +28,16 @@
     <string name="hint_calib_grams">Weight in grams</string>
     <string name="btn_set_calib_weight">SET CALIBRATION WEIGHT</string>
 
+    <!-- Speech overlay -->
+    <string name="speech_status_listening">Listening…</string>
+    <string name="speech_status_ready">Tap mic to start</string>
+    <string name="speech_status_error">Could not recognise speech — try again</string>
+    <string name="speech_status_unavailable">Speech recognition not available on this device</string>
+    <string name="speech_status_no_mic_permission">Microphone permission denied</string>
+    <string name="speech_btn_cancel">CANCEL</string>
+
     <!-- Toasts / stubs -->
     <string name="toast_calibrate">Calibration not implemented yet</string>
-    <string name="toast_mic">Speech recognition not implemented yet</string>
     <string name="toast_no_food">Enter a food name first</string>
     <string name="toast_no_stable">No stable weight reading yet</string>
     <string name="toast_calib_zero_done">Zero set</string>
@@ -43,4 +50,5 @@
     <string name="cd_calibrate">Calibrate scale</string>
     <string name="cd_close_calibration">Close calibration</string>
     <string name="cd_add_weight">Add mock weight</string>
+    <string name="cd_speech_toggle">Start or stop speech recognition</string>
 </resources>

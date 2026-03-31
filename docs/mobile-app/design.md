@@ -111,10 +111,6 @@ Visible once connected. Single-screen layout, top to bottom:
 ├────────────┬─────────────┤
 │   TARE     │     MIC     │  two equal-width buttons
 ├────────────┴─────────────┤
-│ [ recognized food name ] │  editable text field
-├──────────────────────────┤
-│        [ APPLY ]         │  full-width button
-├──────────────────────────┤
 │ Food        Weight  Cal  │  scrollable log table
 │ ─────────── ────── ──── │
 │ Banana        120   107  │
@@ -127,9 +123,7 @@ Visible once connected. Single-screen layout, top to bottom:
 - **Calibrate button** — small `ImageButton` (top bar). Opens a full-screen calibration overlay with a two-step flow (set zero, then set calibration weight). See [`docs/mobile-app/calibration-flow.md`](calibration-flow.md) for details.
 - **Weight display** — large `TextView`, full width, updated on every BLE notification (~3 Hz). Text color: amber (`#FFA000`) when `stable == false`, blue (`#1976D2`) when `stable == true`. Unit: grams only for now.
 - **Tare button** — sends opcode `0x01` to the write characteristic. Scale zeroes; subsequent notifications reflect the new baseline.
-- **Mic button** — starts `SpeechRecognizer` listening. On result, fills the editable food-name `EditText`. User can correct before pressing Apply.
-- **Food name field** — `EditText`, populated by speech recognition, editable by hand.
-- **Apply button** — takes current weight (last stable reading) + food name and appends a row to the log. Calories are mocked with `Random.nextInt(50, 350)` until the backend is available.
+- **Mic button** — opens the speech recognition overlay (see below). Food name input and Apply have moved into the overlay.
 - **Log table** — `RecyclerView` filling remaining space. Columns: food name, weight (g), calories. Rows added in session order, most recent at top. **In-memory only** — the list lives in the `ViewModel` and is lost when the process dies.
 
 | Widget | Action | Detail |
@@ -138,10 +132,106 @@ Visible once connected. Single-screen layout, top to bottom:
 | Calibrate | overlay | Opens calibration overlay ([details](calibration-flow.md)) |
 | Weight display | passive | Updated by BLE notifications; color reflects stable flag |
 | Tare | BLE write | Sends `0x01` to write characteristic |
-| Mic | STT | Starts `SpeechRecognizer`, result fills food name field |
-| Food name | user edit | Editable text, pre-filled by STT |
-| Apply | log entry | Captures stable weight + food name, appends to in-memory log with random calories |
+| Mic | speech overlay | Opens the speech recognition overlay (see below) |
 | Log table | display | Scrollable in-memory list of logged entries for current session |
+
+### Speech recognition overlay (full-screen)
+
+Opened by the **Mic** button on the main screen. Covers the entire screen
+(same pattern as the connection and calibration overlays). Z-order is above
+the calibration overlay but below the connection overlay, so a disconnect
+still blocks interaction.
+
+```
+┌──────────────────────────┐
+│                          │
+│        ( ● mic )         │  mic icon with pulsing ring while recording
+│                          │
+│      Listening…          │  status label (changes per state)
+│                          │
+│  [ recognized food name ]│  editable EditText, filled by STT
+│                          │
+│        ( ■ stop )        │  toggle button: ■ stop while recording,
+│                          │                  ● mic  while idle
+│                          │
+│                          │
+│   [ CANCEL ]  [ APPLY ]  │  bottom action bar
+└──────────────────────────┘
+```
+
+**Layout:** `view_speech_overlay.xml`, included into `activity_main.xml`
+via `<include>`.
+
+**Controller:** `SpeechOverlayController` — a standalone class that owns the
+`SpeechRecognizer` lifecycle and all overlay view state. `MainActivity`
+creates it in `bindViews()` and communicates through a `Callback` interface
+(`onApply(String)`, `onCancel()`).
+
+#### Overlay states
+
+| State | Status label | Toggle icon | Pulse ring | Trigger |
+|-------|-------------|-------------|------------|---------|
+| Recording | "Listening…" | stop (square) | visible, animating | `open()` / toggle tap while idle |
+| Idle | "Tap mic to start" | mic (circle) | hidden | `onEndOfSpeech` / toggle tap while recording |
+| Error | "Could not recognise speech — try again" | mic (circle) | hidden | `onError` (no match / timeout) |
+| No permission | "Microphone permission denied" | mic (circle) | hidden | runtime permission denied |
+| Unavailable | "Speech recognition not available on this device" | mic (circle) | hidden | `SpeechRecognizer.isRecognitionAvailable()` is false |
+
+#### Flow
+
+```
+User taps MIC button (main screen)
+  │
+  ├─ RECORD_AUDIO permission granted?
+  │   ├─ YES → open overlay, auto-start SpeechRecognizer
+  │   └─ NO  → open overlay in idle state,
+  │             launch runtime permission request
+  │             ├─ granted → startListening()
+  │             └─ denied  → show "Microphone permission denied",
+  │                          user can Cancel or retry from Settings
+  │
+  ├─ SpeechRecognizer delivers partial results
+  │   → stream into EditText (user sees text forming)
+  │
+  ├─ SpeechRecognizer delivers final result
+  │   → set EditText to top result, switch to idle state
+  │   → user can edit text by hand
+  │
+  ├─ User taps toggle button (idle)
+  │   → re-create SpeechRecognizer, start listening (retry)
+  │
+  ├─ User taps toggle button (recording)
+  │   → stopListening(), keep current text, switch to idle
+  │
+  ├─ User taps APPLY
+  │   → stop any active recognition
+  │   → validate: food text non-empty, stable weight > 0
+  │   │   ├─ OK  → addLogEntry(), sendTare(), close overlay
+  │   │   └─ FAIL → show toast, overlay stays open
+  │
+  └─ User taps CANCEL
+      → stop recognition, destroy recognizer, close overlay
+        (no log entry added)
+```
+
+#### SpeechRecognizer details
+
+- A fresh `SpeechRecognizer` instance is created for each listening session
+  (and destroyed in `stopListening` / `close`) to avoid stale-state issues.
+- Intent extras: `LANGUAGE_MODEL_FREE_FORM`, device default locale,
+  `EXTRA_PARTIAL_RESULTS = true`, `EXTRA_MAX_RESULTS = 1`.
+- `RecognitionListener.onPartialResults` updates the `EditText` live;
+  `onResults` sets the final text and transitions to idle.
+- `onError` handles `ERROR_NO_MATCH` and `ERROR_SPEECH_TIMEOUT` with a
+  user-friendly message; `ERROR_INSUFFICIENT_PERMISSIONS` shows the
+  permission-denied message; all others show a generic retry prompt.
+
+#### Recording animation
+
+While recording, a translucent pulsing ring (`speechPulseRing`) animates
+behind the mic icon using a scale + alpha `<set>` animation
+(`res/anim/pulse.xml`). The ring is hidden and its animation cleared when
+the recognizer transitions to idle.
 
 ## Connection flow
 
@@ -269,9 +359,14 @@ API 31-32 fall back to `setValue()` + the legacy one-arg `writeCharacteristic()`
 V1 uses **`android.speech.SpeechRecognizer`** (built-in Android recognition)
 only. Whisper via the backend is a possible future enhancement.
 
-- The Mic button calls `SpeechRecognizer.startListening()` with a
-  `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` intent.
-- On `onResults`, the top result string is placed into the food-name `EditText`.
+- The Mic button opens a full-screen speech overlay (`SpeechOverlayController`)
+  which manages a `SpeechRecognizer` instance internally. See
+  [Speech recognition overlay](#speech-recognition-overlay-full-screen) for the
+  full layout, states, and flow.
+- Recognition uses `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` with
+  `LANGUAGE_MODEL_FREE_FORM`, partial results enabled.
+- On `onResults`, the top result string is placed into the overlay's `EditText`.
+  Partial results stream into the same field as the user speaks.
 - The `RECORD_AUDIO` permission is requested at runtime before the first listen.
 - Offline language packs may or may not be available depending on the device;
   the app does not require offline support.
