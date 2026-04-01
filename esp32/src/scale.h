@@ -48,7 +48,7 @@ void saveCalibration() {
   xSemaphoreGive(scaleMutex);
 
   if (!scalePrefs.begin(kScalePrefsNamespace, false)) {
-    Serial.println(F("Scale: failed to open NVS for calibration write"));
+    LOG(F("Scale: failed to open NVS for calibration write"));
     return;
   }
   scalePrefs.putFloat(kScaleFactorKey, factor);
@@ -57,7 +57,7 @@ void saveCalibration() {
 
 void loadCalibration() {
   if (!scalePrefs.begin(kScalePrefsNamespace, true)) {
-    Serial.println(F("Scale: failed to open NVS for calibration read"));
+    LOG(F("Scale: failed to open NVS for calibration read"));
     return;
   }
   float savedFactor = scalePrefs.getFloat(kScaleFactorKey, kScaleFactor);
@@ -70,7 +70,7 @@ void loadCalibration() {
   scaleFactor = savedFactor;
   calibrated = true;
   xSemaphoreGive(scaleMutex);
-  Serial.println(F("Scale: loaded calibration factor from NVS"));
+  LOG(F("Scale: loaded calibration factor from NVS"));
 }
 
 void setupScale() {

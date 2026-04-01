@@ -43,7 +43,7 @@ void clearBond() {
   prefs.putBool("bonded", false);
   hasBond = false;
   startAdvertising();
-  Serial.println(F("BLE: bond cleared, open advertising"));
+  LOG(F("BLE: bond cleared, open advertising"));
 }
 
 // ---------------------------------------------------------------------------
@@ -58,10 +58,10 @@ class SecurityCB : public BLESecurityCallbacks {
     if (cmpl.success) {
       prefs.putBool("bonded", true);
       hasBond = true;
-      Serial.println(F("BLE: bonding complete, stored in NVS"));
+      LOG(F("BLE: bonding complete, stored in NVS"));
     } else {
-      Serial.print(F("BLE: bonding failed, reason=0x"));
-      Serial.println(cmpl.fail_reason, HEX);
+      LOG_PRINT(F("BLE: bonding failed, reason=0x"));
+      LOG(cmpl.fail_reason, HEX);
     }
   }
 };
@@ -69,13 +69,13 @@ class SecurityCB : public BLESecurityCallbacks {
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* /*p*/) override {
     deviceConnected = true;
-    Serial.println(F("BLE: client connected (advertising stopped)"));
+    LOG(F("BLE: client connected (advertising stopped)"));
   }
 
   void onDisconnect(BLEServer* /*p*/) override {
     deviceConnected = false;
     startAdvertising();
-    Serial.println(F("BLE: client disconnected; advertising resumed"));
+    LOG(F("BLE: client disconnected; advertising resumed"));
   }
 };
 
@@ -92,40 +92,40 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
       case kCmdTare:
         delay(1000);
         performTare();
-        Serial.println(F("BLE: TARE"));
+        LOG(F("BLE: TARE"));
         break;
 
       case kCmdCalibrate:
         if (len < 3) {
-          Serial.println(F("BLE: CALIBRATE payload too short"));
+          LOG(F("BLE: CALIBRATE payload too short"));
           break;
         }
         {
           uint16_t refMassG = static_cast<uint16_t>(data[1]) |
                               (static_cast<uint16_t>(data[2]) << 8);
           if (refMassG == 0) {
-            Serial.println(F("BLE: CALIBRATE ref mass is zero"));
+            LOG(F("BLE: CALIBRATE ref mass is zero"));
             break;
           }
           xSemaphoreTake(scaleMutex, portMAX_DELAY);
           long avg = latestRaw - tareOffset;
           xSemaphoreGive(scaleMutex);
           if (avg == 0) {
-            Serial.println(F("BLE: CALIBRATE average is zero"));
+            LOG(F("BLE: CALIBRATE average is zero"));
             break;
           }
           scaleFactor = static_cast<float>(avg) / static_cast<float>(refMassG);
           calibrated = true;
           saveCalibration();
-          Serial.print(F("BLE: CALIBRATE scale set, ref g="));
-          Serial.println(refMassG);
-          Serial.println(F("BLE: CALIBRATE scale factor stored in NVS"));
+          LOG_PRINT(F("BLE: CALIBRATE scale set, ref g="));
+          LOG(refMassG);
+          LOG(F("BLE: CALIBRATE scale factor stored in NVS"));
         }
         break;
 
       default:
-        Serial.print(F("BLE: unknown opcode 0x"));
-        Serial.println(data[0], HEX);
+        LOG_PRINT(F("BLE: unknown opcode 0x"));
+        LOG(data[0], HEX);
         break;
     }
   }
@@ -166,7 +166,7 @@ void setupBLE() {
   service->start();
   startAdvertising();
 
-  Serial.print(F("TalkToScale: HX711 + BLE ready; "));
-  Serial.println(hasBond ? F("bonded device in NVS, advertising.")
+  LOG_PRINT(F("TalkToScale: HX711 + BLE ready; "));
+  LOG(hasBond ? F("bonded device in NVS, advertising.")
                          : F("no bond, open advertising."));
 }

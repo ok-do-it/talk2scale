@@ -1,5 +1,17 @@
 #pragma once
+#include <Arduino.h>
 #include <cstdint>
+
+// Set to 0 to compile out all LOG / LOG_PRINT calls (no Serial output from them).
+#define DEBUG_SERIAL 0
+
+#if DEBUG_SERIAL
+#define LOG(...) Serial.println(__VA_ARGS__)
+#define LOG_PRINT(...) Serial.print(__VA_ARGS__)
+#else
+#define LOG(...) ((void)0)
+#define LOG_PRINT(...) ((void)0)
+#endif
 
 // docs/hardware/schematics.md — HX711 DT → GPIO4, SCK → GPIO16
 constexpr uint8_t kHx711Dt = 4;

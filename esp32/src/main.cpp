@@ -39,12 +39,12 @@ void loop() {
 
   if (now - lastPrintMs >= 1000) {
     lastPrintMs = now;
-    Serial.print(F("Weight: "));
-    Serial.print(weight, 2);
+    LOG_PRINT(F("Weight: "));
+    LOG_PRINT(weight, 2);
     if (calibrated) {
-      Serial.print(F(" g"));
+      LOG_PRINT(F(" g"));
     }
-    Serial.println();
+    LOG("");
   }
 
   delay(10);
