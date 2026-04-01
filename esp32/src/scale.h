@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <freertos/task.h>
 #include "definitions.h"
 
 HX711 scale;
@@ -14,6 +15,8 @@ float scaleFactor = 1.0f;
 Preferences scalePrefs;
 
 SemaphoreHandle_t scaleMutex = nullptr;
+TaskHandle_t scaleTaskHandle = nullptr;
+
 constexpr const char* kScalePrefsNamespace = "scale";
 constexpr const char* kScaleFactorKey = "factor";
 
@@ -36,9 +39,17 @@ float getWeight() {
   return static_cast<float>(raw - offset) / factor;
 }
 
-void performTare() {
+void performTareLongAverage() {
+  if (scaleTaskHandle) {
+    vTaskSuspend(scaleTaskHandle);
+  }
+  long raw = scale.read_average(kTareAverageSamples);
+  if (scaleTaskHandle) {
+    vTaskResume(scaleTaskHandle);
+  }
   xSemaphoreTake(scaleMutex, portMAX_DELAY);
-  tareOffset = latestRaw;
+  tareOffset = raw;
+  latestRaw = raw;
   xSemaphoreGive(scaleMutex);
 }
 
@@ -76,9 +87,11 @@ void loadCalibration() {
 void setupScale() {
   scaleMutex = xSemaphoreCreateMutex();
   scale.begin(kHx711Dt, kHx711Sck);
-  scale.read_average(10); // warm up
-  xTaskCreate(scaleTask, "scale", 2048, nullptr, 2, nullptr);
-  delay(400); // let task get first reading
-  performTare();
+  scale.read_average(10);  // warm up
+  delay(kBootTareSettleMs);
+  long raw = scale.read_average(kTareAverageSamples);
+  tareOffset = raw;
+  latestRaw = raw;
+  xTaskCreate(scaleTask, "scale", 2048, nullptr, 2, &scaleTaskHandle);
   loadCalibration();
 }

@@ -29,7 +29,7 @@ void pollTareButton(uint32_t now) {
   bool tareDown = digitalRead(kTareBtnPin) == LOW;
   if (tareDown && !prevTareDown && (now - lastTarePressMs) >= kTareCooldownMs) {
     lastTarePressMs = now;
-    performTare();
+    performTareLongAverage();
     LOG(F("Hardware TARE (GPIO15)"));
   }
   prevTareDown = tareDown;

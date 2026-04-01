@@ -22,18 +22,18 @@ There is **no** time limit on advertising while idle.
 
 1. **Serial** starts at 115200 baud; a short delay allows the USB serial bridge to attach.
 2. **`setupUX()`** (in `ux.h`): **GPIO15** and **GPIO17** are **INPUT_PULLUP** for the tare and pair buttons (tie to GND when pressed). **GPIO2** (onboard LED) is driven by a **FreeRTOS task**: **blinks** (250 ms on / 250 ms off) while **no** central is connected, **solid on** while connected.
-3. **`setupScale()`** (in `scale.h`): **HX711** on **GPIO4** (DT) and **GPIO16** (SCK), default scale factor `1.0f`, then **tare** with 15 samples.
-4. **Calibrated flag** is set to `true` only if the compile-time scale factor is not `1.0f` (otherwise the device reports **uncalibrated** until a successful BLE calibrate).
+3. **`setupScale()`** (in `scale.h`): **HX711** on **GPIO4** (DT) and **GPIO16** (SCK). After a short warmup read, firmware waits **`kBootTareSettleMs`** (2 s) for mechanical/HX711 settle, then takes **`kTareAverageSamples`** (30) samples via **`read_average`** and sets **tare offset** and **`latestRaw`** to that value. Only then does it start the **`scale`** FreeRTOS task (periodic short averages for live weight). **Tare offset is not stored in NVS** (fresh zero every power-on). **`loadCalibration()`** may load **scale factor** from NVS and set **calibrated**.
+4. **Calibrated flag** is `true` after a successful BLE calibrate (and after boot if a valid scale factor was loaded from NVS); otherwise the notify payload reflects **uncalibrated** raw scaling until calibration.
 5. **`setupBLE()`** (in `ble.h`): **Preferences** opens namespace `ble` and reads the `bonded` flag. **BLE** initializes as device `TalkToScale`, with **encryption** (`ESP_BLE_SEC_ENCRYPT`), **Secure Connections bonding** (`ESP_LE_AUTH_REQ_SC_BOND`), **Just Works** (`ESP_IO_CAP_NONE`), and **initiator encryption key distribution** (`ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK`). Creates a **server**, one **service**, two **characteristics** (notify + write) with **encrypted access permissions**, and **starts advertising**.
 
 ## Main loop (`loop`)
 
-Each iteration runs roughly every **333 ms** (~3 Hz).
+The loop runs about every **10 ms**. **Weight notifications** are sent at **~333 ms** (~3 Hz) when a client is connected.
 
 ### Tare button (GPIO15)
 
 - Detects a **press** on the **falling edge** (not pressed → pressed), with a **300 ms cooldown** between accepted presses.
-- Runs **hardware tare** (`scale.tare(15)`) and resets the **stability counter** so the stable flag does not stay true from before the tare.
+- Runs **`performTareLongAverage()`**: suspends the **`scale`** task, **`read_average(kTareAverageSamples)`**, updates **tare offset** and **`latestRaw`**, then resumes the task.
 
 ### Pair button (GPIO17)
 
@@ -41,21 +41,19 @@ Each iteration runs roughly every **333 ms** (~3 Hz).
 - If held **>= 3 seconds**: calls `clearBond()` which removes all entries from the Bluedroid bond device list, clears the NVS `bonded` flag, and restarts open advertising. A guard prevents re-triggering while the button is still held.
 - **Short presses** are ignored (no action on release before the threshold).
 
-### Weight read and stability
+### Weight read
 
-- Weight is read with **`get_units(10)`** (10-sample average from the HX711 library).
-- **Stability**: consecutive readings must stay within **2 g** of the **previous** reading. The counter increments up to **5**; when it reaches **5**, the reading is considered **stable**. Any larger jump resets the counter.
-- Weight is rounded to the nearest gram and encoded as **int32** in the notify payload. When uncalibrated (`kScaleFactor == 1.0`), the value carries raw HX711 counts.
+- Live weight uses **`getWeight()`**: **`latestRaw`** from the background task (short **`read_average(3)`** every **10 ms**) minus **tare offset**, divided by **scale factor**.
+- Weight is rounded to the nearest gram and encoded as **int32** in the notify payload. When uncalibrated (`scaleFactor == 1.0f` and not loaded from NVS), values are effectively raw HX711 counts relative to tare.
 
 ### BLE notify
 
-- If a **client is connected**, the firmware pushes a **5-byte** notification every loop iteration:
+- If a **client is connected**, the firmware pushes a **4-byte** notification about every **333 ms**:
   - Bytes 0–3: **int32** weight in grams, **little-endian**.
-  - Byte 4: **flags** — bit 0 **stable**, bit 1 **calibrated** (see [`docs/hardware/README.md`](../hardware/README.md)).
 
 ### Serial
 
-- Prints weight (two decimal places), whether the scale is **uncalibrated**, and **stable** vs **settling**.
+- When **`DEBUG_SERIAL`** is enabled, prints weight (two decimal places) about once per second and **`g`** when calibrated.
 
 ## BLE GATT layout
 
@@ -87,8 +85,8 @@ The central writes a byte string; the first byte is the **opcode**.
 
 | Opcode | Meaning | Payload |
 |--------|---------|---------|
-| `0x01` | **TARE** | None (length 1 is enough). Runs `tare(15)` and resets stability count. |
-| `0x02` | **CALIBRATE** | Bytes 1–2: **uint16** reference mass in grams, **little-endian**. Firmware takes **20-sample** raw average (`read_average(20)`), then `set_scale(avg / ref_mass_g)`. Sets **calibrated** on success. Ignores zero reference mass or zero average. |
+| `0x01` | **TARE** | None (length 1 is enough). Runs **`performTareLongAverage()`** (suspend scale task, **`read_average(kTareAverageSamples)`**, update offset). |
+| `0x02` | **CALIBRATE** | Bytes 1–2: **uint16** reference mass in grams, **little-endian**. Firmware uses **`latestRaw - tareOffset`**, computes **`scaleFactor = avg / ref_mass_g`**, sets **calibrated**, and **persists scale factor to NVS** on success. Ignores zero reference mass or zero average. |
 
 Any other opcode is logged as unknown on Serial.
 
@@ -96,12 +94,10 @@ Any other opcode is logged as unknown on Serial.
 
 The mobile app drives a two-step calibration flow using the opcodes above. No additional firmware commands are required.
 
-1. **Set zero** — the app sends **TARE** (`0x01`). The user must remove all items from the scale first. The firmware runs `scale.tare(15)` and resets the stability counter.
-2. **Set calibration weight** — the user places a known reference mass on the scale and enters its weight in grams in the app. The app sends **CALIBRATE** (`0x02` + `uint16` LE mass). The firmware takes a 20-sample raw average and computes `set_scale(avg / ref_mass_g)`, then marks `calibrated = true`.
+1. **Set zero** — the app sends **TARE** (`0x01`). The user must remove all items from the scale first. The firmware runs **`performTareLongAverage()`** (same long average as the hardware tare button).
+2. **Set calibration weight** — the user places a known reference mass on the scale and enters its weight in grams in the app. The app sends **CALIBRATE** (`0x02` + `uint16` LE mass). The firmware uses the current **`latestRaw`** net of tare to compute **`scaleFactor`**, sets **`calibrated = true`**, and writes the factor to NVS.
 
-After a successful calibration the **calibrated** bit (bit 1 of the flags byte in the 5-byte notify payload) switches to 1 and subsequent weight notifications report values in real grams.
-
-Calibration state is **in-memory only** — both the HX711 scale factor and the `calibrated` flag are lost on power cycle (see "Not implemented" below).
+After a successful calibration, subsequent weight notifications use the stored scale factor (also reloaded on boot). **Tare offset is still recomputed every boot** and is not stored in NVS.
 
 ## Build configuration
 
@@ -109,4 +105,4 @@ Calibration state is **in-memory only** — both the HX711 scale factor and the 
 
 ## Not implemented (by design)
 
-- **NVS** persistence of HX711 offset/scale across power cycles (see hardware README for a future approach).
+- **NVS** persistence of **HX711 tare offset** across power cycles (fresh zero each boot; scale **factor** is persisted after calibration).

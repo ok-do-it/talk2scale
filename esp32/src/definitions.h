@@ -20,6 +20,10 @@ constexpr uint8_t kHx711Sck = 16;
 // Default scale factor until calibrated (see docs/hardware/README.md)
 constexpr float kScaleFactor = 1.0f;
 
+// Boot and interactive tare: settle time then HX711 read_average(samples)
+constexpr uint32_t kBootTareSettleMs = 2000;
+constexpr uint8_t kTareAverageSamples = 30;
+
 // Stability: consecutive readings within threshold (grams)
 constexpr int kStableWindow = 5;
 constexpr long kStableThreshold = 300L;

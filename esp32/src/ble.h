@@ -90,8 +90,7 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
 
     switch (data[0]) {
       case kCmdTare:
-        delay(1000);
-        performTare();
+        performTareLongAverage();
         LOG(F("BLE: TARE"));
         break;
 
