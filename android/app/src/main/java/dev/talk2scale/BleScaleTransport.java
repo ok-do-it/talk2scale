@@ -88,9 +88,9 @@ public class BleScaleTransport implements ScaleTransport {
         }
     }
 
-    private void dispatchWeightData(int weight, int flags) {
+    private void dispatchWeightData(int weight) {
         if (listener != null) {
-            listener.onWeightData(weight, flags);
+            listener.onWeightData(weight);
         }
     }
 
@@ -133,11 +133,10 @@ public class BleScaleTransport implements ScaleTransport {
         public void onCharacteristicChanged(BluetoothGatt g,
                 BluetoothGattCharacteristic characteristic, byte[] value) {
             if (!NOTIFY_CHAR_UUID.equals(characteristic.getUuid())) return;
-            if (value.length < 5) return;
+            if (value.length < 4) return;
             int weight = ByteBuffer.wrap(value, 0, 4)
                     .order(ByteOrder.LITTLE_ENDIAN).getInt();
-            int flags = value[4] & 0xFF;
-            dispatchWeightData(weight, flags);
+            dispatchWeightData(weight);
         }
     };
 }

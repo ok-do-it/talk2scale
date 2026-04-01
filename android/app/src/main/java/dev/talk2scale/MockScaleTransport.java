@@ -12,12 +12,12 @@ public class MockScaleTransport implements ScaleTransport {
 
     public void start() {
         dispatchConnectionState(BluetoothProfile.STATE_CONNECTED);
-        dispatchWeightData(currentWeight, 0x01);
+        dispatchWeightData(currentWeight);
     }
 
     public void addRandomWeight() {
         currentWeight += random.nextInt(251) + 50;
-        dispatchWeightData(currentWeight, 0x01);
+        dispatchWeightData(currentWeight);
     }
 
     @Override
@@ -28,7 +28,7 @@ public class MockScaleTransport implements ScaleTransport {
     @Override
     public void sendTare() {
         currentWeight = 0;
-        dispatchWeightData(currentWeight, 0x01);
+        dispatchWeightData(currentWeight);
     }
 
     @Override
@@ -47,9 +47,9 @@ public class MockScaleTransport implements ScaleTransport {
         }
     }
 
-    private void dispatchWeightData(int weight, int flags) {
+    private void dispatchWeightData(int weight) {
         if (listener != null) {
-            listener.onWeightData(weight, flags);
+            listener.onWeightData(weight);
         }
     }
 }

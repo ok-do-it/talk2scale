@@ -1,6 +1,6 @@
 #pragma once
 #include <HX711.h>
-#include <cmath>
+#include <Preferences.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include "definitions.h"
@@ -11,11 +11,11 @@ bool calibrated = false;
 volatile long latestRaw = 0;
 long tareOffset = 0;
 float scaleFactor = 1.0f;
-
-int stableCount = 0;
-long lastRawForStable = 0;
+Preferences scalePrefs;
 
 SemaphoreHandle_t scaleMutex = nullptr;
+constexpr const char* kScalePrefsNamespace = "scale";
+constexpr const char* kScaleFactorKey = "factor";
 
 void scaleTask(void*) {
   for (;;) {
@@ -36,25 +36,41 @@ float getWeight() {
   return static_cast<float>(raw - offset) / factor;
 }
 
-bool updateStable() {
-  xSemaphoreTake(scaleMutex, portMAX_DELAY);
-  long raw = latestRaw;
-  xSemaphoreGive(scaleMutex);
-  if (std::abs(raw - lastRawForStable) < kStableThreshold) {
-    stableCount = std::min(stableCount + 1, kStableWindow);
-  } else {
-    stableCount = 0;
-  }
-  lastRawForStable = raw;
-  return stableCount >= kStableWindow;
-}
-
 void performTare() {
   xSemaphoreTake(scaleMutex, portMAX_DELAY);
   tareOffset = latestRaw;
   xSemaphoreGive(scaleMutex);
-  stableCount = 0;
-  lastRawForStable = 0;
+}
+
+void saveCalibration() {
+  xSemaphoreTake(scaleMutex, portMAX_DELAY);
+  float factor = scaleFactor;
+  xSemaphoreGive(scaleMutex);
+
+  if (!scalePrefs.begin(kScalePrefsNamespace, false)) {
+    Serial.println(F("Scale: failed to open NVS for calibration write"));
+    return;
+  }
+  scalePrefs.putFloat(kScaleFactorKey, factor);
+  scalePrefs.end();
+}
+
+void loadCalibration() {
+  if (!scalePrefs.begin(kScalePrefsNamespace, true)) {
+    Serial.println(F("Scale: failed to open NVS for calibration read"));
+    return;
+  }
+  float savedFactor = scalePrefs.getFloat(kScaleFactorKey, kScaleFactor);
+  scalePrefs.end();
+  if (savedFactor <= 0.0f || savedFactor == kScaleFactor) {
+    return;
+  }
+
+  xSemaphoreTake(scaleMutex, portMAX_DELAY);
+  scaleFactor = savedFactor;
+  calibrated = true;
+  xSemaphoreGive(scaleMutex);
+  Serial.println(F("Scale: loaded calibration factor from NVS"));
 }
 
 void setupScale() {
@@ -64,4 +80,5 @@ void setupScale() {
   xTaskCreate(scaleTask, "scale", 2048, nullptr, 2, nullptr);
   delay(400); // let task get first reading
   performTare();
+  loadCalibration();
 }

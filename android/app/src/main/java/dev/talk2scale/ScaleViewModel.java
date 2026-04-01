@@ -16,9 +16,10 @@ import java.util.UUID;
 public class ScaleViewModel extends ViewModel {
     static final UUID SERVICE_UUID =
             UUID.fromString("4c78c001-8118-4aea-8f72-70ddbda3c9b9");
+    private static final int STABLE_WINDOW = 5;
 
 
-    private final MutableLiveData<int[]> weightData = new MutableLiveData<>();
+    private final MutableLiveData<WeightReading> weightData = new MutableLiveData<>();
     private final MutableLiveData<Integer> connectionState =
             new MutableLiveData<>(BluetoothProfile.STATE_DISCONNECTED);
     private final MutableLiveData<List<LogEntry>> logEntries = new MutableLiveData<>(new ArrayList<>());
@@ -27,6 +28,8 @@ public class ScaleViewModel extends ViewModel {
     private final MutableLiveData<Boolean> mockEnabled = new MutableLiveData<>(true);
 
     private int lastStableWeight = 0;
+    private final int[] recentWeights = new int[STABLE_WINDOW];
+    private int recentWeightCount = 0;
     private final Random random = new Random();
     private boolean realConnectionRequested = false;
 
@@ -42,8 +45,8 @@ public class ScaleViewModel extends ViewModel {
             }
 
             @Override
-            public void onWeightData(int weight, int flags) {
-                publishWeight(weight, flags);
+            public void onWeightData(int weight) {
+                publishWeight(weight);
             }
         });
         mockTransport.setListener(new ScaleTransport.Listener() {
@@ -53,16 +56,16 @@ public class ScaleViewModel extends ViewModel {
             }
 
             @Override
-            public void onWeightData(int weight, int flags) {
+            public void onWeightData(int weight) {
                 if (!isConnected()) {
-                    publishWeight(weight, flags);
+                    publishWeight(weight);
                 }
             }
         });
         mockTransport.start();
     }
 
-    public LiveData<int[]> getWeightData() { return weightData; }
+    public LiveData<WeightReading> getWeightData() { return weightData; }
     public LiveData<Integer> getConnectionState() { return connectionState; }
     public LiveData<List<LogEntry>> getLogEntries() { return logEntries; }
     public LiveData<Boolean> getShowConnectionOverlay() { return showConnectionOverlay; }
@@ -147,12 +150,28 @@ public class ScaleViewModel extends ViewModel {
         mockTransport.close();
     }
 
-    private void publishWeight(int weight, int flags) {
-        boolean stable = (flags & 0x01) != 0;
+    private void publishWeight(int weight) {
+        boolean stable = isStable(weight);
         if (stable) {
             lastStableWeight = weight;
         }
-        weightData.postValue(new int[]{weight, flags});
+        weightData.postValue(new WeightReading(weight, stable));
+    }
+
+    private boolean isStable(int weight) {
+        recentWeights[recentWeightCount % STABLE_WINDOW] = weight;
+        recentWeightCount++;
+        if (recentWeightCount < STABLE_WINDOW) {
+            return false;
+        }
+
+        int baseline = recentWeights[0];
+        for (int i = 1; i < STABLE_WINDOW; i++) {
+            if (recentWeights[i] != baseline) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void updateConnectionUiState(int state) {
@@ -167,5 +186,15 @@ public class ScaleViewModel extends ViewModel {
         }
         mockControlsEnabled.postValue(mockIsEnabled && !connected);
         showConnectionOverlay.postValue(realConnectionRequested && !connected && !mockIsEnabled);
+    }
+
+    public static final class WeightReading {
+        public final int weight;
+        public final boolean stable;
+
+        public WeightReading(int weight, boolean stable) {
+            this.weight = weight;
+            this.stable = stable;
+        }
     }
 }

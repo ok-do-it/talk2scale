@@ -21,5 +21,3 @@ static const char* kWriteCharUuid = "4c78c003-8118-4aea-8f72-70ddbda3c9b9";
 constexpr uint8_t kCmdTare = 0x01;
 constexpr uint8_t kCmdCalibrate = 0x02;
 
-constexpr uint8_t kFlagStable = 0x01;
-constexpr uint8_t kFlagCalibrated = 0x02;

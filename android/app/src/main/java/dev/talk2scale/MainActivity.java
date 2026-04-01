@@ -189,10 +189,9 @@ public class MainActivity extends AppCompatActivity {
         });
 
         viewModel.getWeightData().observe(this, data -> {
-            if (data == null || data.length < 2) return;
-            int weight = data[0];
-            int flags = data[1];
-            boolean stable = (flags & 0x01) != 0;
+            if (data == null) return;
+            int weight = data.weight;
+            boolean stable = data.stable;
             weightDisplay.setText(weight + " g");
             weightDisplay.setTextColor(ContextCompat.getColor(this,
                     stable ? R.color.weightStable : R.color.weightUnstable));

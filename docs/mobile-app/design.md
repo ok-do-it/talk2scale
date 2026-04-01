@@ -29,7 +29,7 @@ Uses the Android SDK directly — no third-party BLE library.
 | Item | UUID |
 |------|------|
 | Service | `4c78c001-8118-4aea-8f72-70ddbda3c9b9` |
-| Notify (weight + flags) | `4c78c002-8118-4aea-8f72-70ddbda3c9b9` |
+| Notify (weight) | `4c78c002-8118-4aea-8f72-70ddbda3c9b9` |
 | Write (commands) | `4c78c003-8118-4aea-8f72-70ddbda3c9b9` |
 
 ## Permissions
@@ -106,8 +106,8 @@ Visible once connected. Single-screen layout, top to bottom:
 │  (connect)  (calibrate)  │  small icon buttons, top-right
 ├──────────────────────────┤
 │         1 284 g          │  weight display (full width)
-│  amber = unstable        │  amber when stable==false
-│  blue  = stable          │  blue  when stable==true
+│  amber = unstable        │  amber when phone-side stability=false
+│  blue  = stable          │  blue  when phone-side stability=true
 ├────────────┬─────────────┤
 │   TARE     │     MIC     │  two equal-width buttons
 ├────────────┴─────────────┤
@@ -121,7 +121,7 @@ Visible once connected. Single-screen layout, top to bottom:
 
 - **Connect button** — small `ImageButton` (top bar). Opens the `CompanionDeviceManager` association dialog so the user can pair a different scale or re-pair the current one.
 - **Calibrate button** — small `ImageButton` (top bar). Opens a full-screen calibration overlay with a two-step flow (set zero, then set calibration weight). See [`docs/mobile-app/calibration-flow.md`](calibration-flow.md) for details.
-- **Weight display** — large `TextView`, full width, updated on every BLE notification (~3 Hz). Text color: amber (`#FFA000`) when `stable == false`, blue (`#1976D2`) when `stable == true`. Unit: grams only for now.
+- **Weight display** — large `TextView`, full width, updated on every BLE notification (~3 Hz). Text color: amber (`#FFA000`) when `stable == false`, blue (`#1976D2`) when `stable == true`. Stability is computed in-app from recent gram readings (5 consecutive identical values). Unit: grams only.
 - **Tare button** — sends opcode `0x01` to the write characteristic. Scale zeroes; subsequent notifications reflect the new baseline.
 - **Mic button** — opens the speech recognition overlay (see below). Food name input and Apply have moved into the overlay.
 - **Log table** — `RecyclerView` filling remaining space. Columns: food name, weight (g), calories. Rows added in session order, most recent at top. **In-memory only** — the list lives in the `ViewModel` and is lost when the process dies.
@@ -130,7 +130,7 @@ Visible once connected. Single-screen layout, top to bottom:
 |--------|--------|--------|
 | Connect | CDM dialog | Opens `CompanionDeviceManager.associate()` to pair / re-pair |
 | Calibrate | overlay | Opens calibration overlay ([details](calibration-flow.md)) |
-| Weight display | passive | Updated by BLE notifications; color reflects stable flag |
+| Weight display | passive | Updated by BLE notifications; color reflects phone-side stability check |
 | Tare | BLE write | Sends `0x01` to write characteristic |
 | Mic | speech overlay | Opens the speech recognition overlay (see below) |
 | Log table | display | Scrollable in-memory list of logged entries for current session |
@@ -307,13 +307,12 @@ use the **Connect** button in the app to start a fresh CDM association.
 
 ## Notifications (weight stream)
 
-Firmware pushes a 5-byte notification every ~333 ms (~3 Hz) as soon as a client
+Firmware pushes a 4-byte notification every ~333 ms (~3 Hz) as soon as a client
 is connected and subscribed:
 
 | Offset | Type | Content |
 |--------|------|---------|
-| 0–3 | `int32` LE | Weight in grams (signed). When uncalibrated, carries raw HX711 counts. |
-| 4 | `uint8` | Bit 0 = stable, Bit 1 = calibrated |
+| 0–3 | `int32` LE | Weight in grams (signed) |
 
 ### Subscribing
 
@@ -329,9 +328,8 @@ Override the three-arg `onCharacteristicChanged(gatt, characteristic, byte[])`
 (API 33+) to receive the raw bytes directly. Also override the deprecated
 two-arg variant and delegate to the three-arg one for devices running API 31-32.
 
-Parse the 5-byte payload as: `int32` LE weight (bytes 0-3) via
-`ByteBuffer.wrap().order(LITTLE_ENDIAN).getInt()`, then flags byte (byte 4)
-— bit 0 = stable, bit 1 = calibrated. Post the result to `LiveData`.
+Parse the 4-byte payload as: `int32` LE weight (bytes 0-3) via
+`ByteBuffer.wrap().order(LITTLE_ENDIAN).getInt()`. Post the result to `LiveData`.
 
 ## Commands (write characteristic)
 

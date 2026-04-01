@@ -4,7 +4,7 @@ public interface ScaleTransport {
 
     interface Listener {
         void onConnectionStateChanged(int state);
-        void onWeightData(int weight, int flags);
+        void onWeightData(int weight);
     }
 
     void setListener(Listener listener);

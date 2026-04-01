@@ -23,15 +23,13 @@ void loop() {
   pollPairButton(now);
 
   float weight = getWeight();
-  bool stable = updateStable();
 
   if (now - lastNotifyMs >= 333) {
     lastNotifyMs = now;
     int32_t wg = static_cast<int32_t>(lroundf(weight));
 
-    uint8_t payload[5];
+    uint8_t payload[4];
     std::memcpy(payload, &wg, sizeof(wg));
-    payload[4] = (stable ? kFlagStable : 0) | (calibrated ? kFlagCalibrated : 0);
 
     if (deviceConnected && notifyChar) {
       notifyChar->setValue(payload, sizeof(payload));
@@ -46,7 +44,6 @@ void loop() {
     if (calibrated) {
       Serial.print(F(" g"));
     }
-    Serial.print(stable ? F(" stable") : F(" ~ "));
     Serial.println();
   }
 

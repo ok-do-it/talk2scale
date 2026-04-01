@@ -116,8 +116,10 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
           }
           scaleFactor = static_cast<float>(avg) / static_cast<float>(refMassG);
           calibrated = true;
+          saveCalibration();
           Serial.print(F("BLE: CALIBRATE scale set, ref g="));
           Serial.println(refMassG);
+          Serial.println(F("BLE: CALIBRATE scale factor stored in NVS"));
         }
         break;
 
