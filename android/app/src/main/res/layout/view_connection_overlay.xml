@@ -40,5 +40,23 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/btn_connect" />
+
+        <Button
+            android:id="@+id/connectionBtnDisconnect"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_disconnect" />
+
+        <Button
+            android:id="@+id/connectionBtnForgetAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_forget_all" />
+
+        <Button
+            android:id="@+id/connectionBtnClose"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_close" />
     </LinearLayout>
 </FrameLayout>

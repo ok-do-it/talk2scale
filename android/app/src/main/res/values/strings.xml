@@ -4,8 +4,12 @@
     <!-- Connection overlay -->
     <string name="status_searching">Searching for scale…</string>
     <string name="status_reconnecting">Reconnecting…</string>
+    <string name="status_connected">Connected</string>
     <string name="status_permission_denied">Bluetooth permission denied</string>
     <string name="btn_connect">Connect</string>
+    <string name="btn_disconnect">Disconnect</string>
+    <string name="btn_forget_all">Forget All Devices</string>
+    <string name="btn_close">Close</string>
 
     <!-- Main scale screen -->
     <string name="label_mock">Mock</string>

@@ -76,6 +76,28 @@ public class ScaleViewModel extends ViewModel {
 
     public boolean isRealConnectionRequested() { return realConnectionRequested; }
 
+    public boolean isConnectionInProgress() {
+        return realConnectionRequested && !isConnected();
+    }
+
+    public void showOverlay() {
+        showConnectionOverlay.setValue(true);
+    }
+
+    public void hideOverlay() {
+        showConnectionOverlay.setValue(false);
+    }
+
+    public void disconnect() {
+        bleTransport.close();
+        realConnectionRequested = false;
+    }
+
+    public void cancelConnection() {
+        bleTransport.close();
+        realConnectionRequested = false;
+    }
+
     public void addLogEntry(String foodName, int weightGrams) {
         int calories = random.nextInt(300) + 50;
         List<LogEntry> current = logEntries.getValue();
@@ -185,7 +207,6 @@ public class ScaleViewModel extends ViewModel {
             mockIsEnabled = Boolean.TRUE.equals(mock);
         }
         mockControlsEnabled.postValue(mockIsEnabled && !connected);
-        showConnectionOverlay.postValue(realConnectionRequested && !connected && !mockIsEnabled);
     }
 
     public static final class WeightReading {

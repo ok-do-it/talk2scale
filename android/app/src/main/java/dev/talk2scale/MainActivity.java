@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
         checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
                 viewModel.setMockEnabled(isChecked));
         btnAddWeightTop.setOnClickListener(v -> viewModel.addMockWeight());
-        btnConnectTop.setOnClickListener(v -> connectionOverlay.startConnectionFlow());
+        btnConnectTop.setOnClickListener(v -> connectionOverlay.show());
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
         btnMic.setOnClickListener(v -> openSpeechOverlay());

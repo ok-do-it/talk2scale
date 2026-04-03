@@ -71,31 +71,11 @@ scale screen** underneath.
 
 ### Connection overlay (full-screen)
 
-Shown whenever the app has no active GATT connection (first launch, reconnecting,
-or after user taps Connect). Covers the entire screen so the scale UI is not
-interactive while disconnected.
-
-```
-┌──────────────────────────┐
-│                          │
-│      (scale icon)        │
-│                          │
-│   Searching for scale…   │  ← status text
-│      ◌  (spinner)        │
-│                          │
-│      [ CONNECT ]         │  ← triggers CompanionDeviceManager.associate()
-│                          │
-└──────────────────────────┘
-```
-
-- On first launch (no stored MAC) the overlay appears and immediately fires
-  `CompanionDeviceManager.associate()`, which shows the system bottom-sheet.
-- On reconnect (stored MAC, scale powered off / out of range) the overlay shows
-  "Reconnecting…" with a spinner. `autoConnect=true` handles the retry.
-- The **Connect** button lets the user manually re-trigger the CDM association
-  (e.g. after pairing a different scale or if auto-connect stalls).
-- The overlay hides as soon as `onConnectionStateChange(STATE_CONNECTED)` fires
-  and services are discovered.
+Managed by `ConnectionOverlayController`. Has four buttons (Connect,
+Disconnect, Forget All Devices, Close) whose enabled states react to the
+current BLE connection state. Visibility is manually controlled — the overlay
+never auto-closes. See [`connection-overlay.md`](connection-overlay.md) for
+full layout, button states, and connection flow.
 
 ### Main scale screen
 
@@ -119,7 +99,7 @@ Visible once connected. Single-screen layout, top to bottom:
 └──────────────────────────┘
 ```
 
-- **Connect button** — small `ImageButton` (top bar). Opens the `CompanionDeviceManager` association dialog so the user can pair a different scale or re-pair the current one.
+- **Connect button** — small `ImageButton` (top bar). Opens the connection overlay (see [`connection-overlay.md`](connection-overlay.md)). If already connected, shows status; otherwise initiates pairing / reconnection.
 - **Calibrate button** — small `ImageButton` (top bar). Opens a full-screen calibration overlay with a two-step flow (set zero, then set calibration weight). See [`docs/mobile-app/calibration-flow.md`](calibration-flow.md) for details.
 - **Weight display** — large `TextView`, full width, updated on every BLE notification (~3 Hz). Text color: amber (`#FFA000`) when `stable == false`, blue (`#1976D2`) when `stable == true`. Stability is computed in-app from recent gram readings (5 consecutive identical values). Unit: grams only.
 - **Tare button** — sends opcode `0x01` to the write characteristic. Scale zeroes; subsequent notifications reflect the new baseline.
@@ -128,7 +108,7 @@ Visible once connected. Single-screen layout, top to bottom:
 
 | Widget | Action | Detail |
 |--------|--------|--------|
-| Connect | CDM dialog | Opens `CompanionDeviceManager.associate()` to pair / re-pair |
+| Connect | overlay | Opens connection overlay ([details](connection-overlay.md)) |
 | Calibrate | overlay | Opens calibration overlay ([details](calibration-flow.md)) |
 | Weight display | passive | Updated by BLE notifications; color reflects phone-side stability check |
 | Tare | BLE write | Sends `0x01` to write characteristic |
@@ -235,62 +215,8 @@ the recognizer transitions to idle.
 
 ## Connection flow
 
-```
-App launch (MainActivity.onCreate)
-  │
-  ├─ Has stored MAC in SharedPreferences?
-  │   ├─ YES → show overlay "Reconnecting…"
-  │   │         → BluetoothAdapter.getRemoteDevice(mac)
-  │   │         → device.connectGatt(ctx, true, gattCallback)
-  │   │         → onConnectionStateChange → discoverServices
-  │   │         → subscribe to notifications → hide overlay
-  │   │
-  │   └─ NO  → show overlay "Searching for scale…"
-  │            → CompanionDeviceManager.associate(request, ...)
-  │            → system bottom-sheet → user taps
-  │            → ActivityResultLauncher callback returns BluetoothDevice
-  │            → connectGatt → store MAC → subscribe → hide overlay
-  │
-  ├─ User taps Connect button (top bar or overlay)
-  │   → same CDM associate() flow as "NO" above
-  │
-  └─ On disconnect (power cycle, out of range)
-      → show overlay "Reconnecting…"
-      → autoConnect=true keeps retrying in background
-      → overlay hides when onConnectionStateChange fires
-```
-
-### First connection (CompanionDeviceManager)
-
-`MainActivity` checks `SharedPreferences` on launch. When no MAC is stored it
-shows the connection overlay and immediately starts the companion association.
-
-1. Request `BLUETOOTH_CONNECT` permission via `ActivityResultLauncher`.
-2. Build an `AssociationRequest` with a `BluetoothLeDeviceFilter` whose
-   `ScanFilter` matches the service UUID. Use `setSingleDevice(true)` so the
-   system auto-selects when exactly one device matches; otherwise a picker is
-   shown. Call `CompanionDeviceManager.associate()`.
-3. In the `CompanionDeviceManager.Callback.onDeviceFound`, wrap the
-   `IntentSender` in an `IntentSenderRequest` and launch it via an
-   `ActivityResultLauncher<IntentSenderRequest>` registered with
-   `ActivityResultContracts.StartIntentSenderForResult` (modern API — no
-   `startIntentSenderForResult` / `onActivityResult`).
-4. In the result callback, extract the `BluetoothDevice` from the intent
-   (`CompanionDeviceManager.EXTRA_DEVICE`) using the typed
-   `getParcelableExtra(key, class)` overload, then call `connectGatt()`.
-5. `onConnectionStateChange(STATE_CONNECTED)` → `gatt.discoverServices()`.
-6. `onServicesDiscovered` → enable notifications (see below).
-7. Store `device.getAddress()` in `SharedPreferences`.
-8. Hide the connection overlay.
-
-### Reconnection after scale power cycle
-
-- On app launch (or after disconnect), retrieve the stored MAC and call
-  `adapter.getRemoteDevice(mac).connectGatt(ctx, true, gattCallback)`.
-- `autoConnect = true` tells the Android BLE controller to passively wait for the
-  peripheral's advertisement and connect when seen — low power, no active scan.
-- The connection overlay shows "Reconnecting…" during this wait.
-- Firmware already re-advertises on boot and after disconnect; no changes needed.
+The full connection flow (first pairing, reconnection, disconnect handling) is
+documented in [`connection-overlay.md`](connection-overlay.md).
 
 ### Bonding
 

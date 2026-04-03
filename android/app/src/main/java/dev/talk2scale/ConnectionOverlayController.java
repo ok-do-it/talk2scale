@@ -27,6 +27,7 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 /** Self-contained controller for the connection overlay. */
 public class ConnectionOverlayController {
@@ -42,6 +43,10 @@ public class ConnectionOverlayController {
     private FrameLayout root;
     private TextView statusView;
     private ProgressBar spinner;
+    private Button btnConnect;
+    private Button btnDisconnect;
+    private Button btnForgetAll;
+    private Button btnClose;
 
     public ConnectionOverlayController(
             AppCompatActivity activity,
@@ -60,26 +65,55 @@ public class ConnectionOverlayController {
         root = rootView.findViewById(R.id.connectionOverlay);
         statusView = root.findViewById(R.id.connectionStatus);
         spinner = root.findViewById(R.id.connectionSpinner);
-        Button connectButton = root.findViewById(R.id.connectionBtnConnect);
-        connectButton.setOnClickListener(v -> startConnectionFlow());
+
+        btnConnect = root.findViewById(R.id.connectionBtnConnect);
+        btnDisconnect = root.findViewById(R.id.connectionBtnDisconnect);
+        btnForgetAll = root.findViewById(R.id.connectionBtnForgetAll);
+        btnClose = root.findViewById(R.id.connectionBtnClose);
+
+        btnConnect.setOnClickListener(v -> startConnectionFlow());
+        btnDisconnect.setOnClickListener(v -> {
+            viewModel.disconnect();
+            viewModel.setMockEnabled(true);
+            viewModel.hideOverlay();
+        });
+        btnForgetAll.setOnClickListener(v -> {
+            clearStoredMac();
+            Toast.makeText(activity, "Stored device forgotten", Toast.LENGTH_SHORT).show();
+        });
+        btnClose.setOnClickListener(v -> {
+            if (viewModel.isConnectionInProgress()) {
+                viewModel.cancelConnection();
+            }
+            viewModel.hideOverlay();
+        });
     }
 
     public void observeViewModel(LifecycleOwner owner) {
         viewModel.getConnectionState().observe(owner, state -> {
-            if (state != BluetoothProfile.STATE_CONNECTED) {
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                setStatus(R.string.status_connected);
+            } else if (viewModel.isRealConnectionRequested()) {
                 String mac = getStoredMac();
-                if (mac != null && viewModel.isRealConnectionRequested()) {
-                    setStatus(R.string.status_reconnecting);
-                } else {
-                    setStatus(R.string.status_searching);
-                }
+                setStatus(mac != null ? R.string.status_reconnecting : R.string.status_searching);
             }
+            updateButtonStates(state);
         });
         viewModel.getShowConnectionOverlay().observe(owner,
                 show -> setVisible(Boolean.TRUE.equals(show)));
     }
 
+    /** Show the overlay: just display status if already connected, otherwise start connecting. */
+    public void show() {
+        if (viewModel.isConnected()) {
+            viewModel.showOverlay();
+        } else {
+            startConnectionFlow();
+        }
+    }
+
     public void startConnectionFlow() {
+        viewModel.showOverlay();
         viewModel.prepareForRealConnection();
         if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -197,6 +231,20 @@ public class ConnectionOverlayController {
     private void storeMac(String mac) {
         activity.getSharedPreferences(PREFS_NAME, AppCompatActivity.MODE_PRIVATE)
                 .edit().putString(KEY_MAC, mac).apply();
+    }
+
+    private void clearStoredMac() {
+        activity.getSharedPreferences(PREFS_NAME, AppCompatActivity.MODE_PRIVATE)
+                .edit().remove(KEY_MAC).apply();
+    }
+
+    private void updateButtonStates(int bleState) {
+        boolean connected = bleState == BluetoothProfile.STATE_CONNECTED;
+        boolean inProgress = viewModel.isConnectionInProgress();
+
+        btnConnect.setEnabled(!connected && !inProgress);
+        btnDisconnect.setEnabled(connected);
+        btnForgetAll.setEnabled(!inProgress);
     }
 
     private void updateSpinnerForStatusRes(@StringRes int statusResId) {
