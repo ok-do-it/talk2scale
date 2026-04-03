@@ -1,19 +1,8 @@
 package dev.talk2scale;
 
 import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
-import android.companion.AssociationRequest;
-import android.companion.BluetoothLeDeviceFilter;
-import android.companion.CompanionDeviceManager;
-import android.content.IntentSender;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.ParcelUuid;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -37,10 +26,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class MainActivity extends AppCompatActivity {
-
-    private static final String TAG = "MainActivity";
-    private static final String PREFS_NAME = "talk2scale_prefs";
-    private static final String KEY_MAC = "scale_mac";
 
     private ScaleViewModel viewModel;
 
@@ -76,13 +61,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void registerLaunchers() {
         permissionLauncher = registerForActivityResult(
-                new ActivityResultContracts.RequestPermission(), granted -> {
-                    if (granted) {
-                        beginConnection();
-                    } else {
-                        connectionOverlay.setStatus(R.string.status_permission_denied);
-                    }
-                });
+                new ActivityResultContracts.RequestPermission(),
+                granted -> connectionOverlay.onBluetoothPermissionResult(granted));
 
         micPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(), granted -> {
@@ -94,18 +74,8 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         cdmLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartIntentSenderForResult(), result -> {
-                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                        android.bluetooth.le.ScanResult scanResult = result.getData()
-                                .getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE,
-                                        android.bluetooth.le.ScanResult.class);
-                        if (scanResult != null) {
-                            BluetoothDevice device = scanResult.getDevice();
-                            connectToDevice(device, false);
-                            storeMac(device.getAddress());
-                        }
-                    }
-                });
+                new ActivityResultContracts.StartIntentSenderForResult(),
+                result -> connectionOverlay.onCdmResult(result.getResultCode(), result.getData()));
     }
 
     private void bindViews() {
@@ -138,12 +108,13 @@ public class MainActivity extends AppCompatActivity {
         });
         speechController.bind(findViewById(R.id.main));
 
-        connectionOverlay = new ConnectionOverlayController(this::startConnectionFlow);
+        connectionOverlay = new ConnectionOverlayController(
+                this, viewModel, permissionLauncher, cdmLauncher);
         connectionOverlay.bind(findViewById(R.id.main));
         checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
                 viewModel.setMockEnabled(isChecked));
         btnAddWeightTop.setOnClickListener(v -> viewModel.addMockWeight());
-        btnConnectTop.setOnClickListener(v -> startConnectionFlow());
+        btnConnectTop.setOnClickListener(v -> connectionOverlay.startConnectionFlow());
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
         btnMic.setOnClickListener(v -> openSpeechOverlay());
@@ -159,18 +130,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void observeViewModel() {
-        viewModel.getConnectionState().observe(this, state -> {
-            if (state != BluetoothProfile.STATE_CONNECTED) {
-                String mac = getStoredMac();
-                if (mac != null && viewModel.isRealConnectionRequested()) {
-                    connectionOverlay.setStatus(R.string.status_reconnecting);
-                } else {
-                    connectionOverlay.setStatus(R.string.status_searching);
-                }
-            }
-        });
-        viewModel.getShowConnectionOverlay().observe(this,
-                show -> connectionOverlay.setVisible(Boolean.TRUE.equals(show)));
+        connectionOverlay.observeViewModel(this);
         viewModel.getMockEnabled().observe(this, enabled ->
                 checkMockTop.setChecked(Boolean.TRUE.equals(enabled)));
         viewModel.getMockControlsEnabled().observe(this, enabled -> {
@@ -190,74 +150,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         viewModel.getLogEntries().observe(this, entries -> logAdapter.setItems(entries));
-    }
-
-    private void startConnectionFlow() {
-        viewModel.prepareForRealConnection();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT);
-            return;
-        }
-        beginConnection();
-    }
-
-    @SuppressWarnings("MissingPermission")
-    private void beginConnection() {
-        String mac = getStoredMac();
-        if (mac != null) {
-            connectionOverlay.setStatus(R.string.status_reconnecting);
-            BluetoothManager bm = getSystemService(BluetoothManager.class);
-            BluetoothAdapter adapter = bm.getAdapter();
-            if (adapter != null) {
-                BluetoothDevice device = adapter.getRemoteDevice(mac);
-                connectToDevice(device, true);
-            }
-        } else {
-            connectionOverlay.setStatus(R.string.status_searching);
-            startAssociation();
-        }
-    }
-
-    @SuppressWarnings("MissingPermission")
-    private void startAssociation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT);
-            return;
-        }
-
-        BluetoothLeDeviceFilter filter = new BluetoothLeDeviceFilter.Builder()
-                .setScanFilter(new android.bluetooth.le.ScanFilter.Builder()
-                        .setServiceUuid(new ParcelUuid(ScaleViewModel.SERVICE_UUID))
-                        .build())
-                .build();
-
-        AssociationRequest request = new AssociationRequest.Builder()
-                .addDeviceFilter(filter)
-                .setSingleDevice(true)
-                .build();
-
-        CompanionDeviceManager cdm = getSystemService(CompanionDeviceManager.class);
-        cdm.associate(request, new CompanionDeviceManager.Callback() {
-            @Override
-            public void onDeviceFound(IntentSender chooserLauncher) {
-                cdmLauncher.launch(new IntentSenderRequest.Builder(chooserLauncher).build());
-            }
-
-            @Override
-            public void onFailure(CharSequence error) {
-                Log.e(TAG, "CDM associate failed: " + error);
-                runOnUiThread(() -> {
-                    connectionOverlay.setStatus(error);
-                });
-            }
-        }, null);
-    }
-
-    @SuppressWarnings("MissingPermission")
-    private void connectToDevice(BluetoothDevice device, boolean autoConnect) {
-        viewModel.connectToRealDevice(this, device, autoConnect);
     }
 
     private void showCalibrationOverlay() {
@@ -328,14 +220,4 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    private String getStoredMac() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        return prefs.getString(KEY_MAC, null);
-    }
-
-    @SuppressWarnings("MissingPermission")
-    private void storeMac(String mac) {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .edit().putString(KEY_MAC, mac).apply();
-    }
 }
