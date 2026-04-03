@@ -20,7 +20,6 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -45,9 +44,6 @@ public class MainActivity extends AppCompatActivity {
 
     private ScaleViewModel viewModel;
 
-    private FrameLayout overlay;
-    private TextView overlayStatus;
-    private ProgressBar overlaySpinner;
     private FrameLayout calibrationOverlay;
     private EditText editCalibGrams;
     private TextView weightDisplay;
@@ -56,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton btnAddWeightTop;
 
     private SpeechOverlayController speechController;
+    private ConnectionOverlayController connectionOverlay;
     private ActivityResultLauncher<String> permissionLauncher;
     private ActivityResultLauncher<String> micPermissionLauncher;
     private ActivityResultLauncher<IntentSenderRequest> cdmLauncher;
@@ -83,8 +80,7 @@ public class MainActivity extends AppCompatActivity {
                     if (granted) {
                         beginConnection();
                     } else {
-                        overlayStatus.setText(R.string.status_permission_denied);
-                        overlaySpinner.setVisibility(View.GONE);
+                        connectionOverlay.setStatus(R.string.status_permission_denied);
                     }
                 });
 
@@ -113,12 +109,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
-        overlay = findViewById(R.id.overlay);
-        overlayStatus = findViewById(R.id.overlayStatus);
-        overlaySpinner = findViewById(R.id.overlaySpinner);
         weightDisplay = findViewById(R.id.weightDisplay);
 
-        Button btnConnectOverlay = findViewById(R.id.btnConnectOverlay);
         checkMockTop = findViewById(R.id.checkMockTop);
         btnAddWeightTop = findViewById(R.id.btnAddWeightTop);
         ImageButton btnConnectTop = findViewById(R.id.btnConnectTop);
@@ -146,7 +138,8 @@ public class MainActivity extends AppCompatActivity {
         });
         speechController.bind(findViewById(R.id.main));
 
-        btnConnectOverlay.setOnClickListener(v -> startConnectionFlow());
+        connectionOverlay = new ConnectionOverlayController(this::startConnectionFlow);
+        connectionOverlay.bind(findViewById(R.id.main));
         checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
                 viewModel.setMockEnabled(isChecked));
         btnAddWeightTop.setOnClickListener(v -> viewModel.addMockWeight());
@@ -168,17 +161,16 @@ public class MainActivity extends AppCompatActivity {
     private void observeViewModel() {
         viewModel.getConnectionState().observe(this, state -> {
             if (state != BluetoothProfile.STATE_CONNECTED) {
-                overlaySpinner.setVisibility(View.VISIBLE);
                 String mac = getStoredMac();
                 if (mac != null && viewModel.isRealConnectionRequested()) {
-                    overlayStatus.setText(R.string.status_reconnecting);
+                    connectionOverlay.setStatus(R.string.status_reconnecting);
                 } else {
-                    overlayStatus.setText(R.string.status_searching);
+                    connectionOverlay.setStatus(R.string.status_searching);
                 }
             }
         });
         viewModel.getShowConnectionOverlay().observe(this,
-                show -> overlay.setVisibility(Boolean.TRUE.equals(show) ? View.VISIBLE : View.GONE));
+                show -> connectionOverlay.setVisible(Boolean.TRUE.equals(show)));
         viewModel.getMockEnabled().observe(this, enabled ->
                 checkMockTop.setChecked(Boolean.TRUE.equals(enabled)));
         viewModel.getMockControlsEnabled().observe(this, enabled -> {
@@ -214,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
     private void beginConnection() {
         String mac = getStoredMac();
         if (mac != null) {
-            overlayStatus.setText(R.string.status_reconnecting);
+            connectionOverlay.setStatus(R.string.status_reconnecting);
             BluetoothManager bm = getSystemService(BluetoothManager.class);
             BluetoothAdapter adapter = bm.getAdapter();
             if (adapter != null) {
@@ -222,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
                 connectToDevice(device, true);
             }
         } else {
-            overlayStatus.setText(R.string.status_searching);
+            connectionOverlay.setStatus(R.string.status_searching);
             startAssociation();
         }
     }
@@ -257,8 +249,7 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(CharSequence error) {
                 Log.e(TAG, "CDM associate failed: " + error);
                 runOnUiThread(() -> {
-                    overlayStatus.setText(error);
-                    overlaySpinner.setVisibility(View.GONE);
+                    connectionOverlay.setStatus(error);
                 });
             }
         }, null);

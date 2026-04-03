@@ -231,49 +231,7 @@
     <!-- Speech recognition overlay -->
     <include layout="@layout/view_speech_overlay" />
 
-    <!-- Connection overlay (covers entire screen when visible) -->
-    <FrameLayout
-        android:id="@+id/overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="?android:attr/colorBackground"
-        android:clickable="true"
-        android:focusable="true">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="vertical"
-            android:gravity="center_horizontal">
-
-            <ImageView
-                android:layout_width="96dp"
-                android:layout_height="96dp"
-                android:src="@android:drawable/stat_sys_data_bluetooth"
-                android:layout_marginBottom="24dp"
-                android:importantForAccessibility="no" />
-
-            <TextView
-                android:id="@+id/overlayStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/status_searching"
-                android:textSize="18sp"
-                android:layout_marginBottom="16dp" />
-
-            <ProgressBar
-                android:id="@+id/overlaySpinner"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginBottom="24dp" />
-
-            <Button
-                android:id="@+id/btnConnectOverlay"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/btn_connect" />
-        </LinearLayout>
-    </FrameLayout>
+    <!-- Connection overlay -->
+    <include layout="@layout/view_connection_overlay" />
 
 </FrameLayout>
