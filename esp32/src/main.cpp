@@ -23,6 +23,7 @@ void loop() {
   pollPairButton(now);
 
   float weight = getWeight();
+  if (fabsf(weight) < 0.5f) weight = 0.0f;
 
   if (now - lastNotifyMs >= 333) {
     lastNotifyMs = now;

@@ -22,7 +22,7 @@ constexpr float kScaleFactor = 1.0f;
 
 // Boot and interactive tare: settle time then HX711 read_average(samples)
 constexpr uint32_t kBootTareSettleMs = 2000;
-constexpr uint8_t kTareAverageSamples = 30;
+constexpr uint8_t kTareAverageSamples = 10;
 
 // Stability: consecutive readings within threshold (grams)
 constexpr int kStableWindow = 5;

@@ -17,14 +17,22 @@ Preferences scalePrefs;
 SemaphoreHandle_t scaleMutex = nullptr;
 TaskHandle_t scaleTaskHandle = nullptr;
 
+constexpr float kEmaAlpha = 0.5f;
+float smoothedRaw = 0.0f;
+bool emaInitialized = false;
+
 constexpr const char* kScalePrefsNamespace = "scale";
 constexpr const char* kScaleFactorKey = "factor";
 
 void scaleTask(void*) {
   for (;;) {
     long raw = scale.read_average(3);
+    float r = static_cast<float>(raw);
+    if (!emaInitialized) { smoothedRaw = r; emaInitialized = true; }
+    else                 { smoothedRaw += kEmaAlpha * (r - smoothedRaw); }
+
     xSemaphoreTake(scaleMutex, portMAX_DELAY);
-    latestRaw = raw;
+    latestRaw = static_cast<long>(lroundf(smoothedRaw));
     xSemaphoreGive(scaleMutex);
     vTaskDelay(10);
   }
@@ -51,6 +59,8 @@ void performTareLongAverage() {
   tareOffset = raw;
   latestRaw = raw;
   xSemaphoreGive(scaleMutex);
+  smoothedRaw = static_cast<float>(raw);
+  emaInitialized = true;
 }
 
 void saveCalibration() {
@@ -92,6 +102,8 @@ void setupScale() {
   long raw = scale.read_average(kTareAverageSamples);
   tareOffset = raw;
   latestRaw = raw;
+  smoothedRaw = static_cast<float>(raw);
+  emaInitialized = true;
   xTaskCreate(scaleTask, "scale", 2048, nullptr, 2, &scaleTaskHandle);
   loadCalibration();
 }
