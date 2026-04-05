@@ -1,6 +1,5 @@
 package dev.talk2scale;
 
-import androidx.annotation.StringRes;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.appcompat.app.AppCompatActivity;
@@ -98,14 +97,14 @@ public class ConnectionOverlayController {
     public void observeViewModel(LifecycleOwner owner) {
         viewModel.getConnectionState().observe(owner, state -> {
             if (state == BluetoothProfile.STATE_CONNECTED) {
-                setStatus(R.string.status_connected);
+                setStatusMessage("Connected", false);
                 if (autoCloseOnConnected) {
                     autoCloseOnConnected = false;
                     viewModel.hideOverlay();
                 }
             } else if (viewModel.isRealConnectionRequested()) {
                 String mac = getStoredMac();
-                setStatus(mac != null ? R.string.status_reconnecting : R.string.status_searching);
+                setStatusMessage(mac != null ? "Reconnecting..." : "Searching for scale...", true);
             }
             updateButtonStates(state);
         });
@@ -140,7 +139,7 @@ public class ConnectionOverlayController {
         if (granted) {
             beginConnection();
         } else {
-            setStatus(R.string.status_permission_denied);
+            setStatusMessage("Bluetooth permission denied", false);
         }
     }
 
@@ -166,12 +165,6 @@ public class ConnectionOverlayController {
         }
     }
 
-    public void setStatus(@StringRes int resId) {
-        if (statusView == null) return;
-        statusView.setText(resId);
-        applyStatusUi(isConnectingStatusRes(resId));
-    }
-
     public void showSpinner(boolean visible) {
         if (spinner == null) return;
         spinner.setVisibility(visible ? View.VISIBLE : View.GONE);
@@ -181,7 +174,7 @@ public class ConnectionOverlayController {
     private void beginConnection() {
         String mac = getStoredMac();
         if (mac != null) {
-            setStatus(R.string.status_reconnecting);
+            setStatusMessage("Reconnecting...", true);
             BluetoothManager bm = activity.getSystemService(BluetoothManager.class);
             BluetoothAdapter adapter = bm == null ? null : bm.getAdapter();
             if (adapter != null) {
@@ -189,7 +182,7 @@ public class ConnectionOverlayController {
                 viewModel.connectToRealDevice(activity, device, true);
             }
         } else {
-            setStatus(R.string.status_searching);
+            setStatusMessage("Searching for scale...", true);
             startAssociation();
         }
     }
@@ -250,7 +243,7 @@ public class ConnectionOverlayController {
 
     private void updateButtonStates(int bleState) {
         boolean connected = bleState == BluetoothProfile.STATE_CONNECTED;
-        boolean inProgress = isConnectingStatusText(statusView == null ? null : statusView.getText());
+        boolean inProgress = viewModel.isConnectionInProgress();
 
         btnConnect.setEnabled(!connected && !inProgress);
         btnDisconnect.setEnabled(connected);
@@ -258,24 +251,9 @@ public class ConnectionOverlayController {
         updateCloseButtonCaption(inProgress);
     }
 
-    private boolean isConnectingStatusRes(@StringRes int statusResId) {
-        return statusResId == R.string.status_searching
-                || statusResId == R.string.status_reconnecting;
-    }
-
-    private boolean isConnectingStatusText(CharSequence statusText) {
-        if (statusText == null || statusView == null) {
-            return false;
-        }
-        CharSequence searching = statusView.getContext().getText(R.string.status_searching);
-        CharSequence reconnecting = statusView.getContext().getText(R.string.status_reconnecting);
-        return statusText.toString().contentEquals(searching)
-                || statusText.toString().contentEquals(reconnecting);
-    }
-
     private void updateCloseButtonCaption(boolean connecting) {
         if (btnClose == null) return;
-        btnClose.setText(connecting ? R.string.btn_cancel_connection : R.string.btn_back);
+        btnClose.setText(connecting ? "Cancel" : "Back");
     }
 
     private void setStatusMessage(CharSequence statusText, boolean connecting) {

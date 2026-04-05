@@ -15,11 +15,11 @@
         android:layout_gravity="top|start"
         android:layout_marginStart="12dp"
         android:layout_marginTop="12dp"
-        android:contentDescription="@string/cd_close_connection_overlay"
+        android:contentDescription="Back"
         android:textColor="?android:attr/textColorPrimary"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:text="@string/btn_back"
+        android:text="Back"
         android:textAllCaps="false"
         app:backgroundTint="@android:color/transparent"
         app:icon="@drawable/ic_back"
@@ -47,7 +47,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="@string/status_searching"
+            android:text="Searching for scale..."
             android:textSize="18sp" />
 
         <ProgressBar
@@ -60,19 +60,19 @@
             android:id="@+id/connectionBtnConnect"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/btn_connect" />
+            android:text="Connect" />
 
         <Button
             android:id="@+id/connectionBtnDisconnect"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/btn_disconnect" />
+            android:text="Disconnect" />
 
         <Button
             android:id="@+id/connectionBtnForgetAll"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/btn_forget_all" />
+            android:text="Forget All Devices" />
 
     </LinearLayout>
 </FrameLayout>

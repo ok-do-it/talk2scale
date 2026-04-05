@@ -82,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
                     if (granted) {
                         speechRecognition.startListening();
                     } else {
-                        Toast.makeText(this, R.string.speech_status_no_mic_permission,
+                        Toast.makeText(this, "Microphone permission denied",
                                 Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -142,13 +142,13 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onNoMatchOrTimeout() {
-                Toast.makeText(MainActivity.this, R.string.speech_status_error,
+                Toast.makeText(MainActivity.this, "Could not recognise speech - try again",
                         Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onUnavailable() {
-                Toast.makeText(MainActivity.this, R.string.speech_status_unavailable,
+                Toast.makeText(MainActivity.this, "Speech recognition not available on this device",
                         Toast.LENGTH_SHORT).show();
             }
         });
@@ -261,12 +261,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setListeningState() {
-        btnMic.setText(R.string.btn_cancel);
+        btnMic.setText("CANCEL");
         refreshApplyButtonState();
     }
 
     private void setIdleState() {
-        btnMic.setText(R.string.btn_mic);
+        btnMic.setText("Voice Input");
         refreshApplyButtonState();
     }
 
@@ -311,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean applySelectedLogEntryRename(String food) {
         if (food.isEmpty()) {
-            Toast.makeText(this, R.string.toast_no_food, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Enter a food name first", Toast.LENGTH_SHORT).show();
             return false;
         }
         if (!isEditingLogEntry()) {
@@ -328,7 +328,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showCalibrationOverlay() {
         if (!viewModel.isConnected()) {
-            Toast.makeText(this, R.string.toast_not_connected, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Scale not connected", Toast.LENGTH_SHORT).show();
             return;
         }
         calibrationOverlay.setVisibility(View.VISIBLE);
@@ -336,47 +336,47 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleSetZero() {
         if (!viewModel.isConnected()) {
-            Toast.makeText(this, R.string.toast_not_connected, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Scale not connected", Toast.LENGTH_SHORT).show();
             return;
         }
         viewModel.sendTare();
-        Toast.makeText(this, R.string.toast_calib_zero_done, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Zero set", Toast.LENGTH_SHORT).show();
     }
 
     private void handleSetCalibWeight() {
         if (!viewModel.isConnected()) {
-            Toast.makeText(this, R.string.toast_not_connected, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Scale not connected", Toast.LENGTH_SHORT).show();
             return;
         }
         String text = editCalibGrams.getText().toString().trim();
         if (text.isEmpty()) {
-            Toast.makeText(this, R.string.toast_calib_no_weight, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Enter a weight in grams", Toast.LENGTH_SHORT).show();
             return;
         }
         int grams;
         try {
             grams = Integer.parseInt(text);
         } catch (NumberFormatException e) {
-            Toast.makeText(this, R.string.toast_calib_no_weight, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Enter a weight in grams", Toast.LENGTH_SHORT).show();
             return;
         }
         if (grams <= 0) {
-            Toast.makeText(this, R.string.toast_calib_no_weight, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Enter a weight in grams", Toast.LENGTH_SHORT).show();
             return;
         }
         viewModel.sendCalibrate(grams);
-        Toast.makeText(this, R.string.toast_calib_done, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Calibration sent", Toast.LENGTH_SHORT).show();
     }
 
     /** @return true if entry was added successfully */
     private boolean applyLogEntry(String food) {
         if (food.isEmpty()) {
-            Toast.makeText(this, R.string.toast_no_food, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Enter a food name first", Toast.LENGTH_SHORT).show();
             return false;
         }
         int weight = viewModel.getLastStableWeight();
         if (weight == 0) {
-            Toast.makeText(this, R.string.toast_no_stable, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No stable weight reading yet", Toast.LENGTH_SHORT).show();
             return false;
         }
         viewModel.addLogEntry(food, weight);

@@ -38,7 +38,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="2dp"
-                    android:text="@string/label_mock" />
+                    android:text="Mock" />
             </LinearLayout>
 
             <View
@@ -52,7 +52,7 @@
                 android:layout_height="48dp"
                 android:src="@android:drawable/stat_sys_data_bluetooth"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/cd_connect"
+                android:contentDescription="Connect to scale"
                 android:layout_marginEnd="8dp" />
 
             <ImageButton
@@ -61,7 +61,7 @@
                 android:layout_height="48dp"
                 android:src="@android:drawable/ic_menu_manage"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/cd_calibrate" />
+                android:contentDescription="Calibrate scale" />
         </LinearLayout>
 
         <!-- Weight display -->
@@ -71,7 +71,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:paddingVertical="16dp"
-            android:text="@string/weight_placeholder"
+            android:text="- g"
             android:textColor="@color/weightUnstable"
             android:textSize="48sp"
             android:textStyle="bold" />
@@ -88,7 +88,7 @@
                 android:id="@+id/btnTare"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_tare" />
+                android:text="TARE" />
         </LinearLayout>
 
         <!-- Food name input with inline actions -->
@@ -111,7 +111,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="8dp"
-                    android:contentDescription="@string/cd_food_search"
+                    android:contentDescription="Search food"
                     android:src="@android:drawable/ic_menu_search" />
 
                 <EditText
@@ -119,7 +119,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="@string/hint_food_name"
+                    android:hint="Food name"
                     android:inputType="text"
                     android:minHeight="48dp" />
 
@@ -129,7 +129,7 @@
                     android:layout_height="40dp"
                     android:layout_marginStart="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_clear_food"
+                    android:contentDescription="Clear food name"
                     android:padding="8dp"
                     android:src="@android:drawable/ic_menu_close_clear_cancel"
                     android:visibility="gone" />
@@ -140,7 +140,7 @@
                     android:layout_height="40dp"
                     android:layout_marginStart="2dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/cd_apply_food"
+                    android:contentDescription="Apply food entry"
                     android:padding="8dp"
                     android:src="@drawable/ic_check"
                     android:visibility="gone"
@@ -153,7 +153,7 @@
                 android:layout_height="match_parent"
                 android:background="#B3000000"
                 android:gravity="center"
-                android:text="@string/listening_overlay"
+                android:text="Listening..."
                 android:textColor="@android:color/white"
                 android:textStyle="bold"
                 android:visibility="gone" />
@@ -167,7 +167,7 @@
             app:icon="@drawable/ic_mic"
             app:iconGravity="textStart"
             app:iconPadding="8dp"
-            android:text="@string/btn_mic"
+            android:text="Voice Input"
             android:layout_marginHorizontal="16dp"
             android:layout_marginBottom="8dp" />
 
@@ -184,7 +184,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="3"
-                android:text="@string/header_food"
+                android:text="Food"
                 android:textStyle="bold"
                 android:textSize="14sp" />
 
@@ -192,7 +192,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/header_weight"
+                android:text="Weight"
                 android:textStyle="bold"
                 android:textSize="14sp"
                 android:gravity="end" />
@@ -201,7 +201,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/header_cal"
+                android:text="Cal"
                 android:textStyle="bold"
                 android:textSize="14sp"
                 android:gravity="end" />
@@ -233,7 +233,7 @@
             android:layout_margin="8dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/cd_close_calibration" />
+            android:contentDescription="Close calibration" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -245,7 +245,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/calib_title"
+                android:text="Calibrate Scale"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:gravity="center"
@@ -254,7 +254,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/calib_step1"
+                android:text="1. Remove everything from the scale and press Set Zero."
                 android:textSize="16sp"
                 android:layout_marginBottom="12dp" />
 
@@ -262,13 +262,13 @@
                 android:id="@+id/btnSetZero"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_set_zero"
+                android:text="SET ZERO"
                 android:layout_marginBottom="32dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/calib_step2"
+                android:text="2. Place a known weight on the scale, enter it in grams below, and press Set Calibration Weight."
                 android:textSize="16sp"
                 android:layout_marginBottom="12dp" />
 
@@ -276,7 +276,7 @@
                 android:id="@+id/editCalibGrams"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/hint_calib_grams"
+                android:hint="Weight in grams"
                 android:inputType="number"
                 android:layout_marginBottom="12dp" />
 
@@ -284,7 +284,7 @@
                 android:id="@+id/btnSetCalibWeight"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_set_calib_weight" />
+                android:text="SET CALIBRATION WEIGHT" />
         </LinearLayout>
     </FrameLayout>
 

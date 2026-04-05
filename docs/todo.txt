@@ -1,13 +1,36 @@
 Tech stack questions:
 
-monorepo - turborepo - pnpm etc?
 backend - TS - tRPC / nestjs ?
-
-phone app:
-android native (Java) ← decided
-
 DB for backend: postgres
-
 DB for phone app cache? - tbd
+
+Schema entities:
+- Nutrient 
+- Food Item
+- Food Name
+- Meal
+- LogEntry
+
+
+
+
+
+Android app:
+1. Make main screen: 
+- day summary block / chart
+- list of meals
+- plus button to add meal (later 2 types: precise (with scale) or dictation sending audio to beckend and resolving whole meal)
+
+2. Add precise meal or edit meal dialog
+
+3. on top set user icon and set user id - just text input for now, stored in persisted props
+
+
+
+
+
+
+
+
 
 
