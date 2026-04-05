@@ -174,7 +174,7 @@ public class ScaleViewModel extends ViewModel {
     }
 
     public void addMockWeight() {
-        if (!isConnected()) {
+        if (!isConnected() && Boolean.TRUE.equals(mockEnabled.getValue())) {
             mockTransport.addRandomWeight();
         }
     }

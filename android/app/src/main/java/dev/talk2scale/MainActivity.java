@@ -39,7 +39,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView weightDisplay;
     private LogAdapter logAdapter;
     private CheckBox checkMockTop;
-    private ImageButton btnAddWeightTop;
 
     private EditText editFoodName;
     private Button btnMic;
@@ -97,7 +96,6 @@ public class MainActivity extends AppCompatActivity {
         weightDisplay = findViewById(R.id.weightDisplay);
 
         checkMockTop = findViewById(R.id.checkMockTop);
-        btnAddWeightTop = findViewById(R.id.btnAddWeightTop);
         ImageButton btnConnectTop = findViewById(R.id.btnConnectTop);
         ImageButton btnCalibrateTop = findViewById(R.id.btnCalibrateTop);
         Button btnTare = findViewById(R.id.btnTare);
@@ -160,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
         connectionOverlay.bind(findViewById(R.id.main));
         checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
                 viewModel.setMockEnabled(isChecked));
-        btnAddWeightTop.setOnClickListener(v -> viewModel.addMockWeight());
+        weightDisplay.setOnClickListener(v -> viewModel.addMockWeight());
         btnConnectTop.setOnClickListener(v -> connectionOverlay.show());
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
@@ -215,12 +213,6 @@ public class MainActivity extends AppCompatActivity {
         connectionOverlay.observeViewModel(this);
         viewModel.getMockEnabled().observe(this, enabled ->
                 checkMockTop.setChecked(Boolean.TRUE.equals(enabled)));
-        viewModel.getMockControlsEnabled().observe(this, enabled -> {
-            boolean controlsEnabled = Boolean.TRUE.equals(enabled);
-            btnAddWeightTop.setEnabled(controlsEnabled);
-            float alpha = controlsEnabled ? 1.0f : 0.35f;
-            btnAddWeightTop.setAlpha(alpha);
-        });
 
         viewModel.getWeightData().observe(this, data -> {
             if (data == null) return;

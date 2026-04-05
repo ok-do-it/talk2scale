@@ -56,7 +56,6 @@
     <string name="cd_connect">Connect to scale</string>
     <string name="cd_calibrate">Calibrate scale</string>
     <string name="cd_close_calibration">Close calibration</string>
-    <string name="cd_add_weight">Add mock weight</string>
     <string name="cd_food_search">Search food</string>
     <string name="cd_clear_food">Clear food name</string>
     <string name="cd_apply_food">Apply food entry</string>
