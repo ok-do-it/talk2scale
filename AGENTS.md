@@ -11,3 +11,9 @@ Use this for **project context**. Prefer the linked docs before inventing archit
 | Mobile app BLE design (Android stack, permissions, GATT flow, UUIDs) | [docs/mobile-app/design.md](docs/mobile-app/design.md) |
 | Open decisions and scratch tasks | [docs/todo.txt](docs/todo.txt) |
 
+
+# Coding guidelines
+
+## Android app
+- use MaterialButton when need to show icon and text caption
+- don't use strings.xml hard code all captions

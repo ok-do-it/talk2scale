@@ -46,7 +46,7 @@ public class ConnectionOverlayController {
     private Button btnConnect;
     private Button btnDisconnect;
     private Button btnForgetAll;
-    private View btnClose;
+    private Button btnClose;
     private boolean autoCloseOnConnected;
 
     public ConnectionOverlayController(
@@ -89,6 +89,10 @@ public class ConnectionOverlayController {
             autoCloseOnConnected = false;
             viewModel.hideOverlay();
         });
+
+        updateButtonStates(viewModel.getConnectionState().getValue() == null
+                ? BluetoothProfile.STATE_DISCONNECTED
+                : viewModel.getConnectionState().getValue());
     }
 
     public void observeViewModel(LifecycleOwner owner) {
@@ -162,16 +166,10 @@ public class ConnectionOverlayController {
         }
     }
 
-    public void setStatus(int resId) {
+    public void setStatus(@StringRes int resId) {
         if (statusView == null) return;
         statusView.setText(resId);
-        updateSpinnerForStatusRes(resId);
-    }
-
-    public void setStatus(CharSequence statusText) {
-        if (statusView == null) return;
-        statusView.setText(statusText);
-        updateSpinnerForStatusText(statusText);
+        applyStatusUi(isConnectingStatusRes(resId));
     }
 
     public void showSpinner(boolean visible) {
@@ -217,7 +215,7 @@ public class ConnectionOverlayController {
 
         CompanionDeviceManager cdm = activity.getSystemService(CompanionDeviceManager.class);
         if (cdm == null) {
-            setStatus("CompanionDeviceManager unavailable");
+            setStatusMessage("CompanionDeviceManager unavailable", false);
             return;
         }
         cdm.associate(request, new CompanionDeviceManager.Callback() {
@@ -229,7 +227,7 @@ public class ConnectionOverlayController {
             @Override
             public void onFailure(CharSequence error) {
                 Log.e(TAG, "CDM associate failed: " + error);
-                activity.runOnUiThread(() -> setStatus(error));
+                activity.runOnUiThread(() -> setStatusMessage(error, false));
             }
         }, null);
     }
@@ -252,28 +250,42 @@ public class ConnectionOverlayController {
 
     private void updateButtonStates(int bleState) {
         boolean connected = bleState == BluetoothProfile.STATE_CONNECTED;
-        boolean inProgress = viewModel.isConnectionInProgress();
+        boolean inProgress = isConnectingStatusText(statusView == null ? null : statusView.getText());
 
         btnConnect.setEnabled(!connected && !inProgress);
         btnDisconnect.setEnabled(connected);
         btnForgetAll.setEnabled(!inProgress);
+        updateCloseButtonCaption(inProgress);
     }
 
-    private void updateSpinnerForStatusRes(@StringRes int statusResId) {
-        boolean showSpinner = statusResId == R.string.status_searching
+    private boolean isConnectingStatusRes(@StringRes int statusResId) {
+        return statusResId == R.string.status_searching
                 || statusResId == R.string.status_reconnecting;
-        showSpinner(showSpinner);
     }
 
-    private void updateSpinnerForStatusText(CharSequence statusText) {
-        if (statusText == null) {
-            showSpinner(false);
-            return;
+    private boolean isConnectingStatusText(CharSequence statusText) {
+        if (statusText == null || statusView == null) {
+            return false;
         }
         CharSequence searching = statusView.getContext().getText(R.string.status_searching);
         CharSequence reconnecting = statusView.getContext().getText(R.string.status_reconnecting);
-        boolean showSpinner = statusText.toString().contentEquals(searching)
+        return statusText.toString().contentEquals(searching)
                 || statusText.toString().contentEquals(reconnecting);
-        showSpinner(showSpinner);
+    }
+
+    private void updateCloseButtonCaption(boolean connecting) {
+        if (btnClose == null) return;
+        btnClose.setText(connecting ? R.string.btn_cancel_connection : R.string.btn_back);
+    }
+
+    private void setStatusMessage(CharSequence statusText, boolean connecting) {
+        if (statusView == null) return;
+        statusView.setText(statusText);
+        applyStatusUi(connecting);
+    }
+
+    private void applyStatusUi(boolean connecting) {
+        showSpinner(connecting);
+        updateCloseButtonCaption(connecting);
     }
 }
