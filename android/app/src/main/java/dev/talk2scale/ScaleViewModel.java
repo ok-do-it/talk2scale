@@ -16,7 +16,7 @@ import java.util.UUID;
 public class ScaleViewModel extends ViewModel {
     static final UUID SERVICE_UUID =
             UUID.fromString("4c78c001-8118-4aea-8f72-70ddbda3c9b9");
-    private static final int STABLE_WINDOW = 5;
+    private static final int STABLE_WINDOW = 3;
 
 
     private final MutableLiveData<WeightReading> weightData = new MutableLiveData<>();
@@ -46,7 +46,7 @@ public class ScaleViewModel extends ViewModel {
 
             @Override
             public void onWeightData(int weight) {
-                publishWeight(weight);
+                publishWeight(weight, false);
             }
         });
         mockTransport.setListener(new ScaleTransport.Listener() {
@@ -58,7 +58,7 @@ public class ScaleViewModel extends ViewModel {
             @Override
             public void onWeightData(int weight) {
                 if (!isConnected()) {
-                    publishWeight(weight);
+                    publishWeight(weight, true);
                 }
             }
         });
@@ -172,8 +172,8 @@ public class ScaleViewModel extends ViewModel {
         mockTransport.close();
     }
 
-    private void publishWeight(int weight) {
-        boolean stable = isStable(weight);
+    private void publishWeight(int weight, boolean forceStable) {
+        boolean stable = forceStable || isStable(weight);
         if (stable) {
             lastStableWeight = weight;
         }

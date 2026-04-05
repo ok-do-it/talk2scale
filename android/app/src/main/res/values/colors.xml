@@ -2,6 +2,6 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="weightUnstable">#FFA000</color>
-    <color name="weightStable">#1976D2</color>
+    <color name="weightUnstable">#FFDD00</color>
+    <color name="weightStable">#36D7FF</color>
 </resources>

@@ -3,6 +3,8 @@ package dev.talk2scale;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -36,7 +38,11 @@ public class MainActivity extends AppCompatActivity {
     private CheckBox checkMockTop;
     private ImageButton btnAddWeightTop;
 
-    private SpeechOverlayController speechController;
+    private EditText editFoodName;
+    private Button btnMic;
+    private Button btnApply;
+    private SpeechRecognition speechRecognition;
+
     private ConnectionOverlayController connectionOverlay;
     private ActivityResultLauncher<String> permissionLauncher;
     private ActivityResultLauncher<String> micPermissionLauncher;
@@ -67,9 +73,10 @@ public class MainActivity extends AppCompatActivity {
         micPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(), granted -> {
                     if (granted) {
-                        speechController.startListening();
+                        speechRecognition.startListening();
                     } else {
-                        speechController.onPermissionDenied();
+                        Toast.makeText(this, R.string.speech_status_no_mic_permission,
+                                Toast.LENGTH_SHORT).show();
                     }
                 });
 
@@ -86,7 +93,9 @@ public class MainActivity extends AppCompatActivity {
         ImageButton btnConnectTop = findViewById(R.id.btnConnectTop);
         ImageButton btnCalibrateTop = findViewById(R.id.btnCalibrateTop);
         Button btnTare = findViewById(R.id.btnTare);
-        Button btnMic = findViewById(R.id.btnMic);
+        btnMic = findViewById(R.id.btnMic);
+        editFoodName = findViewById(R.id.editFoodName);
+        btnApply = findViewById(R.id.btnApply);
         RecyclerView logRecycler = findViewById(R.id.logRecycler);
 
         calibrationOverlay = findViewById(R.id.calibrationOverlay);
@@ -95,18 +104,43 @@ public class MainActivity extends AppCompatActivity {
         Button btnSetZero = findViewById(R.id.btnSetZero);
         Button btnSetCalibWeight = findViewById(R.id.btnSetCalibWeight);
 
-        speechController = new SpeechOverlayController(this, new SpeechOverlayController.Callback() {
+        speechRecognition = new SpeechRecognition(this, new SpeechRecognition.Callback() {
             @Override
-            public void onApply(String foodText) {
-                if (applyLogEntry(foodText)) {
-                    speechController.close();
+            public void onListeningStateChanged(boolean isListening) {
+                if (isListening) {
+                    setListeningState();
+                } else {
+                    setIdleState();
                 }
             }
 
             @Override
-            public void onCancel() { }
+            public void onPartialText(String text) {
+                editFoodName.setText(text);
+                editFoodName.setSelection(editFoodName.getText().length());
+            }
+
+            @Override
+            public void onFinalText(String text) {
+                editFoodName.setText(text);
+                editFoodName.setSelection(editFoodName.getText().length());
+                if (viewModel.getLastStableWeight() > 0 && applyLogEntry(text.trim())) {
+                    editFoodName.setText("");
+                }
+            }
+
+            @Override
+            public void onNoMatchOrTimeout() {
+                Toast.makeText(MainActivity.this, R.string.speech_status_error,
+                        Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onUnavailable() {
+                Toast.makeText(MainActivity.this, R.string.speech_status_unavailable,
+                        Toast.LENGTH_SHORT).show();
+            }
         });
-        speechController.bind(findViewById(R.id.main));
 
         connectionOverlay = new ConnectionOverlayController(
                 this, viewModel, permissionLauncher, cdmLauncher);
@@ -117,7 +151,30 @@ public class MainActivity extends AppCompatActivity {
         btnConnectTop.setOnClickListener(v -> connectionOverlay.show());
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
-        btnMic.setOnClickListener(v -> openSpeechOverlay());
+
+        btnMic.setOnClickListener(v -> {
+            if (speechRecognition.isListening()) {
+                speechRecognition.cancelListening();
+                editFoodName.setText("");
+            } else {
+                onMicTap();
+            }
+        });
+
+        btnApply.setOnClickListener(v -> {
+            String food = editFoodName.getText().toString().trim();
+            if (applyLogEntry(food)) {
+                editFoodName.setText("");
+            }
+        });
+        editFoodName.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                refreshApplyButtonState();
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+        refreshApplyButtonState();
 
         btnCloseCalibration.setOnClickListener(v ->
                 calibrationOverlay.setVisibility(View.GONE));
@@ -151,6 +208,40 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel.getLogEntries().observe(this, entries -> logAdapter.setItems(entries));
     }
+
+    // --- Speech recognition (inline) ---
+
+    private void onMicTap() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
+            return;
+        }
+        speechRecognition.startListening();
+    }
+
+    private void setListeningState() {
+        btnMic.setText(R.string.btn_cancel);
+        btnApply.setText(R.string.btn_listening);
+        refreshApplyButtonState();
+    }
+
+    private void setIdleState() {
+        btnMic.setText(R.string.btn_mic);
+        btnApply.setText(R.string.btn_apply);
+        refreshApplyButtonState();
+    }
+
+    private void refreshApplyButtonState() {
+        if (speechRecognition != null && speechRecognition.isListening()) {
+            btnApply.setEnabled(false);
+            return;
+        }
+        String food = editFoodName.getText().toString().trim();
+        btnApply.setEnabled(!food.isEmpty());
+    }
+
+    // --- Calibration ---
 
     private void showCalibrationOverlay() {
         if (!viewModel.isConnected()) {
@@ -194,16 +285,6 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, R.string.toast_calib_done, Toast.LENGTH_SHORT).show();
     }
 
-    private void openSpeechOverlay() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
-            speechController.openWithoutListening();
-            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO);
-            return;
-        }
-        speechController.open();
-    }
-
     /** @return true if entry was added successfully */
     private boolean applyLogEntry(String food) {
         if (food.isEmpty()) {
@@ -220,4 +301,11 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+    @Override
+    protected void onDestroy() {
+        if (speechRecognition != null) {
+            speechRecognition.release();
+        }
+        super.onDestroy();
+    }
 }

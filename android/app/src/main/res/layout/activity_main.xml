@@ -78,10 +78,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:paddingVertical="48dp"
+            android:paddingVertical="16dp"
             android:text="@string/weight_placeholder"
             android:textColor="@color/weightUnstable"
-            android:textSize="34sp"
+            android:textSize="48sp"
             android:textStyle="bold" />
 
         <!-- Tare + Mic buttons -->
@@ -109,7 +109,25 @@
                 android:layout_marginStart="4dp" />
         </LinearLayout>
 
-        <!-- Food name input + Apply moved to speech overlay -->
+        <!-- Food name input -->
+        <EditText
+            android:id="@+id/editFoodName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_food_name"
+            android:inputType="text"
+            android:minHeight="48dp"
+            android:paddingHorizontal="16dp"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Apply / Listening button -->
+        <Button
+            android:id="@+id/btnApply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_apply"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="8dp" />
 
         <!-- Log table header -->
         <LinearLayout
@@ -227,9 +245,6 @@
                 android:text="@string/btn_set_calib_weight" />
         </LinearLayout>
     </FrameLayout>
-
-    <!-- Speech recognition overlay -->
-    <include layout="@layout/view_speech_overlay" />
 
     <!-- Connection overlay -->
     <include layout="@layout/view_connection_overlay" />
