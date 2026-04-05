@@ -14,10 +14,46 @@ import java.util.List;
 public class LogAdapter extends RecyclerView.Adapter<LogAdapter.ViewHolder> {
 
     private List<LogEntry> items = new ArrayList<>();
+    private OnItemClickListener onItemClickListener;
+    private int selectedPosition = RecyclerView.NO_POSITION;
+
+    public interface OnItemClickListener {
+        void onItemClick(int position);
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        onItemClickListener = listener;
+    }
 
     public void setItems(List<LogEntry> newItems) {
-        items = newItems;
+        items = newItems == null ? new ArrayList<>() : newItems;
+        if (selectedPosition >= items.size()) {
+            selectedPosition = RecyclerView.NO_POSITION;
+        }
         notifyDataSetChanged();
+    }
+
+    public void setSelectedPosition(int position) {
+        int normalized = (position >= 0 && position < items.size())
+                ? position
+                : RecyclerView.NO_POSITION;
+        if (selectedPosition == normalized) {
+            return;
+        }
+
+        int previous = selectedPosition;
+        selectedPosition = normalized;
+
+        if (previous != RecyclerView.NO_POSITION) {
+            notifyItemChanged(previous);
+        }
+        if (selectedPosition != RecyclerView.NO_POSITION) {
+            notifyItemChanged(selectedPosition);
+        }
+    }
+
+    public void clearSelection() {
+        setSelectedPosition(RecyclerView.NO_POSITION);
     }
 
     @NonNull
@@ -34,6 +70,16 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.ViewHolder> {
         holder.food.setText(entry.foodName);
         holder.weight.setText(entry.weightGrams + " g");
         holder.calories.setText(String.valueOf(entry.calories));
+        holder.itemView.setSelected(position == selectedPosition);
+        holder.itemView.setOnClickListener(v -> {
+            int adapterPosition = holder.getBindingAdapterPosition();
+            if (adapterPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+            if (onItemClickListener != null) {
+                onItemClickListener.onItemClick(adapterPosition);
+            }
+        });
     }
 
     @Override

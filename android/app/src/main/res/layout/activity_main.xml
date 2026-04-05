@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
@@ -151,8 +152,8 @@
                     android:contentDescription="@string/cd_apply_food"
                     android:padding="8dp"
                     android:src="@drawable/ic_check"
-                    android:tint="@android:color/holo_green_dark"
-                    android:visibility="gone" />
+                    android:visibility="gone"
+                    app:tint="@android:color/holo_green_dark" />
             </LinearLayout>
 
             <TextView
@@ -168,13 +169,13 @@
         </FrameLayout>
 
         <!-- Full-width MIC button -->
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnMic"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:drawableStart="@drawable/ic_mic"
-            android:drawablePadding="8dp"
-            android:gravity="center_vertical|center_horizontal"
+            app:icon="@drawable/ic_mic"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
             android:text="@string/btn_mic"
             android:layout_marginHorizontal="16dp"
             android:layout_marginBottom="8dp" />

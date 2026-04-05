@@ -129,6 +129,19 @@ public class ScaleViewModel extends ViewModel {
         logEntries.setValue(updated);
     }
 
+    public boolean renameLogEntry(int index, String foodName) {
+        List<LogEntry> current = logEntries.getValue();
+        if (current == null || index < 0 || index >= current.size()) {
+            return false;
+        }
+
+        LogEntry existing = current.get(index);
+        List<LogEntry> updated = new ArrayList<>(current);
+        updated.set(index, new LogEntry(foodName, existing.weightGrams, existing.calories));
+        logEntries.setValue(updated);
+        return true;
+    }
+
     public boolean isConnected() {
         Integer state = connectionState.getValue();
         return state != null && state == BluetoothProfile.STATE_CONNECTED;

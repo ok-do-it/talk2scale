@@ -27,6 +27,9 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
 
     private ScaleViewModel viewModel;
@@ -44,6 +47,9 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton btnApplyInline;
     private TextView textListeningOverlay;
     private SpeechRecognition speechRecognition;
+    private final List<LogEntry> logEntries = new ArrayList<>();
+    private int selectedLogIndex = RecyclerView.NO_POSITION;
+    private LogEntry selectedLogEntry;
 
     private ConnectionOverlayController connectionOverlay;
     private ActivityResultLauncher<String> permissionLauncher;
@@ -128,7 +134,10 @@ public class MainActivity extends AppCompatActivity {
             public void onFinalText(String text) {
                 editFoodName.setText(text);
                 editFoodName.setSelection(editFoodName.getText().length());
-                if (viewModel.getLastStableWeight() > 0 && applyLogEntry(text.trim())) {
+                String food = text.trim();
+                if (isEditingLogEntry() && applySelectedLogEntryRename(food)) {
+                    editFoodName.setText("");
+                } else if (viewModel.getLastStableWeight() > 0 && applyLogEntry(food)) {
                     editFoodName.setText("");
                 }
             }
@@ -165,11 +174,20 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        btnClearFood.setOnClickListener(v -> editFoodName.setText(""));
+        btnClearFood.setOnClickListener(v -> {
+            if (isEditingLogEntry()) {
+                clearLogItemEditing(true);
+            } else {
+                editFoodName.setText("");
+            }
+        });
 
         btnApplyInline.setOnClickListener(v -> {
             String food = editFoodName.getText().toString().trim();
-            if (applyLogEntry(food)) {
+            boolean applied = isEditingLogEntry()
+                    ? applySelectedLogEntryRename(food)
+                    : applyLogEntry(food);
+            if (applied) {
                 editFoodName.setText("");
             }
         });
@@ -188,6 +206,7 @@ public class MainActivity extends AppCompatActivity {
         btnSetCalibWeight.setOnClickListener(v -> handleSetCalibWeight());
 
         logAdapter = new LogAdapter();
+        logAdapter.setOnItemClickListener(this::selectLogItemForEditing);
         logRecycler.setLayoutManager(new LinearLayoutManager(this));
         logRecycler.setAdapter(logAdapter);
     }
@@ -212,7 +231,30 @@ public class MainActivity extends AppCompatActivity {
                     stable ? R.color.weightStable : R.color.weightUnstable));
         });
 
-        viewModel.getLogEntries().observe(this, entries -> logAdapter.setItems(entries));
+        viewModel.getLogEntries().observe(this, entries -> {
+            logEntries.clear();
+            if (entries != null) {
+                logEntries.addAll(entries);
+            }
+            logAdapter.setItems(logEntries);
+
+            if (!isEditingLogEntry()) {
+                return;
+            }
+
+            if (selectedLogIndex >= logEntries.size()) {
+                clearLogItemEditing(false);
+                return;
+            }
+
+            // Without stable IDs, any list rewrite can shift rows. Clear edit mode in that case.
+            if (logEntries.get(selectedLogIndex) != selectedLogEntry) {
+                clearLogItemEditing(true);
+                return;
+            }
+
+            logAdapter.setSelectedPosition(selectedLogIndex);
+        });
     }
 
     // --- Speech recognition (inline) ---
@@ -246,6 +288,48 @@ public class MainActivity extends AppCompatActivity {
         btnApplyInline.setVisibility(actionsVisibility);
         btnApplyInline.setEnabled(hasFood && !isListening);
         textListeningOverlay.setVisibility(isListening ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean isEditingLogEntry() {
+        return selectedLogIndex != RecyclerView.NO_POSITION;
+    }
+
+    private void selectLogItemForEditing(int position) {
+        if (position < 0 || position >= logEntries.size()) {
+            return;
+        }
+        selectedLogIndex = position;
+        selectedLogEntry = logEntries.get(position);
+        logAdapter.setSelectedPosition(position);
+        editFoodName.setText(selectedLogEntry.foodName);
+        editFoodName.setSelection(editFoodName.getText().length());
+        refreshApplyButtonState();
+    }
+
+    private void clearLogItemEditing(boolean clearInput) {
+        selectedLogIndex = RecyclerView.NO_POSITION;
+        selectedLogEntry = null;
+        logAdapter.clearSelection();
+        if (clearInput) {
+            editFoodName.setText("");
+        } else {
+            refreshApplyButtonState();
+        }
+    }
+
+    private boolean applySelectedLogEntryRename(String food) {
+        if (food.isEmpty()) {
+            Toast.makeText(this, R.string.toast_no_food, Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (!isEditingLogEntry()) {
+            return false;
+        }
+        boolean renamed = viewModel.renameLogEntry(selectedLogIndex, food);
+        if (renamed) {
+            clearLogItemEditing(false);
+        }
+        return renamed;
     }
 
     // --- Calibration ---

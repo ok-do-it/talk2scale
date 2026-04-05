@@ -16,7 +16,7 @@
     <string name="label_mock">Mock</string>
     <string name="weight_placeholder">— g</string>
     <string name="btn_tare">TARE</string>
-    <string name="btn_mic">voice input</string>
+    <string name="btn_mic">Voice Input</string>
     <string name="hint_food_name">Food name</string>
     <string name="btn_apply">APPLY</string>
     <string name="listening_overlay">Listening…</string>
