@@ -15,9 +15,10 @@
     <string name="label_mock">Mock</string>
     <string name="weight_placeholder">— g</string>
     <string name="btn_tare">TARE</string>
-    <string name="btn_mic">MIC</string>
+    <string name="btn_mic">voice input</string>
     <string name="hint_food_name">Food name</string>
     <string name="btn_apply">APPLY</string>
+    <string name="listening_overlay">Listening…</string>
 
     <!-- Log table headers -->
     <string name="header_food">Food</string>
@@ -53,4 +54,7 @@
     <string name="cd_calibrate">Calibrate scale</string>
     <string name="cd_close_calibration">Close calibration</string>
     <string name="cd_add_weight">Add mock weight</string>
+    <string name="cd_food_search">Search food</string>
+    <string name="cd_clear_food">Clear food name</string>
+    <string name="cd_apply_food">Apply food entry</string>
 </resources>

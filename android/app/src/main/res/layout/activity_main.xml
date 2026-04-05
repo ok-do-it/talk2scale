@@ -84,7 +84,7 @@
             android:textSize="48sp"
             android:textStyle="bold" />
 
-        <!-- Tare + Mic buttons -->
+        <!-- Tare button -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -94,38 +94,88 @@
 
             <Button
                 android:id="@+id/btnTare"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_tare"
-                android:layout_marginEnd="4dp" />
-
-            <Button
-                android:id="@+id/btnMic"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_mic"
-                android:layout_marginStart="4dp" />
+                android:text="@string/btn_tare" />
         </LinearLayout>
 
-        <!-- Food name input -->
-        <EditText
-            android:id="@+id/editFoodName"
+        <!-- Food name input with inline actions -->
+        <FrameLayout
+            android:id="@+id/foodInputContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_food_name"
-            android:inputType="text"
-            android:minHeight="48dp"
-            android:paddingHorizontal="16dp"
-            android:layout_marginBottom="4dp" />
+            android:layout_marginBottom="4dp"
+            android:paddingHorizontal="16dp">
 
-        <!-- Apply / Listening button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:minHeight="48dp">
+
+                <ImageView
+                    android:id="@+id/iconFoodSearch"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="@string/cd_food_search"
+                    android:src="@android:drawable/ic_menu_search" />
+
+                <EditText
+                    android:id="@+id/editFoodName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/hint_food_name"
+                    android:inputType="text"
+                    android:minHeight="48dp" />
+
+                <ImageButton
+                    android:id="@+id/btnClearFood"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/cd_clear_food"
+                    android:padding="8dp"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    android:visibility="gone" />
+
+                <ImageButton
+                    android:id="@+id/btnApplyInline"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="2dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/cd_apply_food"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_check"
+                    android:tint="@android:color/holo_green_dark"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/textListeningOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#B3000000"
+                android:gravity="center"
+                android:text="@string/listening_overlay"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- Full-width MIC button -->
         <Button
-            android:id="@+id/btnApply"
+            android:id="@+id/btnMic"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/btn_apply"
+            android:drawableStart="@drawable/ic_mic"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical|center_horizontal"
+            android:text="@string/btn_mic"
             android:layout_marginHorizontal="16dp"
             android:layout_marginBottom="8dp" />
 

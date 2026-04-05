@@ -40,7 +40,9 @@ public class MainActivity extends AppCompatActivity {
 
     private EditText editFoodName;
     private Button btnMic;
-    private Button btnApply;
+    private ImageButton btnClearFood;
+    private ImageButton btnApplyInline;
+    private TextView textListeningOverlay;
     private SpeechRecognition speechRecognition;
 
     private ConnectionOverlayController connectionOverlay;
@@ -95,7 +97,9 @@ public class MainActivity extends AppCompatActivity {
         Button btnTare = findViewById(R.id.btnTare);
         btnMic = findViewById(R.id.btnMic);
         editFoodName = findViewById(R.id.editFoodName);
-        btnApply = findViewById(R.id.btnApply);
+        btnClearFood = findViewById(R.id.btnClearFood);
+        btnApplyInline = findViewById(R.id.btnApplyInline);
+        textListeningOverlay = findViewById(R.id.textListeningOverlay);
         RecyclerView logRecycler = findViewById(R.id.logRecycler);
 
         calibrationOverlay = findViewById(R.id.calibrationOverlay);
@@ -161,7 +165,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        btnApply.setOnClickListener(v -> {
+        btnClearFood.setOnClickListener(v -> editFoodName.setText(""));
+
+        btnApplyInline.setOnClickListener(v -> {
             String food = editFoodName.getText().toString().trim();
             if (applyLogEntry(food)) {
                 editFoodName.setText("");
@@ -222,23 +228,24 @@ public class MainActivity extends AppCompatActivity {
 
     private void setListeningState() {
         btnMic.setText(R.string.btn_cancel);
-        btnApply.setText(R.string.btn_listening);
         refreshApplyButtonState();
     }
 
     private void setIdleState() {
         btnMic.setText(R.string.btn_mic);
-        btnApply.setText(R.string.btn_apply);
         refreshApplyButtonState();
     }
 
     private void refreshApplyButtonState() {
-        if (speechRecognition != null && speechRecognition.isListening()) {
-            btnApply.setEnabled(false);
-            return;
-        }
+        boolean isListening = speechRecognition != null && speechRecognition.isListening();
         String food = editFoodName.getText().toString().trim();
-        btnApply.setEnabled(!food.isEmpty());
+        boolean hasFood = !food.isEmpty();
+
+        int actionsVisibility = hasFood ? View.VISIBLE : View.GONE;
+        btnClearFood.setVisibility(actionsVisibility);
+        btnApplyInline.setVisibility(actionsVisibility);
+        btnApplyInline.setEnabled(hasFood && !isListening);
+        textListeningOverlay.setVisibility(isListening ? View.VISIBLE : View.GONE);
     }
 
     // --- Calibration ---

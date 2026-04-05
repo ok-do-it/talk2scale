@@ -65,16 +65,37 @@ public class ScaleViewModel extends ViewModel {
         mockTransport.start();
     }
 
-    public LiveData<WeightReading> getWeightData() { return weightData; }
-    public LiveData<Integer> getConnectionState() { return connectionState; }
-    public LiveData<List<LogEntry>> getLogEntries() { return logEntries; }
-    public LiveData<Boolean> getShowConnectionOverlay() { return showConnectionOverlay; }
-    public LiveData<Boolean> getMockControlsEnabled() { return mockControlsEnabled; }
-    public LiveData<Boolean> getMockEnabled() { return mockEnabled; }
+    public LiveData<WeightReading> getWeightData() {
+        return weightData;
+    }
 
-    public int getLastStableWeight() { return lastStableWeight; }
+    public LiveData<Integer> getConnectionState() {
+        return connectionState;
+    }
 
-    public boolean isRealConnectionRequested() { return realConnectionRequested; }
+    public LiveData<List<LogEntry>> getLogEntries() {
+        return logEntries;
+    }
+
+    public LiveData<Boolean> getShowConnectionOverlay() {
+        return showConnectionOverlay;
+    }
+
+    public LiveData<Boolean> getMockControlsEnabled() {
+        return mockControlsEnabled;
+    }
+
+    public LiveData<Boolean> getMockEnabled() {
+        return mockEnabled;
+    }
+
+    public int getLastStableWeight() {
+        return lastStableWeight;
+    }
+
+    public boolean isRealConnectionRequested() {
+        return realConnectionRequested;
+    }
 
     public boolean isConnectionInProgress() {
         return realConnectionRequested && !isConnected();
