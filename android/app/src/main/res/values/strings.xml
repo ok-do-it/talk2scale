@@ -10,6 +10,7 @@
     <string name="btn_disconnect">Disconnect</string>
     <string name="btn_forget_all">Forget All Devices</string>
     <string name="btn_close">Close</string>
+    <string name="cd_close_connection_overlay">Back</string>
 
     <!-- Main scale screen -->
     <string name="label_mock">Mock</string>

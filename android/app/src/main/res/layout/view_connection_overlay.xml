@@ -7,6 +7,19 @@
     android:clickable="true"
     android:focusable="true">
 
+    <ImageButton
+        android:id="@+id/connectionBtnClose"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/cd_close_connection_overlay"
+        android:padding="12dp"
+        android:src="@drawable/ic_back"
+        android:tint="?android:attr/textColorPrimary" />
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -53,10 +66,5 @@
             android:layout_height="wrap_content"
             android:text="@string/btn_forget_all" />
 
-        <Button
-            android:id="@+id/connectionBtnClose"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_close" />
     </LinearLayout>
 </FrameLayout>

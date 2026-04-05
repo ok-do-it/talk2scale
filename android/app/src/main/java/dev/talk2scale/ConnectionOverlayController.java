@@ -46,7 +46,8 @@ public class ConnectionOverlayController {
     private Button btnConnect;
     private Button btnDisconnect;
     private Button btnForgetAll;
-    private Button btnClose;
+    private View btnClose;
+    private boolean autoCloseOnConnected;
 
     public ConnectionOverlayController(
             AppCompatActivity activity,
@@ -85,6 +86,7 @@ public class ConnectionOverlayController {
             if (viewModel.isConnectionInProgress()) {
                 viewModel.cancelConnection();
             }
+            autoCloseOnConnected = false;
             viewModel.hideOverlay();
         });
     }
@@ -93,6 +95,10 @@ public class ConnectionOverlayController {
         viewModel.getConnectionState().observe(owner, state -> {
             if (state == BluetoothProfile.STATE_CONNECTED) {
                 setStatus(R.string.status_connected);
+                if (autoCloseOnConnected) {
+                    autoCloseOnConnected = false;
+                    viewModel.hideOverlay();
+                }
             } else if (viewModel.isRealConnectionRequested()) {
                 String mac = getStoredMac();
                 setStatus(mac != null ? R.string.status_reconnecting : R.string.status_searching);
@@ -106,13 +112,16 @@ public class ConnectionOverlayController {
     /** Show the overlay: just display status if already connected, otherwise start connecting. */
     public void show() {
         if (viewModel.isConnected()) {
+            autoCloseOnConnected = false;
             viewModel.showOverlay();
         } else {
+            autoCloseOnConnected = true;
             startConnectionFlow();
         }
     }
 
     public void startConnectionFlow() {
+        autoCloseOnConnected = true;
         viewModel.showOverlay();
         viewModel.prepareForRealConnection();
         if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT)
@@ -148,6 +157,9 @@ public class ConnectionOverlayController {
     public void setVisible(boolean visible) {
         if (root == null) return;
         root.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (!visible) {
+            autoCloseOnConnected = false;
+        }
     }
 
     public void setStatus(int resId) {
