@@ -40,11 +40,12 @@ Existing `foods.json` strings map here directly — each becomes a `FoodName` wi
 
 ### `FoodItem`
 
-The canonical food entity, holding nutritional composition per 100g via a junction table.
+The canonical food entity, holding nutritional composition per 100g via a junction table. Compound structure TBD
 
 | Field       | Type             | Notes              |
 |-------------|------------------|--------------------|
 | `id`        | BIGINT (PK)      |                    |
+| `type`      | Enum (atomic, compound/recipie)| descriminator|
 | `names`     | FoodName[]       | One-to-many        |
 | `nutrients` | FoodNutrient[]   | Per-100g values    |
 
