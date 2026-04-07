@@ -12,16 +12,29 @@
             android:id="@+id/action_home_to_scale"
             app:destination="@id/scaleFragment" />
         <action
-            android:id="@+id/action_home_to_scale_connect"
-            app:destination="@id/scaleFragment" />
+            android:id="@+id/action_home_to_connection"
+            app:destination="@id/connectionFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/scaleFragment"
         android:name="dev.talk2scale.ScaleFragment"
         android:label="Scale">
+        <action
+            android:id="@+id/action_scale_to_connection"
+            app:destination="@id/connectionFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/connectionFragment"
+        android:name="dev.talk2scale.ConnectionFragment"
+        android:label="Connection">
         <argument
-            android:name="autoOpenConnection"
+            android:name="caller"
+            android:defaultValue="scale"
+            app:argType="string" />
+        <argument
+            android:name="autoStartConnect"
             android:defaultValue="false"
             app:argType="boolean" />
     </fragment>

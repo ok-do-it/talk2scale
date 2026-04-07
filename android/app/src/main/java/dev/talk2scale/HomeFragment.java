@@ -51,9 +51,10 @@ public class HomeFragment extends Fragment {
         btnUser.setOnClickListener(v -> showUserIdDialog());
         btnConnectTop.setOnClickListener(v -> {
             Bundle args = new Bundle();
-            args.putBoolean(ScaleFragment.ARG_AUTO_OPEN_CONNECTION, true);
+            args.putString(ConnectionFragment.ARG_CALLER, ConnectionFragment.CALLER_HOME);
+            args.putBoolean(ConnectionFragment.ARG_AUTO_START_CONNECT, true);
             Navigation.findNavController(v)
-                    .navigate(R.id.action_home_to_scale_connect, args);
+                    .navigate(R.id.action_home_to_connection, args);
         });
         btnMenu.setOnClickListener(v -> { });
         view.findViewById(R.id.btnScaleMeal)
