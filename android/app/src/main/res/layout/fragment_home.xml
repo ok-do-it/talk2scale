@@ -134,9 +134,9 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             app:icon="@drawable/ic_scale"
-            app:iconGravity="textStart"
+            app:iconGravity="textEnd"
             app:iconPadding="8dp"
-            android:text="Scale Meal/Snack" />
+            android:text="+ Meal" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnDictate"

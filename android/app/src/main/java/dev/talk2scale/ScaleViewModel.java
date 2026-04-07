@@ -8,8 +8,11 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.UUID;
 
@@ -23,6 +26,7 @@ public class ScaleViewModel extends ViewModel {
     private final MutableLiveData<Integer> connectionState =
             new MutableLiveData<>(BluetoothProfile.STATE_DISCONNECTED);
     private final MutableLiveData<List<LogEntry>> logEntries = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<List<MealEntry>> mealEntries = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<Boolean> showConnectionOverlay = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> mockControlsEnabled = new MutableLiveData<>(true);
     private final MutableLiveData<Boolean> mockEnabled = new MutableLiveData<>(true);
@@ -75,6 +79,10 @@ public class ScaleViewModel extends ViewModel {
 
     public LiveData<List<LogEntry>> getLogEntries() {
         return logEntries;
+    }
+
+    public LiveData<List<MealEntry>> getMealEntries() {
+        return mealEntries;
     }
 
     public LiveData<Boolean> getShowConnectionOverlay() {
@@ -139,6 +147,35 @@ public class ScaleViewModel extends ViewModel {
         List<LogEntry> updated = new ArrayList<>(current);
         updated.set(index, new LogEntry(foodName, existing.weightGrams, existing.calories));
         logEntries.setValue(updated);
+        return true;
+    }
+
+    public void clearLogEntries() {
+        logEntries.setValue(new ArrayList<>());
+    }
+
+    public boolean submitBreakfastMeal() {
+        List<LogEntry> currentLogs = logEntries.getValue();
+        if (currentLogs == null || currentLogs.isEmpty()) {
+            return false;
+        }
+
+        int totalCalories = 0;
+        for (LogEntry entry : currentLogs) {
+            totalCalories += entry.calories;
+        }
+
+        String now = new SimpleDateFormat("h:mm a", Locale.getDefault()).format(new Date());
+        MealEntry submitted = new MealEntry("Breakfast", now, totalCalories);
+
+        List<MealEntry> currentMeals = mealEntries.getValue();
+        if (currentMeals == null) currentMeals = new ArrayList<>();
+        List<MealEntry> updatedMeals = new ArrayList<>();
+        updatedMeals.add(submitted);
+        updatedMeals.addAll(currentMeals);
+        mealEntries.setValue(updatedMeals);
+
+        clearLogEntries();
         return true;
     }
 

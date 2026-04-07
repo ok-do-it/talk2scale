@@ -14,9 +14,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.ArrayList;
 
 public class HomeFragment extends Fragment {
 
@@ -24,6 +27,8 @@ public class HomeFragment extends Fragment {
     private static final String KEY_USER_ID = "user_id";
 
     private TextView textUserName;
+    private MealAdapter mealAdapter;
+    private ScaleViewModel viewModel;
 
     public HomeFragment() {
         super(R.layout.fragment_home);
@@ -46,9 +51,13 @@ public class HomeFragment extends Fragment {
         ImageButton btnConnectTop = view.findViewById(R.id.btnConnectTop);
         ImageButton btnMenu = view.findViewById(R.id.btnMenu);
         RecyclerView mealsRecycler = view.findViewById(R.id.mealsRecycler);
+        viewModel = new ViewModelProvider(requireActivity()).get(ScaleViewModel.class);
 
         mealsRecycler.setLayoutManager(new LinearLayoutManager(requireContext()));
-        mealsRecycler.setAdapter(new MealAdapter());
+        mealAdapter = new MealAdapter();
+        mealsRecycler.setAdapter(mealAdapter);
+        viewModel.getMealEntries().observe(getViewLifecycleOwner(), entries ->
+                mealAdapter.setItems(entries == null ? new ArrayList<>() : entries));
 
         btnUser.setOnClickListener(v -> showUserIdDialog());
         btnConnectTop.setOnClickListener(v -> {

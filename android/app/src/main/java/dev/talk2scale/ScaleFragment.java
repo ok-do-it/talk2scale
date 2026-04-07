@@ -44,6 +44,8 @@ public class ScaleFragment extends Fragment {
 
     private EditText editFoodName;
     private Button btnMic;
+    private Button btnSecondaryAction;
+    private Button btnSubmitMeal;
     private ImageButton btnClearFood;
     private ImageButton btnApplyInline;
     private TextView textListeningOverlay;
@@ -98,6 +100,8 @@ public class ScaleFragment extends Fragment {
         ImageButton btnCalibrateTop = scaleRoot.findViewById(R.id.btnCalibrateTop);
         Button btnTare = scaleRoot.findViewById(R.id.btnTare);
         btnMic = scaleRoot.findViewById(R.id.btnMic);
+        btnSecondaryAction = scaleRoot.findViewById(R.id.btnSecondaryAction);
+        btnSubmitMeal = scaleRoot.findViewById(R.id.btnSubmitMeal);
         editFoodName = scaleRoot.findViewById(R.id.editFoodName);
         btnClearFood = scaleRoot.findViewById(R.id.btnClearFood);
         btnApplyInline = scaleRoot.findViewById(R.id.btnApplyInline);
@@ -162,6 +166,19 @@ public class ScaleFragment extends Fragment {
         });
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
+        btnSecondaryAction.setOnClickListener(v -> {
+            if (logEntries.isEmpty()) {
+                Navigation.findNavController(v).navigateUp();
+                return;
+            }
+            clearLogItemEditing(true);
+            viewModel.clearLogEntries();
+        });
+        btnSubmitMeal.setOnClickListener(v -> {
+            if (!viewModel.submitBreakfastMeal()) return;
+            clearLogItemEditing(true);
+            Navigation.findNavController(v).navigateUp();
+        });
 
         btnMic.setOnClickListener(v -> {
             if (speechRecognition.isListening()) {
@@ -227,6 +244,7 @@ public class ScaleFragment extends Fragment {
                 logEntries.addAll(entries);
             }
             logAdapter.setItems(logEntries);
+            updateBottomActions();
 
             if (!isEditingLogEntry()) return;
 
@@ -281,6 +299,12 @@ public class ScaleFragment extends Fragment {
         btnApplyInline.setVisibility(actionsVisibility);
         btnApplyInline.setEnabled(hasFood && !isListening);
         textListeningOverlay.setVisibility(isListening ? View.VISIBLE : View.GONE);
+    }
+
+    private void updateBottomActions() {
+        boolean hasEntries = !logEntries.isEmpty();
+        btnSecondaryAction.setText(hasEntries ? "Discard" : "Back");
+        btnSubmitMeal.setEnabled(hasEntries);
     }
 
     private boolean isEditingLogEntry() {
