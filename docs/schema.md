@@ -2,64 +2,51 @@
 
 ## Overview
 
-Five core entities: `Nutrient`, `FoodName`, `FoodItem`, `FoodNutrient` (junction), `Meal`, `LogEntry`.
+Core entities: `NutriNode` (the canonical component: nutrients, foods, recipes), `FoodName` (search aliases), `NutriEdge` (recursive composition junction), `Meal`, `LogEntry`.
 
 ---
 
 ## Entities
 
-### `Nutrient`
+### `NutriNode`
 
-A type of nutritional value (calories, protein, fat, etc.).
+The canonical entity for anything with nutritional value or composition (Composite Pattern).
 
-| Field  | Type        | Notes                              |
-|--------|-------------|------------------------------------|
-| `id`   | BIGINT (PK) |                                    |
-| `name` | String      | e.g. `"Protein"`, `"Calories"`, `"Total Fat"` |
-| `unit` | String/Enum | e.g. `"kcal"`, `"g"`, `"mg"`      |
+| Field  | Type        | Notes                                      |
+|--------|-------------|--------------------------------------------|
+| `id`   | BIGINT (PK) |                                            |
+| `type` | Enum        | `nutrient`, `whole_food`, `recipe`         |
+| `unit` | String      | e.g. `"g"` for foods, `"kcal"` for nutrients|
 
-Seeded from a standard set (USDA macro/micro nutrients).
+*(Note: `FoodName` points here, so nutrients can have aliases too, like "Vit C" -> "Vitamin C")*
+
+---
+
+### `NutriEdge` (Self-referencing junction)
+
+Defines what makes up a `NutriNode`. Creates a directed acyclic graph (DAG) of components.
+
+| Field      | Type        | Notes                                              |
+|------------|-------------|----------------------------------------------------|
+| `parentId` | BIGINT (FK) | References `NutriNode.id` (Container/recipe/food)  |
+| `childId`  | BIGINT (FK) | References `NutriNode.id` (Ingredient/nutrient)    |
+| `amount`   | Float       | Amount of child per 100 units of parent            |
+
+Composite primary key: `(parentId, childId)`.
 
 ---
 
 ### `FoodName`
 
-A searchable name or alias for a food item. Separating names from `FoodItem` allows multiple names per food (synonyms, locale variants, brand names).
+A searchable name or alias for a node. Separating names allows multiple aliases per item.
 
 | Field        | Type               | Notes                                      |
 |--------------|--------------------|--------------------------------------------|
 | `id`         | BIGINT (PK)        |                                            |
-| `foodItemId` | BIGINT (FK → FoodItem) |                                        |
-| `name`       | String             | e.g. `"Bananas, Raw"` or `"Banana"`        |
+| `nodeId`     | BIGINT (FK)        | References `NutriNode.id`                  |
+| `name`       | String             | e.g. `"Bananas, Raw"` or `"Vitamin C"`     |
 | `locale`     | String?            | Optional: `"en"`, `"de"`                   |
 | `isPrimary`  | Boolean            | True for canonical display name            |
-
-Existing `foods.json` strings map here directly — each becomes a `FoodName` with `isPrimary=true`.
-
----
-
-### `FoodItem`
-
-The canonical food entity, holding nutritional composition per 100g via a junction table. Compound structure TBD
-
-| Field       | Type             | Notes              |
-|-------------|------------------|--------------------|
-| `id`        | BIGINT (PK)      |                    |
-| `type`      | Enum (atomic, compound/recipie)| descriminator|
-| `names`     | FoodName[]       | One-to-many        |
-| `nutrients` | FoodNutrient[]   | Per-100g values    |
-
----
-
-### `FoodItemNutrient` (junction: FoodItem ↔ Nutrient)
-
-| Field           | Type      | Notes                          |
-|-----------------|-----------|--------------------------------|
-| `foodItemId`    | BIGINT (FK) | References FoodItem          |
-| `nutrientId`    | BIGINT (FK) | References Nutrient          |
-| `amountPer100g` | Float     | Nutrient amount per 100g of food |
-
-Composite primary key: `(foodItemId, nutrientId)`.
 
 ---
 
@@ -73,33 +60,56 @@ A timestamped collection of log entries — represents one eating occasion.
 | `userId`     | String       | User identifier (stored locally on device)     |
 | `name`       | String?      | Optional label, e.g. `"Lunch"`                 |
 | `loggedAt`   | DateTime     | When the meal was recorded                     |
-| `logEntries` | LogEntry[]   | One-to-many                                    |
 
 ---
 
 ### `LogEntry`
 
-A single food+weight measurement within a meal. Nutrition is computed dynamically from `FoodItem × weightGrams / 100`.
+A single food/recipe + weight measurement within a meal.
 
 | Field         | Type               | Notes                                              |
 |---------------|--------------------|----------------------------------------------------|
 | `id`          | BIGINT (PK)        |                                                    |
 | `mealId`      | BIGINT (FK → Meal) |                                                    |
-| `foodItemId`  | BIGINT? (FK → FoodItem) | Nullable until food is resolved/confirmed     |
+| `nodeId`      | BIGINT? (FK)       | References `NutriNode.id`. Nullable until resolved |
 | `foodNameRaw` | String             | Original voice/text input from user                |
 | `weightGrams` | Int                | Weight from BLE scale                              |
 | `loggedAt`    | DateTime           | Timestamp of this log entry                        |
 
-**Computed (not stored):**
-- `calories` = `FoodNutrient(calories).amountPer100g × weightGrams / 100`
-- Any other nutrient totals derived the same way
+---
+
+## Example: Fetch All Nutrients (Recursive CTE)
+
+To calculate total nutrients for a logged item (e.g., a complex recipe), we traverse the graph down to the leaf nodes (`type = 'nutrient'`).
+
+```sql
+WITH RECURSIVE RecipeTree AS (
+    -- Base case: The logged item (e.g. 250g of a Smoothie)
+    SELECT id, type, 250.0 AS cumulative_amount 
+    FROM NutriNode WHERE id = [LOGGED_NODE_ID]
+    
+    UNION ALL
+    
+    -- Recursive step: traverse children, multiply amounts (assuming per-100 units relations)
+    SELECT child.id, child.type, (parent.cumulative_amount * edge.amount / 100.0)
+    FROM RecipeTree parent
+    JOIN NutriEdge edge ON parent.id = edge.parentId
+    JOIN NutriNode child ON edge.childId = child.id
+)
+-- Aggregate final leaf nutrients
+SELECT n.id, n.unit, SUM(rt.cumulative_amount) AS total_amount
+FROM RecipeTree rt
+JOIN NutriNode n ON rt.id = n.id
+WHERE rt.type = 'nutrient'
+GROUP BY n.id, n.unit;
+```
 
 ---
 
 ## Key Design Decisions
 
-1. **FoodName is separate from FoodItem** — allows `"Banana"`, `"Bananas, Raw"`, `"Плод банана"` to all resolve to the same nutritional item.
-2. **FoodItemId on LogEntry is nullable** — voice input may not immediately resolve; allows optimistic logging and later confirmation.
-3. **Nutrition is not stored on LogEntry** — always computed from FoodItem data to keep truth in one place. A snapshot column (`nutrientsSnapshot: Json?`) can be added later for historical accuracy if food data changes.
-4. **Meal groups LogEntries** — enables day-view aggregation (sum calories across meals) for day summary/chart views.
+1. **Composite Pattern (NutriNode + NutriEdge)** — Infinite nesting. Nutrients, whole foods, and complex recipes all use the same recursive math.
+2. **FoodName is separate from NutriNode** — allows multiple aliases to resolve to the same node.
+3. **LogEntry nodeId is nullable** — voice input may not immediately resolve; allows optimistic logging and later confirmation.
+4. **Nutrition is computed, not stored** — recursive queries keep the truth in one place. A snapshot column can be added later for historical accuracy if food data changes.
 5. **userId is a plain String** — matches current Android plan (just a text input, no auth system yet).
