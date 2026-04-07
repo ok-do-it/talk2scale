@@ -27,7 +27,7 @@ public class ScaleViewModel extends ViewModel {
     private final MutableLiveData<Boolean> mockControlsEnabled = new MutableLiveData<>(true);
     private final MutableLiveData<Boolean> mockEnabled = new MutableLiveData<>(true);
 
-    private int lastStableWeight = 0;
+    private int lastWeight = 0;
     private final int[] recentWeights = new int[STABLE_WINDOW];
     private int recentWeightCount = 0;
     private final Random random = new Random();
@@ -89,8 +89,8 @@ public class ScaleViewModel extends ViewModel {
         return mockEnabled;
     }
 
-    public int getLastStableWeight() {
-        return lastStableWeight;
+    public int getLastWeight() {
+        return lastWeight;
     }
 
     public boolean isRealConnectionRequested() {
@@ -208,9 +208,7 @@ public class ScaleViewModel extends ViewModel {
 
     private void publishWeight(int weight, boolean forceStable) {
         boolean stable = forceStable || isStable(weight);
-        if (stable) {
-            lastStableWeight = weight;
-        }
+        lastWeight = weight;
         weightData.postValue(new WeightReading(weight, stable));
     }
 

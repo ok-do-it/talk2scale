@@ -1,5 +1,6 @@
 package dev.talk2scale;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
@@ -35,6 +36,7 @@ public class HomeFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_home, container, false);
     }
 
+    @SuppressLint("DefaultLocale")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -64,8 +66,8 @@ public class HomeFragment extends Fragment {
         int userId = requireActivity()
                 .getSharedPreferences(PREFS_NAME, androidx.appcompat.app.AppCompatActivity.MODE_PRIVATE)
                 .getInt(KEY_USER_ID, 0);
-        if (userId != 0) {
-            textUserName.setText(String.valueOf(userId));
+        if (userId > 0) {
+            textUserName.setText(String.format("#%d", userId));
         }
     }
 

@@ -133,7 +133,7 @@ public class ScaleFragment extends Fragment {
                 String food = text.trim();
                 if (isEditingLogEntry() && applySelectedLogEntryRename(food)) {
                     editFoodName.setText("");
-                } else if (viewModel.getLastStableWeight() > 0 && applyLogEntry(food)) {
+                } else if (applyLogEntry(food)) {
                     editFoodName.setText("");
                 }
             }
@@ -366,9 +366,9 @@ public class ScaleFragment extends Fragment {
             Toast.makeText(activity, "Enter a food name first", Toast.LENGTH_SHORT).show();
             return false;
         }
-        int weight = viewModel.getLastStableWeight();
+        int weight = viewModel.getLastWeight();
         if (weight == 0) {
-            Toast.makeText(activity, "No stable weight reading yet", Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "No weight reading yet", Toast.LENGTH_SHORT).show();
             return false;
         }
         viewModel.addLogEntry(food, weight);
