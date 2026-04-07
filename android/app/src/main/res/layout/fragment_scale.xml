@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <include layout="@layout/view_scale_screen" />
+
+    <FrameLayout
+        android:id="@+id/calibrationOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btnCloseCalibration"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close calibration"
+            android:src="@android:drawable/ic_menu_close_clear_cancel" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:gravity="center"
+                android:text="Calibrate Scale"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="1. Remove everything from the scale and press Set Zero."
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnSetZero"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="32dp"
+                android:text="SET ZERO" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="2. Place a known weight on the scale, enter it in grams below, and press Set Calibration Weight."
+                android:textSize="16sp" />
+
+            <EditText
+                android:id="@+id/editCalibGrams"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:hint="Weight in grams"
+                android:inputType="number" />
+
+            <Button
+                android:id="@+id/btnSetCalibWeight"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="SET CALIBRATION WEIGHT" />
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>
