@@ -41,6 +41,7 @@ public class HomeFragment extends Fragment {
 
         ImageButton btnUser = view.findViewById(R.id.btnUser);
         textUserName = view.findViewById(R.id.textUserName);
+        ImageButton btnConnectTop = view.findViewById(R.id.btnConnectTop);
         ImageButton btnMenu = view.findViewById(R.id.btnMenu);
         RecyclerView mealsRecycler = view.findViewById(R.id.mealsRecycler);
 
@@ -48,6 +49,12 @@ public class HomeFragment extends Fragment {
         mealsRecycler.setAdapter(new MealAdapter());
 
         btnUser.setOnClickListener(v -> showUserIdDialog());
+        btnConnectTop.setOnClickListener(v -> {
+            Bundle args = new Bundle();
+            args.putBoolean(ScaleFragment.ARG_AUTO_OPEN_CONNECTION, true);
+            Navigation.findNavController(v)
+                    .navigate(R.id.action_home_to_scale_connect, args);
+        });
         btnMenu.setOnClickListener(v -> { });
         view.findViewById(R.id.btnScaleMeal)
                 .setOnClickListener(v -> Navigation.findNavController(v)

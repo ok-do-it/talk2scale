@@ -35,6 +35,15 @@
             android:layout_weight="1" />
 
         <ImageButton
+            android:id="@+id/btnConnectTop"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Connect to scale"
+            android:src="@android:drawable/stat_sys_data_bluetooth" />
+
+        <ImageButton
             android:id="@+id/btnMenu"
             android:layout_width="48dp"
             android:layout_height="48dp"

@@ -5,6 +5,10 @@
 
     <include layout="@layout/view_scale_screen" />
 
+    <include
+        layout="@layout/view_connection_overlay"
+        android:visibility="gone" />
+
     <FrameLayout
         android:id="@+id/calibrationOverlay"
         android:layout_width="match_parent"

@@ -15,8 +15,4 @@
         app:defaultNavHost="true"
         app:navGraph="@navigation/nav_graph" />
 
-    <include
-        layout="@layout/view_connection_overlay"
-        android:visibility="gone" />
-
 </FrameLayout>

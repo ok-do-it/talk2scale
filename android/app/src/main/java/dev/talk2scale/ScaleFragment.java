@@ -1,8 +1,21 @@
 package dev.talk2scale;
 
 import android.Manifest;
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
+import android.companion.AssociationRequest;
+import android.companion.BluetoothLeDeviceFilter;
+import android.companion.CompanionDeviceManager;
+import android.content.Intent;
+import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.ParcelUuid;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,10 +24,13 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,6 +38,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -30,9 +47,17 @@ import java.util.List;
 
 public class ScaleFragment extends Fragment {
 
+    private static final String TAG = "ScaleFragment";
+    private static final String PREFS_NAME = "talk2scale_prefs";
+    private static final String KEY_MAC = "scale_mac";
+    public static final String ARG_AUTO_OPEN_CONNECTION = "autoOpenConnection";
+
     private ScaleViewModel viewModel;
     private AppCompatActivity activity;
+
     private ActivityResultLauncher<String> micPermLauncher;
+    private ActivityResultLauncher<String> bluetoothPermLauncher;
+    private ActivityResultLauncher<IntentSenderRequest> cdmLauncher;
 
     private FrameLayout calibrationOverlay;
     private EditText editCalibGrams;
@@ -46,6 +71,16 @@ public class ScaleFragment extends Fragment {
     private ImageButton btnApplyInline;
     private TextView textListeningOverlay;
     private SpeechRecognition speechRecognition;
+
+    private FrameLayout connectionOverlay;
+    private TextView connectionStatus;
+    private ProgressBar connectionSpinner;
+    private Button connectionBtnConnect;
+    private Button connectionBtnDisconnect;
+    private Button connectionBtnForgetAll;
+    private Button connectionBtnClose;
+    private boolean autoCloseOnConnected;
+    private boolean returnToCallerOnOverlayBack;
 
     private final List<LogEntry> logEntries = new ArrayList<>();
     private int selectedLogIndex = RecyclerView.NO_POSITION;
@@ -68,6 +103,12 @@ public class ScaleFragment extends Fragment {
         micPermLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
                 this::onMicPermissionResult);
+        bluetoothPermLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                this::onBluetoothPermissionResult);
+        cdmLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartIntentSenderForResult(),
+                result -> onCdmResult(result.getResultCode(), result.getData()));
     }
 
     @Override
@@ -76,7 +117,13 @@ public class ScaleFragment extends Fragment {
         activity = (AppCompatActivity) requireActivity();
         viewModel = new ViewModelProvider(requireActivity()).get(ScaleViewModel.class);
         bind(view);
+        registerBackHandler();
         observeViewModel();
+        boolean autoOpenConnection = getArguments() != null
+                && getArguments().getBoolean(ARG_AUTO_OPEN_CONNECTION, false);
+        if (savedInstanceState == null && autoOpenConnection) {
+            showConnectionOverlay(true);
+        }
     }
 
     @Override
@@ -107,6 +154,14 @@ public class ScaleFragment extends Fragment {
         ImageButton btnCloseCalibration = scaleRoot.findViewById(R.id.btnCloseCalibration);
         Button btnSetZero = scaleRoot.findViewById(R.id.btnSetZero);
         Button btnSetCalibWeight = scaleRoot.findViewById(R.id.btnSetCalibWeight);
+
+        connectionOverlay = scaleRoot.findViewById(R.id.connectionOverlay);
+        connectionStatus = scaleRoot.findViewById(R.id.connectionStatus);
+        connectionSpinner = scaleRoot.findViewById(R.id.connectionSpinner);
+        connectionBtnConnect = scaleRoot.findViewById(R.id.connectionBtnConnect);
+        connectionBtnDisconnect = scaleRoot.findViewById(R.id.connectionBtnDisconnect);
+        connectionBtnForgetAll = scaleRoot.findViewById(R.id.connectionBtnForgetAll);
+        connectionBtnClose = scaleRoot.findViewById(R.id.connectionBtnClose);
 
         speechRecognition = new SpeechRecognition(activity, new SpeechRecognition.Callback() {
             @Override
@@ -152,11 +207,7 @@ public class ScaleFragment extends Fragment {
         checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
                 viewModel.setMockEnabled(isChecked));
         weightDisplay.setOnClickListener(v -> viewModel.addMockWeight());
-        btnConnectTop.setOnClickListener(v -> {
-            if (activity instanceof MainActivity) {
-                ((MainActivity) activity).showConnectionOverlay();
-            }
-        });
+        btnConnectTop.setOnClickListener(v -> showConnectionOverlay(false));
         btnCalibrateTop.setOnClickListener(v -> showCalibrationOverlay());
         btnTare.setOnClickListener(v -> viewModel.sendTare());
 
@@ -201,6 +252,23 @@ public class ScaleFragment extends Fragment {
         btnSetZero.setOnClickListener(v -> handleSetZero());
         btnSetCalibWeight.setOnClickListener(v -> handleSetCalibWeight());
 
+        connectionBtnConnect.setOnClickListener(v -> startConnectionFlow());
+        connectionBtnDisconnect.setOnClickListener(v -> {
+            viewModel.disconnect();
+            viewModel.setMockEnabled(true);
+            viewModel.hideOverlay();
+        });
+        connectionBtnForgetAll.setOnClickListener(v -> {
+            clearStoredMac();
+            Toast.makeText(activity, "Stored device forgotten", Toast.LENGTH_SHORT).show();
+        });
+        connectionBtnClose.setOnClickListener(v -> {
+            handleConnectionOverlayBack();
+        });
+
+        Integer state = viewModel.getConnectionState().getValue();
+        updateConnectionButtonStates(state == null ? BluetoothProfile.STATE_DISCONNECTED : state);
+
         logAdapter = new LogAdapter();
         logAdapter.setOnItemClickListener(this::selectLogItemForEditing);
         logRecycler.setLayoutManager(new LinearLayoutManager(activity));
@@ -239,6 +307,24 @@ public class ScaleFragment extends Fragment {
 
             logAdapter.setSelectedPosition(selectedLogIndex);
         });
+
+        viewModel.getConnectionState().observe(getViewLifecycleOwner(), state -> {
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                setConnectionStatus("Connected", false);
+                if (autoCloseOnConnected) {
+                    autoCloseOnConnected = false;
+                    viewModel.hideOverlay();
+                }
+            } else if (viewModel.isRealConnectionRequested()) {
+                String mac = getStoredMac();
+                setConnectionStatus(mac != null ? "Reconnecting..." : "Searching for scale...", true);
+            }
+            updateConnectionButtonStates(state);
+        });
+        viewModel.getShowConnectionOverlay().observe(
+                getViewLifecycleOwner(),
+                show -> setConnectionOverlayVisible(Boolean.TRUE.equals(show))
+        );
     }
 
     private void onMicPermissionResult(boolean granted) {
@@ -256,6 +342,196 @@ public class ScaleFragment extends Fragment {
             return;
         }
         speechRecognition.startListening();
+    }
+
+    private void showConnectionOverlay(boolean returnToCaller) {
+        returnToCallerOnOverlayBack = returnToCaller;
+        if (viewModel.isConnected()) {
+            autoCloseOnConnected = false;
+            viewModel.showOverlay();
+        } else {
+            autoCloseOnConnected = true;
+            startConnectionFlow();
+        }
+    }
+
+    private void startConnectionFlow() {
+        autoCloseOnConnected = true;
+        viewModel.showOverlay();
+        viewModel.prepareForRealConnection();
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            bluetoothPermLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT);
+            return;
+        }
+        beginConnection();
+    }
+
+    private void onBluetoothPermissionResult(boolean granted) {
+        if (granted) {
+            beginConnection();
+        } else {
+            setConnectionStatus("Bluetooth permission denied", false);
+        }
+    }
+
+    private void onCdmResult(int resultCode, Intent data) {
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            return;
+        }
+        android.bluetooth.le.ScanResult scanResult = data.getParcelableExtra(
+                CompanionDeviceManager.EXTRA_DEVICE, android.bluetooth.le.ScanResult.class);
+        if (scanResult == null) {
+            return;
+        }
+        BluetoothDevice device = scanResult.getDevice();
+        viewModel.connectToRealDevice(activity, device, false);
+        storeMac(device.getAddress());
+    }
+
+    private void setConnectionOverlayVisible(boolean visible) {
+        if (connectionOverlay == null) return;
+        connectionOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (!visible) {
+            autoCloseOnConnected = false;
+            returnToCallerOnOverlayBack = false;
+        }
+    }
+
+    private void registerBackHandler() {
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(),
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (connectionOverlay != null
+                                && connectionOverlay.getVisibility() == View.VISIBLE) {
+                            handleConnectionOverlayBack();
+                            return;
+                        }
+                        setEnabled(false);
+                        requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                    }
+                }
+        );
+    }
+
+    private void handleConnectionOverlayBack() {
+        if (viewModel.isConnectionInProgress()) {
+            viewModel.cancelConnection();
+        }
+        boolean returnToCaller = returnToCallerOnOverlayBack;
+        autoCloseOnConnected = false;
+        viewModel.hideOverlay();
+        if (returnToCaller && isAdded()) {
+            Navigation.findNavController(requireView()).popBackStack();
+        }
+    }
+
+    private void showConnectionSpinner(boolean visible) {
+        if (connectionSpinner == null) return;
+        connectionSpinner.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void beginConnection() {
+        String mac = getStoredMac();
+        if (mac != null) {
+            setConnectionStatus("Reconnecting...", true);
+            BluetoothManager bm = activity.getSystemService(BluetoothManager.class);
+            BluetoothAdapter adapter = bm == null ? null : bm.getAdapter();
+            if (adapter != null) {
+                BluetoothDevice device = adapter.getRemoteDevice(mac);
+                viewModel.connectToRealDevice(activity, device, true);
+            }
+        } else {
+            setConnectionStatus("Searching for scale...", true);
+            startAssociation();
+        }
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void startAssociation() {
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            bluetoothPermLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT);
+            return;
+        }
+
+        BluetoothLeDeviceFilter filter = new BluetoothLeDeviceFilter.Builder()
+                .setScanFilter(new android.bluetooth.le.ScanFilter.Builder()
+                        .setServiceUuid(new ParcelUuid(ScaleViewModel.SERVICE_UUID))
+                        .build())
+                .build();
+
+        AssociationRequest request = new AssociationRequest.Builder()
+                .addDeviceFilter(filter)
+                .setSingleDevice(true)
+                .build();
+
+        CompanionDeviceManager cdm = activity.getSystemService(CompanionDeviceManager.class);
+        if (cdm == null) {
+            setConnectionStatus("CompanionDeviceManager unavailable", false);
+            return;
+        }
+        cdm.associate(request, new CompanionDeviceManager.Callback() {
+            @Override
+            public void onDeviceFound(IntentSender chooserLauncher) {
+                cdmLauncher.launch(new IntentSenderRequest.Builder(chooserLauncher).build());
+            }
+
+            @Override
+            public void onFailure(CharSequence error) {
+                Log.e(TAG, "CDM associate failed: " + error);
+                activity.runOnUiThread(() -> setConnectionStatus(error, false));
+            }
+        }, null);
+    }
+
+    private String getStoredMac() {
+        SharedPreferences prefs =
+                activity.getSharedPreferences(PREFS_NAME, AppCompatActivity.MODE_PRIVATE);
+        return prefs.getString(KEY_MAC, null);
+    }
+
+    private void storeMac(String mac) {
+        activity.getSharedPreferences(PREFS_NAME, AppCompatActivity.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_MAC, mac)
+                .apply();
+    }
+
+    private void clearStoredMac() {
+        activity.getSharedPreferences(PREFS_NAME, AppCompatActivity.MODE_PRIVATE)
+                .edit()
+                .remove(KEY_MAC)
+                .apply();
+    }
+
+    private void updateConnectionButtonStates(int bleState) {
+        boolean connected = bleState == BluetoothProfile.STATE_CONNECTED;
+        boolean inProgress = viewModel.isConnectionInProgress();
+
+        connectionBtnConnect.setEnabled(!connected && !inProgress);
+        connectionBtnDisconnect.setEnabled(connected);
+        connectionBtnForgetAll.setEnabled(!inProgress);
+        updateCloseButtonCaption(inProgress);
+    }
+
+    private void updateCloseButtonCaption(boolean connecting) {
+        if (connectionBtnClose == null) return;
+        connectionBtnClose.setText(connecting ? "Cancel" : "Back");
+    }
+
+    private void setConnectionStatus(CharSequence statusText, boolean connecting) {
+        if (connectionStatus == null) return;
+        connectionStatus.setText(statusText);
+        applyConnectionStatusUi(connecting);
+    }
+
+    private void applyConnectionStatusUi(boolean connecting) {
+        showConnectionSpinner(connecting);
+        updateCloseButtonCaption(connecting);
     }
 
     private void setListeningState() {
