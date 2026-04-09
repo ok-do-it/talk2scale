@@ -71,3 +71,21 @@ const port = parseInt(process.env.PORT) || 8888;
 app.listen({ port }, () => {
   console.log(`ready on :${port}`);
 });
+
+/* in postgres:
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE foods (
+  id bigserial PRIMARY KEY,
+  name text NOT NULL,
+  embedding vector(384) -- use your model's dim
+);
+-- cosine index (for approximate fast search)
+CREATE INDEX foods_embedding_idx
+ON foods USING hnsw (embedding vector_cosine_ops);
+Then query:
+
+SELECT id, name, embedding <=> $1 AS distance
+FROM foods
+ORDER BY embedding <=> $1
+LIMIT 10;
+*/

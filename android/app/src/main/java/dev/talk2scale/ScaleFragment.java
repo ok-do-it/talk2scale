@@ -61,17 +61,14 @@ public class ScaleFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_scale, container, false);
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        micPermLauncher = registerForActivityResult(
-                new ActivityResultContracts.RequestPermission(),
-                this::onMicPermissionResult);
+        micPermLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), this::onMicPermissionResult);
     }
 
     @Override
@@ -144,19 +141,16 @@ public class ScaleFragment extends Fragment {
 
             @Override
             public void onNoMatchOrTimeout() {
-                Toast.makeText(activity, "Could not recognise speech - try again",
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "Could not recognise speech - try again", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onUnavailable() {
-                Toast.makeText(activity, "Speech recognition not available on this device",
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "Speech recognition not available on this device", Toast.LENGTH_SHORT).show();
             }
         });
 
-        checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) ->
-                viewModel.setMockEnabled(isChecked));
+        checkMockTop.setOnCheckedChangeListener((buttonView, isChecked) -> viewModel.setMockEnabled(isChecked));
         weightDisplay.setOnClickListener(v -> viewModel.addMockWeight());
         btnConnectTop.setOnClickListener(v -> {
             Bundle args = new Bundle();
@@ -199,25 +193,29 @@ public class ScaleFragment extends Fragment {
 
         btnApplyInline.setOnClickListener(v -> {
             String food = editFoodName.getText().toString().trim();
-            boolean applied = isEditingLogEntry()
-                    ? applySelectedLogEntryRename(food)
-                    : applyLogEntry(food);
+            boolean applied = isEditingLogEntry() ? applySelectedLogEntryRename(food) : applyLogEntry(food);
             if (applied) {
                 editFoodName.setText("");
             }
         });
 
         editFoodName.addTextChangedListener(new android.text.TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
                 refreshApplyButtonState();
             }
-            @Override public void afterTextChanged(android.text.Editable s) { }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+            }
         });
         refreshApplyButtonState();
 
-        btnCloseCalibration.setOnClickListener(v ->
-                calibrationOverlay.setVisibility(View.GONE));
+        btnCloseCalibration.setOnClickListener(v -> calibrationOverlay.setVisibility(View.GONE));
         btnSetZero.setOnClickListener(v -> handleSetZero());
         btnSetCalibWeight.setOnClickListener(v -> handleSetCalibWeight());
 
@@ -228,14 +226,13 @@ public class ScaleFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.getMockEnabled().observe(getViewLifecycleOwner(), enabled ->
-                checkMockTop.setChecked(Boolean.TRUE.equals(enabled)));
+        viewModel.getMockEnabled().observe(getViewLifecycleOwner(), enabled -> checkMockTop.setChecked(Boolean.TRUE.equals(enabled)));
 
         viewModel.getWeightData().observe(getViewLifecycleOwner(), data -> {
             if (data == null) return;
             weightDisplay.setText(data.weight + " g");
-            weightDisplay.setTextColor(ContextCompat.getColor(activity,
-                    data.stable ? R.color.weightStable : R.color.weightUnstable));
+            weightDisplay.setTextColor(ContextCompat.getColor(activity, data.stable ? R.color.weightStable : R.color.weightUnstable));
+            refreshApplyButtonState();
         });
 
         viewModel.getLogEntries().observe(getViewLifecycleOwner(), entries -> {
@@ -271,8 +268,7 @@ public class ScaleFragment extends Fragment {
     }
 
     private void onMicTap() {
-        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             micPermLauncher.launch(Manifest.permission.RECORD_AUDIO);
             return;
         }
@@ -297,7 +293,8 @@ public class ScaleFragment extends Fragment {
         int actionsVisibility = hasFood ? View.VISIBLE : View.GONE;
         btnClearFood.setVisibility(actionsVisibility);
         btnApplyInline.setVisibility(actionsVisibility);
-        btnApplyInline.setEnabled(hasFood && !isListening);
+        boolean shouldEnable = hasFood && !isListening && (isEditingLogEntry() || viewModel.getLastWeight() > 0);
+        btnApplyInline.setEnabled(shouldEnable);
         textListeningOverlay.setVisibility(isListening ? View.VISIBLE : View.GONE);
     }
 
