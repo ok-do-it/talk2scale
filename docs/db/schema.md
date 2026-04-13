@@ -4,7 +4,7 @@
 
 The system uses a **TypeScript Backend + PostgreSQL** architecture. The mobile app fetches food data and syncs logs via a REST/GraphQL API. 
 
-Core entities: `User`, `NutriNode` (the canonical component: nutrients, foods, recipes), `FoodName` (search aliases), `NutriEdge` (recursive composition junction), `Meal`, `LogEntry`.
+Core entities: `User`, `NutriNode` (the canonical component: nutrients, foods, recipes), `FoodName` (search aliases), `NutriEdge` (recursive composition junction), `portion` (serving definitions), `Meal`, `LogEntry`.
 
 ---
 
@@ -28,9 +28,9 @@ The canonical entity for anything with nutritional value or composition (Composi
 |--------|-------------|--------------------------------------------|
 | `id`   | BIGINT (PK) |                                            |
 | `type` | Enum        | `nutrient`, `whole_food`, `recipe`         |
-| `unit` | String      | e.g. `"g"` for foods, `"kcal"` for nutrients|
+| `name` | String      | Basic/internal canonical name for the node |
 
-*(Note: `FoodName` points here, so nutrients can have aliases too, like "Vit C" -> "Vitamin C")*
+*(Note: quantities are always grams; `FoodName` points here so each node can have user-facing aliases too.)*
 
 ---
 
@@ -38,27 +38,39 @@ The canonical entity for anything with nutritional value or composition (Composi
 
 Defines what makes up a `NutriNode`. Creates a directed acyclic graph (DAG) of components.
 
-| Field      | Type        | Notes                                              |
-|------------|-------------|----------------------------------------------------|
-| `parentId` | BIGINT (FK) | References `NutriNode.id` (Container/recipe/food)  |
-| `childId`  | BIGINT (FK) | References `NutriNode.id` (Ingredient/nutrient)    |
-| `amount`   | Float       | Amount of child per 100 units of parent            |
+| Field      | Type         | Notes                                              |
+|------------|--------------|----------------------------------------------------|
+| `parentId` | BIGINT (FK)  | References `NutriNode.id` (Container/recipe/food)  |
+| `childId`  | BIGINT (FK)  | References `NutriNode.id` (Ingredient/nutrient)    |
+| `amount`   | Double       | Fraction of parent mass (`1.0` means 100%)         |
 
 Composite primary key: `(parentId, childId)`.
 
 ---
 
-### `FoodName`
+### `Portion`
 
-A searchable name or alias for a node. Separating names allows multiple aliases per item. Best queried in Postgres using `pg_trgm` for fuzzy matching.
+Serving names and gram conversion for UX units like `"slice"` or `"cup"`.
+
+| Field    | Type         | Notes                                      |
+|----------|--------------|--------------------------------------------|
+| `id`     | BIGINT (PK)  |                                            |
+| `nodeId` | BIGINT (FK)  | References `NutriNode.id`                  |
+| `name`   | String       | Serving label, e.g. `"slice"`              |
+| `amount` | Double       | Grams for one serving unit                 |
+
+---
+
+### `FoodAlias`
+
+A searchable/display name for a node. Separating names allows multiple user-facing aliases per item while `NutriNode.name` stays as the internal canonical name. Best queried in Postgres using `pg_trgm` for fuzzy matching.
 
 | Field        | Type               | Notes                                      |
 |--------------|--------------------|--------------------------------------------|
 | `id`         | BIGINT (PK)        |                                            |
 | `nodeId`     | BIGINT (FK)        | References `NutriNode.id`                  |
-| `name`       | String             | e.g. `"Bananas, Raw"` or `"Vitamin C"`     |
+| `name`       | String             | e.g. `"Bananas, Raw"` or `"Vit C"`         |
 | `locale`     | String?            | Optional: `"en"`, `"de"`                   |
-| `isPrimary`  | Boolean            | True for canonical display name            |
 
 ---
 
@@ -97,7 +109,7 @@ A single food/recipe + weight measurement within a meal.
 | `mealId`      | BIGINT (FK → Meal) |                                                    |
 | `nodeId`      | BIGINT? (FK)       | References `NutriNode.id`. Nullable until resolved |
 | `foodNameRaw` | String             | Original voice/text input from user                |
-| `weightGrams` | Int                | Weight from BLE scale                              |
+| `grams` | Int                | Weight from BLE scale                              |
 | `loggedAt`    | DateTime           | Timestamp of this log entry                        |
 
 ---
@@ -114,18 +126,18 @@ WITH RECURSIVE RecipeTree AS (
     
     UNION ALL
     
-    -- Recursive step: traverse children, multiply amounts
-    SELECT child.id, child.type, (parent.cumulative_amount * edge.amount / 100.0)
+    -- Recursive step: traverse children using amount fractions
+    SELECT child.id, child.type, (parent.cumulative_amount * edge.amount)
     FROM RecipeTree parent
     JOIN NutriEdge edge ON parent.id = edge.parentId
     JOIN NutriNode child ON edge.childId = child.id
 )
 -- Aggregate final leaf nutrients (can be wrapped in json_agg for API response)
-SELECT n.id, n.unit, SUM(rt.cumulative_amount) AS total_amount
+SELECT n.id, n.name, SUM(rt.cumulative_amount) AS total_grams
 FROM RecipeTree rt
 JOIN NutriNode n ON rt.id = n.id
 WHERE rt.type = 'nutrient'
-GROUP BY n.id, n.unit;
+GROUP BY n.id, n.name;
 ```
 
 ---
@@ -133,7 +145,7 @@ GROUP BY n.id, n.unit;
 ## Key Design Decisions
 
 1. **PostgreSQL Backend** — Ideal for recursive CTEs (fast graph traversal) and fuzzy text search (`pg_trgm` on `FoodName.name` to handle typos in food logging).
-2. **Composite Pattern (NutriNode + NutriEdge)** — Infinite nesting. Nutrients, whole foods, and complex recipes all use the same recursive math.
-3. **FoodName is separate from NutriNode** — allows multiple aliases to resolve to the same node.
+2. **Composite Pattern (NutriNode + NutriEdge)** — Infinite nesting. Nutrients, whole foods, and complex recipes all use the same recursive math in grams (`amount` where `1.0 = 100%`).
+3. **FoodName is separate from NutriNode** — `NutriNode.name` stays as the internal canonical name while `FoodName` stores alternate/search names.
 4. **LogEntry nodeId is nullable** — voice input may not immediately resolve; allows optimistic logging on the client and asynchronous backend resolution.
 5. **Nutrition is computed, not stored** — recursive queries keep the truth in one place. A snapshot column can be added later for historical accuracy if food data changes.
