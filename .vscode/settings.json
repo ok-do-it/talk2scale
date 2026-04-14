@@ -1,5 +1,18 @@
 {
     "files.watcherExclude": {
         "**/target": true
-    }
+    },
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "localhost",
+            "database": "talk2scale",
+            "username": "talk2scale",
+            "password": "talk2scale_dev_password"
+        }
+    ]
 }
