@@ -65,12 +65,15 @@ Exact UUIDs, byte order, field widths, command opcodes, and error handling belon
 
 | Table | Purpose |
 |-------|--------|
-| **user** | `id`, `name` (minimal for now). |
-| **daily_log** | One row per user per calendar day: `id`, `user_id` (FK → user), `date` (or `log_date`), `burned_calories`, `consumed_calories`. Does not embed entries; relationship is via `food_entry`. |
-| **food_item** | Canonical food / nutrition row: `id` and **macros** (calories, protein, carbs, fat, etc.—per your serving or per-100g convention). Optional external id (e.g. USDA) later. |
-| **food_entry** | Log line for a weighed portion: `id`, **`daily_log_id`** (FK → daily_log, **many-to-one**), **`food_item_id`** (FK → food_item), weight and timestamp fields as needed. **No macro columns** — resolve nutrition by joining `food_item` and applying `weight_grams`. |
+| **Users** | `id`, `name`, `email` (minimal for now). |
+| **Element** | Canonical component: nutrients, foods, recipes (`id`, `type`, `name`, `owner`). |
+| **Link** | Recursive composition junction (`parentId`, `childId`, `ratio`). Creates a directed acyclic graph (DAG) of components. |
+| **Alias** | Searchable/display aliases for an Element (`id`, `elementId`, `name`, `locale`). |
+| **Unit** | Serving definitions like "slice" or "cup" (`id`, `elementId`, `name`, `grams`). |
+| **Meal** | Timestamped collection of logs (`id`, `userId`, `name`, `loggedAt`). |
+| **Log** | A single weighed portion: `id`, `mealId` (FK → Meal), `elementId` (FK → Element), `amount`, `unitId` (FK → Unit), `rawName`. **No macro columns** — resolve nutrition by joining `Element` and `Link` using recursive CTEs. |
 
-Net intake for a day is derived as `consumed_calories − burned_calories` (or compute consumed from entries if you prefer a single source of truth later).
+Net intake for a day is derived as `consumed_calories − burned_calories` (or compute consumed from logs if you prefer a single source of truth later). See [`docs/db/schema.md`](docs/db/schema.md) for full details.
 
 ---
 
