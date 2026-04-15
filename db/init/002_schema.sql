@@ -10,6 +10,7 @@ CREATE TABLE element (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   type element_type NOT NULL,
   name TEXT NOT NULL,
+  usda_id INTEGER NULL,
   user_id BIGINT REFERENCES users(id) ON DELETE SET NULL
 );
 
@@ -53,6 +54,7 @@ CREATE TABLE log (
 
 CREATE INDEX idx_element_type ON element(type);
 CREATE INDEX idx_element_user_id ON element(user_id);
+CREATE UNIQUE INDEX idx_element_usda_id ON element(usda_id) WHERE usda_id IS NOT NULL;
 
 CREATE INDEX idx_link_parent_id ON link(parent_id);
 CREATE INDEX idx_link_child_id ON link(child_id);

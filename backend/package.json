@@ -5,7 +5,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "import-usda": "tsx src/scripts/importUsda.ts",
+    "download-usda": "tsx src/scripts/downloadUsdaDatasets.ts"
   },
   "author": "",
   "license": "ISC",
@@ -13,6 +15,7 @@
     "@huggingface/transformers": "^3.8.1",
     "@types/express": "^5.0.6",
     "@types/pg": "^8.20.0",
+    "csv-parse": "^6.2.1",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "kysely": "^0.28.16",

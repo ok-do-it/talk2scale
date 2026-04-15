@@ -2,3 +2,6 @@
 node_modules/
 backend/node_modules/
 .env
+
+db/raw_usda_datasets/
+docs/db/

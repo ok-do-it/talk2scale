@@ -12,6 +12,7 @@ export interface ElementTable {
   id: Generated<number>;
   type: ElementType;
   name: string;
+  usda_id: number | null;
   user_id: number | null;
 }
 
