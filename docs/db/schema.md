@@ -4,7 +4,7 @@
 
 The system uses a **TypeScript Backend + PostgreSQL** architecture. The mobile app fetches food data and syncs logs via a REST/GraphQL API. 
 
-Core entities: `Users`, `Element` (the canonical component: nutrients, foods, recipes), `FoodName` (search aliases), `Link` (recursive composition junction), `unit` (serving definitions), `Meal`, `LogEntry`.
+Core entities: `Users`, `Element` (the canonical component: nutrients, foods, recipes), `FoodName` (search aliases), `Link` (recursive composition junction), `unit` (serving definitions), `Meal`, `Log`.
 
 ---
 
@@ -163,6 +163,6 @@ GROUP BY n.id, n.name;
 1. **PostgreSQL Backend** — Ideal for recursive CTEs (fast graph traversal) and fuzzy text search (`pg_trgm` on `FoodName.name` to handle typos in food logging).
 2. **Composite Pattern (Element + Link)** — Infinite nesting. Nutrients, whole foods, and complex recipes all use the same recursive math in grams (`amount` where `1.0 = 100%`).
 3. **FoodName is separate from Element** — `Element.name` stays as the internal canonical name while `FoodName` stores alternate/search names.
-4. **LogEntry elementId is nullable** — voice input may not immediately resolve; allows optimistic logging on the client and asynchronous backend resolution.
+4. **Log elementId is nullable** — voice input may not immediately resolve; allows optimistic logging on the client and asynchronous backend resolution.
 5. **Nutrition is computed, not stored** — recursive queries keep the truth in one place. A snapshot column can be added later for historical accuracy if food data changes.
 

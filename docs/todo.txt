@@ -9,7 +9,7 @@ Schema entities:
 - Food Item
 - Food Name
 - Meal
-- LogEntry
+- Log
 
 
 
