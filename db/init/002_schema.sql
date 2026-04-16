@@ -32,6 +32,7 @@ CREATE TABLE unit (
 CREATE TABLE alias (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   element_id BIGINT NOT NULL REFERENCES element(id) ON DELETE CASCADE,
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   locale TEXT NULL
 );
@@ -62,6 +63,7 @@ CREATE INDEX idx_link_child_id ON link(child_id);
 CREATE INDEX idx_unit_element_id ON unit(element_id);
 
 CREATE INDEX idx_alias_element_id ON alias(element_id);
+CREATE INDEX idx_alias_user_id ON alias(user_id);
 CREATE INDEX idx_alias_name_trgm ON alias USING GIN (name gin_trgm_ops);
 
 CREATE INDEX idx_meal_user_id_logged_at ON meal(user_id, logged_at DESC);

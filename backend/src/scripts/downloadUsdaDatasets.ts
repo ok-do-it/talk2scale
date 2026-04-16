@@ -1,8 +1,7 @@
 import { createWriteStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { once } from 'node:events';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
@@ -36,7 +35,29 @@ async function downloadZip(url: string, targetZipPath: string): Promise<void> {
     throw new Error(`No response body for "${url}"`);
   }
 
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(targetZipPath));
+  const output = createWriteStream(targetZipPath);
+  const reader = response.body.getReader();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      if (value && !output.write(value)) {
+        await once(output, 'drain');
+      }
+    }
+
+    output.end();
+    await once(output, 'finish');
+  } catch (error) {
+    output.destroy();
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function extractZip(zipPath: string, destinationDir: string): Promise<void> {

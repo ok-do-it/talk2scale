@@ -32,6 +32,7 @@ export interface UnitTable {
 export interface AliasTable {
   id: Generated<number>;
   element_id: number;
+  user_id: number | null;
   name: string;
   locale: string | null;
 }

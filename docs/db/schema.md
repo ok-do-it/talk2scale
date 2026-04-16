@@ -4,7 +4,7 @@
 
 The system uses a **TypeScript Backend + PostgreSQL** architecture. The mobile app fetches food data and syncs logs via a REST/GraphQL API. 
 
-Core entities: `Users`, `Element` (the canonical component: nutrients, foods, recipes), `FoodName` (search aliases), `Link` (recursive composition junction), `unit` (serving definitions), `Meal`, `Log`.
+Core entities: `Users`, `Element` (the canonical component: nutrients, foods, recipes), `Alias` (search/display names), `Link` (recursive composition junction), `Unit` (serving definitions), `Meal`, `Log`.
 
 ---
 
@@ -29,9 +29,9 @@ The canonical entity for anything with nutritional value or composition (Composi
 | Field   | Type                   | Notes                                      |
 | ------- | ---------------------- | ------------------------------------------ |
 | `id`    | BIGINT (PK)            |                                            |
-| `type`  | Enum                   | `nutrient`, `whole_food`, `recipe`         |
+| `type`  | Enum                   | `nutrient`, `whole_food`, `recipe`, `branded_food` |
 | `name`  | String                 | Basic/internal canonical name for the node |
-| `owner` | BIGINT? (PK) -> userId | if it belongs to user                      |
+| `userId` | BIGINT? (FK -> Users) | Optional owner if it belongs to a user     |
 
 
 *(Note: quantities are always grams;* `Alias` *points here so each element can have user-facing aliases too.)*
@@ -78,6 +78,7 @@ A searchable/display name for a node. Separating names allows multiple user-faci
 | ----------- | ----------- | ---------------------------------- |
 | `id`        | BIGINT (PK) |                                    |
 | `elementId` | BIGINT (FK) | References `Element.id`            |
+| `userId`    | BIGINT? (FK) | Optional owner for user-specific aliases |
 | `name`      | String      | e.g. `"Bananas, Raw"` or `"Vit C"` |
 | `locale`    | String?     | Optional: `"en"`, `"de"`           |
 
@@ -142,8 +143,8 @@ WITH RECURSIVE RecipeTree AS (
     
     UNION ALL
     
-    -- Recursive step: traverse children using amount fractions
-    SELECT child.id, child.type, (parent.cumulative_amount * edge.amount)
+    -- Recursive step: traverse children using ratio fractions
+    SELECT child.id, child.type, (parent.cumulative_amount * edge.ratio)
     FROM RecipeTree parent
     JOIN Link edge ON parent.id = edge.parentId
     JOIN Element child ON edge.childId = child.id
@@ -160,9 +161,9 @@ GROUP BY n.id, n.name;
 
 ## Key Design Decisions
 
-1. **PostgreSQL Backend** — Ideal for recursive CTEs (fast graph traversal) and fuzzy text search (`pg_trgm` on `FoodName.name` to handle typos in food logging).
-2. **Composite Pattern (Element + Link)** — Infinite nesting. Nutrients, whole foods, and complex recipes all use the same recursive math in grams (`amount` where `1.0 = 100%`).
-3. **FoodName is separate from Element** — `Element.name` stays as the internal canonical name while `FoodName` stores alternate/search names.
+1. **PostgreSQL Backend** — Ideal for recursive CTEs (fast graph traversal) and fuzzy text search (`pg_trgm` on `Alias.name` to handle typos in food logging).
+2. **Composite Pattern (Element + Link)** — Infinite nesting. Nutrients, whole foods, and complex recipes all use the same recursive math in grams (`ratio` where `1.0 = 100%`).
+3. **Alias is separate from Element** — `Element.name` stays as the internal canonical name while `Alias` stores alternate/search names.
 4. **Log elementId is nullable** — voice input may not immediately resolve; allows optimistic logging on the client and asynchronous backend resolution.
 5. **Nutrition is computed, not stored** — recursive queries keep the truth in one place. A snapshot column can be added later for historical accuracy if food data changes.
 
