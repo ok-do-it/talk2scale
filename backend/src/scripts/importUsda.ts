@@ -155,7 +155,9 @@ async function importNutrients(datasetDir: string): Promise<{
     await db
       .insertInto(TABLE.element)
       .values(nutrientRows)
-      .onConflict((oc) => oc.column(COLUMN.element.usda_id).doNothing())
+      .onConflict((oc) =>
+        oc.column(COLUMN.element.usda_id).where(COLUMN.element.usda_id, 'is not', null).doNothing()
+      )
       .execute();
   }
 
@@ -200,7 +202,9 @@ async function importFoods(
     await db
       .insertInto(TABLE.element)
       .values(pendingElements)
-      .onConflict((oc) => oc.column(COLUMN.element.usda_id).doNothing())
+      .onConflict((oc) =>
+        oc.column(COLUMN.element.usda_id).where(COLUMN.element.usda_id, 'is not', null).doNothing()
+      )
       .execute();
 
     insertedRows += pendingElements.length;
