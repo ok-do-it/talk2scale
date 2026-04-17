@@ -36,10 +36,10 @@ export type SearchService = {
 
 export async function createSearchService(): Promise<SearchService> {
   logger.info('Loading model...');
-  const extractor = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5');
+  const extractor = await pipeline('feature-extraction', 'Xenova/multilingual-e5-base');
 
   logger.info({ count: foods.length }, 'Computing embeddings for foods');
-  const foodEmbeddings = await embed(extractor, foods);
+  const foodEmbeddings = await embed(extractor, foods, 'passage: ');
   logger.info('Embeddings ready.');
 
   function search(queryEmbedding: number[], topK: number): SearchResult[] {
@@ -72,7 +72,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE foods (
   id bigserial PRIMARY KEY,
   name text NOT NULL,
-  embedding vector(384) -- use your model's dim
+  embedding vector(768) -- use your model's dim
 );
 -- cosine index (for approximate fast search)
 CREATE INDEX foods_embedding_idx

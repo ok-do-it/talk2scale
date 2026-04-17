@@ -80,6 +80,7 @@ A searchable/display name for a node. Separating names allows multiple user-faci
 | `elementId` | BIGINT (FK) | References `Element.id`            |
 | `userId`    | BIGINT? (FK) | Optional owner for user-specific aliases |
 | `name`      | String      | e.g. `"Bananas, Raw"` or `"Vit C"` |
+| `embedding` | Vector(768)? | Optional semantic embedding for vector similarity search |
 | `locale`    | String?     | Optional: `"en"`, `"de"`           |
 
 

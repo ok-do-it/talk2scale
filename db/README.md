@@ -49,6 +49,24 @@ docker compose up -d
 
 `down -v` removes all DB data and reruns `init/*.sql` on next start.
 
+## Recreate Schema From SQL Init
+
+If Postgres is already running and you want to reset schema objects without recreating the Docker volume:
+
+```bash
+cd backend
+npm run recreate-db
+```
+
+This command:
+- applies `db/init/*.sql` in filename order
+- drops existing schema objects via `db/init/002_schema.sql`
+- recreates all tables, types, and indexes
+
+Safety guard:
+- the script only runs when `POSTGRES_HOST` is local (`localhost`, `127.0.0.1`, or `::1`)
+- if host is non-local, the command exits with an error
+
 ## Verify Extensions
 
 ```bash

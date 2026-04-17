@@ -34,6 +34,7 @@ export interface AliasTable {
   element_id: number;
   user_id: number | null;
   name: string;
+  embedding: string | null;
   locale: string | null;
 }
 
