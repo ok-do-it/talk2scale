@@ -45,17 +45,18 @@ export function createFoodTreeRoutes(foodTreeService: FoodTreeService): express.
     res.status(200).json({ status: true }).end();
   });
 
-  router.get('/elements/:type{/:searchString}', async (req, res) => {
-    const type = req.params.type;
-    const searchString = req.params.searchString as string | undefined;
-    if (!isElementType(type)) {
+  router.get('/elements', async (req, res) => {
+    const type = req.query.type as string | undefined;
+    const filter = req.query.filter as string | undefined;
+
+    if (type !== undefined && !isElementType(type)) {
       res.status(400).json({
         error: 'invalid type parameter. expected one of nutrient, whole_food, recipe, branded_food',
       });
       return;
     }
 
-    const elements = await foodTreeService.listElements(type, searchString);
+    const elements = await foodTreeService.listElements(type, filter);
     res.json(elements);
   });
 

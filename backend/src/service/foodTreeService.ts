@@ -28,7 +28,7 @@ export type NutrientAmount = {
 };
 
 export type FoodTreeService = {
-  listElements: (type: ElementType, searchString?: string) => Promise<ElementRow[]>;
+  listElements: (type?: ElementType, filter?: string) => Promise<ElementRow[]>;
   treeByElement: (elementId: number) => Promise<TreeNode | null>;
   nutrientsByElement: (elementId: number, mass: number) => Promise<NutrientAmount[] | null>;
 };
@@ -73,18 +73,17 @@ function buildTree(
 
 export function createFoodTreeService(): FoodTreeService {
   return {
-    listElements: async (type: ElementType, searchString?: string) => {
-      if (!ELEMENT_TYPES.includes(type)) {
-        return [];
-      }
-
+    listElements: async (type?: ElementType, filter?: string) => {
       let query = db
         .selectFrom('element')
-        .select(['id', 'type', 'name', 'usda_id', 'user_id'])
-        .where('type', '=', type);
+        .select(['id', 'type', 'name', 'usda_id', 'user_id']);
 
-      if (searchString) {
-        query = query.where('name', 'like', `%${searchString}%`);
+      if (type) {
+        query = query.where('type', '=', type);
+      }
+
+      if (filter) {
+        query = query.where('name', 'like', `%${filter}%`);
       }
 
       return query.orderBy('name', 'asc').execute();

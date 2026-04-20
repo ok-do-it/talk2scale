@@ -17,21 +17,22 @@ Returns server health status.
 
 ## Elements
 
-### `GET /elements/:type/{:searchString}`
+### `GET /elements`
 
-List elements by type with optional name search.
+List elements with optional type and name filtering.
 
 | Param | In | Required | Description |
 |-------|------|----------|-------------|
-| `type` | path | yes | One of `nutrient`, `whole_food`, `recipe`, `branded_food` |
-| `searchString` | path | no | Substring to match against element name (SQL `LIKE %...%`) |
+| `type` | query | no | One of `nutrient`, `whole_food`, `recipe`, `branded_food` |
+| `filter` | query | no | Substring to match against element name (SQL `LIKE %...%`) |
 
 **Examples**
 
 ```
-GET /elements/whole_food
-GET /elements/nutrient/vitamin
-GET /elements/branded_food/oat
+GET /elements
+GET /elements?type=whole_food
+GET /elements?filter=vitamin
+GET /elements?type=branded_food&filter=oat
 ```
 
 **Response** `200` — array of elements ordered by name

@@ -11,6 +11,7 @@ import { createSearchService } from './service/searchService.js';
 const app = express();
 
 app.use(pinoHttp({ logger }));
+app.use(express.static('public'));
 
 await assertDatabaseConnection();
 logger.info('Database connection is ready');

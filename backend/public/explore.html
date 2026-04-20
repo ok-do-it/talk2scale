@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Talk2Scale DB Explorer</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      h1 {
+        margin: 0 0 16px;
+        font-size: 24px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      input,
+      select,
+      button {
+        font-size: 14px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #0b1220;
+        color: #e2e8f0;
+      }
+
+      input {
+        min-width: 260px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #111827;
+        border: 1px solid #334155;
+      }
+
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #1f2937;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        font-weight: 600;
+      }
+
+      tbody tr:hover {
+        background: #1e293b;
+      }
+
+      .status {
+        margin: 8px 0 12px;
+        color: #cbd5e1;
+      }
+
+      .error {
+        color: #fca5a5;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useEffect, useMemo, useState } = React;
+
+      const TYPE_OPTIONS = [
+        { value: "", label: "All types" },
+        { value: "nutrient", label: "Nutrient" },
+        { value: "whole_food", label: "Whole food" },
+        { value: "recipe", label: "Recipe" },
+        { value: "branded_food", label: "Branded food" }
+      ];
+
+      function App() {
+        const [filter, setFilter] = useState("");
+        const [debouncedFilter, setDebouncedFilter] = useState("");
+        const [type, setType] = useState("");
+        const [elements, setElements] = useState([]);
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState("");
+
+        useEffect(() => {
+          const timer = window.setTimeout(() => {
+            setDebouncedFilter(filter.trim());
+          }, 300);
+
+          return () => window.clearTimeout(timer);
+        }, [filter]);
+
+        const queryString = useMemo(() => {
+          const params = new URLSearchParams();
+          if (type) {
+            params.set("type", type);
+          }
+          if (debouncedFilter) {
+            params.set("filter", debouncedFilter);
+          }
+          return params.toString();
+        }, [type, debouncedFilter]);
+
+        useEffect(() => {
+          const controller = new AbortController();
+
+          async function loadElements() {
+            setIsLoading(true);
+            setError("");
+
+            try {
+              const response = await fetch(`/elements?${queryString}`, {
+                signal: controller.signal
+              });
+
+              if (!response.ok) {
+                throw new Error(`Request failed with ${response.status}`);
+              }
+
+              const payload = await response.json();
+              setElements(Array.isArray(payload) ? payload : []);
+            } catch (err) {
+              if (err.name === "AbortError") {
+                return;
+              }
+              setError(err.message ?? "Failed to load elements");
+              setElements([]);
+            } finally {
+              setIsLoading(false);
+            }
+          }
+
+          loadElements();
+          return () => controller.abort();
+        }, [queryString]);
+
+        return (
+          <main className="container">
+            <h1>Talk2Scale DB Explorer</h1>
+            <div className="controls">
+              <input
+                type="text"
+                value={filter}
+                placeholder="Search by name..."
+                onChange={(event) => setFilter(event.target.value)}
+              />
+              <select value={type} onChange={(event) => setType(event.target.value)}>
+                {TYPE_OPTIONS.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {isLoading && <div className="status">Loading...</div>}
+            {error && <div className="status error">{error}</div>}
+            {!isLoading && !error && (
+              <div className="status">Found {elements.length} element(s)</div>
+            )}
+
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Tree</th>
+                  <th>Nutrients</th>
+                </tr>
+              </thead>
+              <tbody>
+                {elements.map((element) => (
+                  <tr key={element.id}>
+                    <td>{element.id}</td>
+                    <td>{element.name}</td>
+                    <td>{element.type}</td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/element/${element.id}/tree`, "_blank")}
+                      >
+                        Open
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(`/element/${element.id}/nutrients`, "_blank")
+                        }
+                      >
+                        Open
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </main>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

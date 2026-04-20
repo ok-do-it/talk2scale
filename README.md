@@ -20,6 +20,11 @@ A smart kitchen scale that combines hardware weight sensing with AI-powered voic
 
 Each module will live in its own top-level directory once bootstrapped (e.g. `backend/`, `mobile/`, `esp32/`).
 
+## DB Explorer
+
+A lightweight browser UI for exploring the Element table.
+Start the backend and open `http://localhost:8888/explore.html`.
+
 ## User flow (end-to-end)
 
 ```
