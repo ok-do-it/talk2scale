@@ -36,7 +36,7 @@ export type SearchService = {
 
 export async function createSearchService(): Promise<SearchService> {
   logger.info('Loading model...');
-  const extractor = await pipeline('feature-extraction', 'Xenova/multilingual-e5-base');
+  const extractor = await pipeline('feature-extraction', 'Xenova/multilingual-e5-base', { dtype: 'fp16' });
 
   logger.info({ count: foods.length }, 'Computing embeddings for foods');
   const foodEmbeddings = await embed(extractor, foods, 'passage: ');

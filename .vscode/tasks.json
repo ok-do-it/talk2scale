@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "kill backend",
+            "type": "npm",
+            "script": "predev",
+            "path": "backend",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent"
+            }
+        }
+    ]
+}

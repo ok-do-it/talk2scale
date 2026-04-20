@@ -3,7 +3,9 @@ import pinoHttp from 'pino-http';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { assertDatabaseConnection, closeDatabaseConnection } from './db/client.js';
+import { createFoodTreeRoutes } from './routes/foodTreeRoutes.js';
 import { createSearchRoutes } from './routes/searchRoutes.js';
+import { createFoodTreeService } from './service/foodTreeService.js';
 import { createSearchService } from './service/searchService.js';
 
 const app = express();
@@ -15,6 +17,9 @@ logger.info('Database connection is ready');
 
 const searchService = await createSearchService();
 app.use(createSearchRoutes(searchService));
+
+const foodTreeService = createFoodTreeService();
+app.use(createFoodTreeRoutes(foodTreeService));
 
 app.listen({ port: env.port }, () => {
   logger.info({ port: env.port }, 'Server ready');
