@@ -165,12 +165,35 @@
       }
 
       .tree-node {
-        padding: 4px 0;
+        padding: 8px 10px;
+        margin-top: 6px;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background: #0b1220;
       }
 
       .tree-node-label {
         display: inline-block;
-        padding: 2px 0;
+        padding: 0;
+      }
+
+      .card-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .card-title-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .mass-input {
+        width: 90px;
+        padding: 6px 8px;
+        font-size: 13px;
       }
 
       .muted {
@@ -210,7 +233,7 @@
       function TreeNode({ node, depth }) {
         return (
           <div>
-            <div className="tree-node" style={{ paddingLeft: `${depth * 20}px` }}>
+            <div className="tree-node" style={{ marginLeft: `${depth * 20}px` }}>
               <span className="tree-node-label">
                 {node.name} <span className="muted">({formatNumber(node.ratio)})</span>
               </span>
@@ -283,6 +306,15 @@
         const [nutrients, setNutrients] = useState([]);
         const [isLoading, setIsLoading] = useState(false);
         const [error, setError] = useState("");
+        const [mass, setMass] = useState("100");
+        const [debouncedMass, setDebouncedMass] = useState("100");
+
+        useEffect(() => {
+          const timer = window.setTimeout(() => {
+            setDebouncedMass(mass.trim());
+          }, 300);
+          return () => window.clearTimeout(timer);
+        }, [mass]);
 
         useEffect(() => {
           if (!selectedElement) {
@@ -298,7 +330,16 @@
             setError("");
 
             try {
-              const response = await fetch(`/element/${selectedElement.id}/nutrients`, {
+              const normalizedMass = Number(debouncedMass);
+              if (!Number.isFinite(normalizedMass) || normalizedMass <= 0) {
+                setNutrients([]);
+                setError("Mass must be a positive number");
+                return;
+              }
+
+              const params = new URLSearchParams();
+              params.set("mass", normalizedMass.toString());
+              const response = await fetch(`/element/${selectedElement.id}/nutrients?${params.toString()}`, {
                 signal: controller.signal
               });
               if (!response.ok) {
@@ -320,11 +361,25 @@
 
           loadNutrients();
           return () => controller.abort();
-        }, [selectedElement]);
+        }, [selectedElement, debouncedMass]);
 
         return (
           <section className="card nutrients-card">
-            <div className="card-title">Nutrients</div>
+            <div className="card-title card-title-row">
+              <span>Nutrients</span>
+              <label className="card-title-controls">
+                <span className="muted">Mass</span>
+                <input
+                  className="mass-input"
+                  type="number"
+                  min="0.000001"
+                  step="1"
+                  value={mass}
+                  onChange={(event) => setMass(event.target.value)}
+                />
+                <span className="muted">g</span>
+              </label>
+            </div>
             {isLoading && <div className="status">Loading nutrients...</div>}
             {error && <div className="status error">{error}</div>}
             {!isLoading && !error && nutrients.length === 0 && (
