@@ -13,33 +13,19 @@
         font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         background: #0f172a;
         color: #e2e8f0;
       }
 
-      .container {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 24px;
-      }
-
-      h1 {
-        margin: 0 0 16px;
-        font-size: 24px;
-      }
-
-      .controls {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
       input,
-      select,
-      button {
+      select {
+        width: 100%;
         font-size: 14px;
         padding: 8px 10px;
         border-radius: 8px;
@@ -48,40 +34,157 @@
         color: #e2e8f0;
       }
 
-      input {
-        min-width: 260px;
+      .layout {
+        height: 100vh;
+        display: flex;
       }
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #111827;
-        border: 1px solid #334155;
+      .search-panel {
+        width: 25%;
+        min-width: 280px;
+        border-right: 1px solid #334155;
+        background: #0b1220;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
 
-      th,
-      td {
-        padding: 10px;
-        border-bottom: 1px solid #1f2937;
-        text-align: left;
-        vertical-align: middle;
+      .search-panel-content {
+        height: 100%;
+        min-height: 0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
 
-      th {
+      .search-panel-title {
+        font-size: 20px;
         font-weight: 600;
-      }
-
-      tbody tr:hover {
-        background: #1e293b;
+        margin-bottom: 4px;
       }
 
       .status {
-        margin: 8px 0 12px;
         color: #cbd5e1;
+        font-size: 13px;
       }
 
       .error {
         color: #fca5a5;
+      }
+
+      .result-list {
+        flex: 1;
+        min-height: 0;
+        margin-top: 8px;
+        overflow-y: auto;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        background: #111827;
+      }
+
+      .list-item {
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid #1f2937;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        padding: 10px 12px;
+        text-align: left;
+        display: block;
+      }
+
+      .list-item:last-child {
+        border-bottom: 0;
+      }
+
+      .list-item:hover {
+        background: #1e293b;
+      }
+
+      .list-item.selected {
+        background: #1d4ed8;
+      }
+
+      .list-item-id {
+        color: #93c5fd;
+        margin-right: 8px;
+      }
+
+      .detail-panel {
+        flex: 1;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow: hidden;
+      }
+
+      .card {
+        width: 100%;
+        border: 1px solid #334155;
+        background: #111827;
+        border-radius: 10px;
+        padding: 12px;
+      }
+
+      .card-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+
+      .nutrients-card {
+        min-height: 180px;
+        max-height: 220px;
+        overflow: auto;
+      }
+
+      .nutrient-table-wrap {
+        overflow-x: auto;
+      }
+
+      .nutrient-table {
+        border-collapse: collapse;
+        min-width: 100%;
+        width: max-content;
+      }
+
+      .nutrient-table th,
+      .nutrient-table td {
+        border: 1px solid #334155;
+        padding: 8px 10px;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      .tree-card {
+        flex: 1;
+        overflow: auto;
+      }
+
+      .tree-node {
+        padding: 4px 0;
+      }
+
+      .tree-node-label {
+        display: inline-block;
+        padding: 2px 0;
+      }
+
+      .muted {
+        color: #94a3b8;
+      }
+
+      .placeholder {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        border: 1px dashed #334155;
+        border-radius: 10px;
       }
     </style>
   </head>
@@ -91,17 +194,187 @@
       const { useEffect, useMemo, useState } = React;
 
       const TYPE_OPTIONS = [
-        { value: "", label: "All types" },
         { value: "nutrient", label: "Nutrient" },
         { value: "whole_food", label: "Whole food" },
         { value: "recipe", label: "Recipe" },
         { value: "branded_food", label: "Branded food" }
       ];
 
-      function App() {
+      function formatNumber(value) {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          return "-";
+        }
+        return Number(value.toFixed(6)).toString();
+      }
+
+      function TreeNode({ node, depth }) {
+        return (
+          <div>
+            <div className="tree-node" style={{ paddingLeft: `${depth * 20}px` }}>
+              <span className="tree-node-label">
+                {node.name} <span className="muted">({formatNumber(node.ratio)})</span>
+              </span>
+            </div>
+            {node.type !== "nutrient" &&
+              Array.isArray(node.children) &&
+              node.children.map((child) => (
+                <TreeNode key={`${child.id}-${depth}-${child.name}`} node={child} depth={depth + 1} />
+              ))}
+          </div>
+        );
+      }
+
+      function TreeCard({ selectedElement }) {
+        const [tree, setTree] = useState(null);
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState("");
+
+        useEffect(() => {
+          if (!selectedElement) {
+            setTree(null);
+            setError("");
+            return;
+          }
+
+          const controller = new AbortController();
+
+          async function loadTree() {
+            setIsLoading(true);
+            setError("");
+
+            try {
+              const response = await fetch(`/element/${selectedElement.id}/tree`, {
+                signal: controller.signal
+              });
+
+              if (!response.ok) {
+                throw new Error(`Tree request failed with ${response.status}`);
+              }
+
+              const payload = await response.json();
+              setTree(payload);
+            } catch (err) {
+              if (err.name === "AbortError") {
+                return;
+              }
+              setTree(null);
+              setError(err.message ?? "Failed to load tree");
+            } finally {
+              setIsLoading(false);
+            }
+          }
+
+          loadTree();
+          return () => controller.abort();
+        }, [selectedElement]);
+
+        return (
+          <section className="card tree-card">
+            <div className="card-title">Tree</div>
+            {isLoading && <div className="status">Loading tree...</div>}
+            {error && <div className="status error">{error}</div>}
+            {!isLoading && !error && !tree && <div className="status">No tree data</div>}
+            {!isLoading && !error && tree && <TreeNode node={tree} depth={0} />}
+          </section>
+        );
+      }
+
+      function NutrientsCard({ selectedElement }) {
+        const [nutrients, setNutrients] = useState([]);
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState("");
+
+        useEffect(() => {
+          if (!selectedElement) {
+            setNutrients([]);
+            setError("");
+            return;
+          }
+
+          const controller = new AbortController();
+
+          async function loadNutrients() {
+            setIsLoading(true);
+            setError("");
+
+            try {
+              const response = await fetch(`/element/${selectedElement.id}/nutrients`, {
+                signal: controller.signal
+              });
+              if (!response.ok) {
+                throw new Error(`Nutrients request failed with ${response.status}`);
+              }
+
+              const payload = await response.json();
+              setNutrients(Array.isArray(payload) ? payload : []);
+            } catch (err) {
+              if (err.name === "AbortError") {
+                return;
+              }
+              setNutrients([]);
+              setError(err.message ?? "Failed to load nutrients");
+            } finally {
+              setIsLoading(false);
+            }
+          }
+
+          loadNutrients();
+          return () => controller.abort();
+        }, [selectedElement]);
+
+        return (
+          <section className="card nutrients-card">
+            <div className="card-title">Nutrients</div>
+            {isLoading && <div className="status">Loading nutrients...</div>}
+            {error && <div className="status error">{error}</div>}
+            {!isLoading && !error && nutrients.length === 0 && (
+              <div className="status">No nutrients found</div>
+            )}
+            {!isLoading && !error && nutrients.length > 0 && (
+              <div className="nutrient-table-wrap">
+                <table className="nutrient-table">
+                  <thead>
+                    <tr>
+                      {nutrients.map((nutrient) => (
+                        <th key={nutrient.id}>{nutrient.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {nutrients.map((nutrient) => (
+                        <td key={nutrient.id}>{formatNumber(nutrient.amount)}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        );
+      }
+
+      function DetailPanel({ selectedElement }) {
+        if (!selectedElement) {
+          return (
+            <section className="detail-panel">
+              <div className="placeholder">Select an element from the left list</div>
+            </section>
+          );
+        }
+
+        return (
+          <section className="detail-panel">
+            <NutrientsCard selectedElement={selectedElement} />
+            <TreeCard selectedElement={selectedElement} />
+          </section>
+        );
+      }
+
+      function SearchPanel({ selectedElementId, onSelect }) {
         const [filter, setFilter] = useState("");
         const [debouncedFilter, setDebouncedFilter] = useState("");
-        const [type, setType] = useState("");
+        const [type, setType] = useState("nutrient");
         const [elements, setElements] = useState([]);
         const [isLoading, setIsLoading] = useState(false);
         const [error, setError] = useState("");
@@ -110,7 +383,6 @@
           const timer = window.setTimeout(() => {
             setDebouncedFilter(filter.trim());
           }, 300);
-
           return () => window.clearTimeout(timer);
         }, [filter]);
 
@@ -136,13 +408,20 @@
               const response = await fetch(`/elements?${queryString}`, {
                 signal: controller.signal
               });
-
               if (!response.ok) {
-                throw new Error(`Request failed with ${response.status}`);
+                throw new Error(`Elements request failed with ${response.status}`);
               }
 
               const payload = await response.json();
-              setElements(Array.isArray(payload) ? payload : []);
+              const nextElements = Array.isArray(payload) ? payload : [];
+              setElements(nextElements);
+
+              if (
+                selectedElementId !== null &&
+                !nextElements.some((element) => element.id === selectedElementId)
+              ) {
+                onSelect(null);
+              }
             } catch (err) {
               if (err.name === "AbortError") {
                 return;
@@ -156,12 +435,12 @@
 
           loadElements();
           return () => controller.abort();
-        }, [queryString]);
+        }, [queryString, selectedElementId, onSelect]);
 
         return (
-          <main className="container">
-            <h1>Talk2Scale DB Explorer</h1>
-            <div className="controls">
+          <aside className="search-panel">
+            <div className="search-panel-content">
+              <div className="search-panel-title">DB Explorer</div>
               <input
                 type="text"
                 value={filter}
@@ -170,57 +449,45 @@
               />
               <select value={type} onChange={(event) => setType(event.target.value)}>
                 {TYPE_OPTIONS.map((option) => (
-                  <option key={option.value || "all"} value={option.value}>
+                  <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
-            </div>
 
-            {isLoading && <div className="status">Loading...</div>}
-            {error && <div className="status error">{error}</div>}
-            {!isLoading && !error && (
-              <div className="status">Found {elements.length} element(s)</div>
-            )}
+              <div className="status">
+                {isLoading ? "Loading..." : `Found ${elements.length} element(s)`}
+              </div>
+              {error && <div className="status error">{error}</div>}
 
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Tree</th>
-                  <th>Nutrients</th>
-                </tr>
-              </thead>
-              <tbody>
+              <div className="result-list">
                 {elements.map((element) => (
-                  <tr key={element.id}>
-                    <td>{element.id}</td>
-                    <td>{element.name}</td>
-                    <td>{element.type}</td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => window.open(`/element/${element.id}/tree`, "_blank")}
-                      >
-                        Open
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          window.open(`/element/${element.id}/nutrients`, "_blank")
-                        }
-                      >
-                        Open
-                      </button>
-                    </td>
-                  </tr>
+                  <button
+                    key={element.id}
+                    type="button"
+                    className={`list-item ${selectedElementId === element.id ? "selected" : ""}`}
+                    onClick={() => onSelect({ id: element.id, type: element.type, name: element.name })}
+                  >
+                    <span className="list-item-id">{element.id}</span>
+                    <span>{element.name}</span>
+                  </button>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
+          </aside>
+        );
+      }
+
+      function App() {
+        const [selectedElement, setSelectedElement] = useState(null);
+
+        return (
+          <main className="layout">
+            <SearchPanel
+              selectedElementId={selectedElement?.id ?? null}
+              onSelect={setSelectedElement}
+            />
+            <DetailPanel selectedElement={selectedElement} />
           </main>
         );
       }

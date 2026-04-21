@@ -141,6 +141,7 @@ export function createFoodTreeService(): FoodTreeService {
           e.user_id AS child_user_id
         FROM tree t
         JOIN element e ON e.id = t.child_id
+        ORDER BY e.name
       `.execute(db);
 
       const elementsById = new Map<number, ElementRow>();
@@ -212,7 +213,7 @@ export function createFoodTreeService(): FoodTreeService {
         JOIN element e ON e.id = tree.child_id
         WHERE e.type = 'nutrient'
         GROUP BY e.id, e.name
-        ORDER BY e.id
+        ORDER BY e.name
       `.execute(db);
 
       return nutrients.rows.map(row => ({

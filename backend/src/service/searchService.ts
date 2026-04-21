@@ -1,5 +1,5 @@
 import { pipeline, type FeatureExtractionPipeline } from '@huggingface/transformers';
-import foods from '../../foods.json' with { type: 'json' };
+import foods from '../../foods_subset.json' with { type: 'json' };
 import { logger } from '../config/logger.js';
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -37,9 +37,8 @@ export type SearchService = {
 export async function createSearchService(): Promise<SearchService> {
   logger.info('Loading model...');
   const extractor = await pipeline('feature-extraction', 'Xenova/multilingual-e5-base', { dtype: 'fp16' });
-
   logger.info({ count: foods.length }, 'Computing embeddings for foods');
-  const foodEmbeddings = await embed(extractor, foods, 'passage: ');
+  const foodEmbeddings = await embed(extractor, foods.slice(0, 10), 'passage: ');
   logger.info('Embeddings ready.');
 
   function search(queryEmbedding: number[], topK: number): SearchResult[] {
