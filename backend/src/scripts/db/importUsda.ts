@@ -3,9 +3,10 @@ import { createReadStream } from 'node:fs';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { parse } from 'csv-parse';
-import { closeDatabaseConnection, db } from '../db/client.js';
-import { COLUMN, TABLE } from '../db/typeIdentifiers.js';
-import { logger } from '../config/logger.js';
+import { logger } from '../../config/logger.js';
+import { closeDatabaseConnection, db } from '../../db/client.js';
+import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
+import { recreateDatabase } from './recreateDb.js';
 
 type CsvRow = Record<string, string>;
 type CsvRowWithNumber = {
@@ -514,6 +515,14 @@ async function importFoundationUnits(
 }
 
 async function main(): Promise<void> {
+  const shouldSkipRecreate = process.argv.includes('--skip-recreate');
+  if (shouldSkipRecreate) {
+    logger.info('Skipping DB recreation before import (--skip-recreate provided)');
+  } else {
+    logger.info('Recreating DB before USDA import');
+    await recreateDatabase();
+  }
+
   const datasetDir = FOUNDATION_DATASET_DIR;
 
   const requiredFiles = [

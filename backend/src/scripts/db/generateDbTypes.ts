@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env } from '../config/env.js';
+import { env } from '../../config/env.js';
 
 function assertRequiredEnv(): void {
   if (!env.postgresHost || !Number.isFinite(env.postgresPort) || !env.postgresDb || !env.postgresUser) {
@@ -20,7 +20,7 @@ function buildDatabaseUrl(): string {
 
 async function runCodegen(databaseUrl: string): Promise<void> {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  const backendDir = path.resolve(scriptDir, '../..');
+  const backendDir = path.resolve(scriptDir, '../../..');
   const codegenBin = path.resolve(backendDir, 'node_modules/.bin/kysely-codegen');
 
   await new Promise<void>((resolve, reject) => {

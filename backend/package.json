@@ -8,11 +8,11 @@
     "predev": "lsof -ti :8888 | xargs kill -9 2>/dev/null || true",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "import-usda": "tsx src/scripts/importUsda.ts",
+    "import-usda": "tsx src/scripts/db/importUsda.ts",
     "download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
-    "db-recreate": "tsx src/scripts/recreateDb.ts",
-    "generate-types": "tsx src/scripts/generateDbTypes.ts",
-    "db-query": "tsx src/scripts/dbQuery.ts"
+    "db-recreate": "tsx src/scripts/db/recreateDb.ts",
+    "generate-types": "tsx src/scripts/db/generateDbTypes.ts",
+    "db-query": "tsx src/scripts/db/dbQuery.ts"
   },
   "author": "",
   "license": "ISC",

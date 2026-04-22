@@ -1,5 +1,5 @@
 import { sql } from 'kysely';
-import { closeDatabaseConnection, db } from '../db/client.js';
+import { closeDatabaseConnection, db } from '../../db/client.js';
 
 function getQueryArg(): string {
   const query = process.argv[2]?.trim();
