@@ -91,25 +91,28 @@ async function* readCsvRows(filePath: string): AsyncGenerator<CsvRow> {
   }
 }
 
-async function loadElementIdsByUsdaIds(usdaIds: number[]): Promise<Map<number, number>> {
-  const elementByUsdaId = new Map<number, number>();
-  if (usdaIds.length === 0) return elementByUsdaId;
+async function loadElementIdsByExternalIds(externalIds: number[]): Promise<Map<number, number>> {
+  const elementByExternalId = new Map<number, number>();
+  if (externalIds.length === 0) return elementByExternalId;
 
-  for (let offset = 0; offset < usdaIds.length; offset += LOOKUP_CHUNK_SIZE) {
-    const chunk = usdaIds.slice(offset, offset + LOOKUP_CHUNK_SIZE);
+  for (let offset = 0; offset < externalIds.length; offset += LOOKUP_CHUNK_SIZE) {
+    const chunk = externalIds
+      .slice(offset, offset + LOOKUP_CHUNK_SIZE)
+      .map((externalId) => String(externalId));
     const rows = await db
       .selectFrom(TABLE.element)
-      .select([COLUMN.element.id, COLUMN.element.usda_id])
-      .where(COLUMN.element.usda_id, 'in', chunk)
+      .select([COLUMN.element.id, COLUMN.element.external_id])
+      .where(COLUMN.element.external_id, 'in', chunk)
       .execute();
 
     for (const row of rows) {
-      if (row.usda_id == null) continue;
-      elementByUsdaId.set(toNumber(row.usda_id), toNumber(row.id));
+      const parsedExternalId = parseInteger(row.external_id ?? undefined);
+      if (parsedExternalId == null) continue;
+      elementByExternalId.set(parsedExternalId, toNumber(row.id));
     }
   }
 
-  return elementByUsdaId;
+  return elementByExternalId;
 }
 
 async function importNutrients(datasetDir: string): Promise<{
@@ -122,8 +125,8 @@ async function importNutrients(datasetDir: string): Promise<{
   const nutrientRows: Array<{
     type: ElementType;
     name: string;
-    usda_id: number;
-    user_id: null;
+    source: 'usda';
+    external_id: string;
   }> = [];
   const nutrientMultiplierByUsdaId = new Map<number, number>();
 
@@ -146,8 +149,8 @@ async function importNutrients(datasetDir: string): Promise<{
     nutrientRows.push({
       type: 'nutrient',
       name: (row.name ?? '').trim() || `USDA nutrient ${nutrientId}`,
-      usda_id: nutrientId,
-      user_id: null,
+      source: 'usda',
+      external_id: String(nutrientId),
     });
   }
 
@@ -156,12 +159,17 @@ async function importNutrients(datasetDir: string): Promise<{
       .insertInto(TABLE.element)
       .values(nutrientRows)
       .onConflict((oc) =>
-        oc.column(COLUMN.element.usda_id).where(COLUMN.element.usda_id, 'is not', null).doNothing()
+        oc
+          .columns([COLUMN.element.source, COLUMN.element.external_id])
+          .where(COLUMN.element.external_id, 'is not', null)
+          .doNothing()
       )
       .execute();
   }
 
-  const nutrientElementByUsdaId = await loadElementIdsByUsdaIds([...nutrientMultiplierByUsdaId.keys()]);
+  const nutrientElementByUsdaId = await loadElementIdsByExternalIds([
+    ...nutrientMultiplierByUsdaId.keys(),
+  ]);
 
   logger.info(
     {
@@ -187,8 +195,8 @@ async function importFoods(
   const pendingElements: Array<{
     type: ElementType;
     name: string;
-    usda_id: number;
-    user_id: null;
+    source: 'usda';
+    external_id: string;
   }> = [];
   let pendingFdcIds: number[] = [];
 
@@ -203,13 +211,16 @@ async function importFoods(
       .insertInto(TABLE.element)
       .values(pendingElements)
       .onConflict((oc) =>
-        oc.column(COLUMN.element.usda_id).where(COLUMN.element.usda_id, 'is not', null).doNothing()
+        oc
+          .columns([COLUMN.element.source, COLUMN.element.external_id])
+          .where(COLUMN.element.external_id, 'is not', null)
+          .doNothing()
       )
       .execute();
 
     insertedRows += pendingElements.length;
 
-    const loaded = await loadElementIdsByUsdaIds(pendingFdcIds);
+    const loaded = await loadElementIdsByExternalIds(pendingFdcIds);
     for (const [usdaId, elementId] of loaded) {
       foodElementByFdcId.set(usdaId, elementId);
     }
@@ -232,8 +243,8 @@ async function importFoods(
     pendingElements.push({
       type: foodType,
       name: (row.description ?? '').trim() || `USDA food ${fdcId}`,
-      usda_id: fdcId,
-      user_id: null,
+      source: 'usda',
+      external_id: String(fdcId),
     });
     pendingFdcIds.push(fdcId);
 
@@ -357,7 +368,7 @@ async function importBaseAliases(
 
   const flush = async (): Promise<void> => {
     if (pendingAliases.length === 0) return;
-    await db.insertInto(TABLE.alias).values(pendingAliases).execute();
+    await db.insertInto(TABLE.food_name).values(pendingAliases).execute();
     insertedRows += pendingAliases.length;
     pendingAliases.length = 0;
   };
@@ -408,7 +419,7 @@ async function importBrandedAliases(
 
   const flush = async (): Promise<void> => {
     if (pendingAliases.length === 0) return;
-    await db.insertInto(TABLE.alias).values(pendingAliases).execute();
+    await db.insertInto(TABLE.food_name).values(pendingAliases).execute();
     insertedRows += pendingAliases.length;
     pendingAliases.length = 0;
   };
@@ -460,7 +471,7 @@ async function importFoundationUnits(
 
   const flush = async (): Promise<void> => {
     if (pendingUnits.length === 0) return;
-    await db.insertInto(TABLE.unit).values(pendingUnits).execute();
+    await db.insertInto(TABLE.measure).values(pendingUnits).execute();
     insertedRows += pendingUnits.length;
     pendingUnits.length = 0;
   };
@@ -516,7 +527,7 @@ async function importBrandedUnits(
 
   const flush = async (): Promise<void> => {
     if (pendingUnits.length === 0) return;
-    await db.insertInto(TABLE.unit).values(pendingUnits).execute();
+    await db.insertInto(TABLE.measure).values(pendingUnits).execute();
     insertedRows += pendingUnits.length;
     pendingUnits.length = 0;
   };

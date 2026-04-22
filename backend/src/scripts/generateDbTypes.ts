@@ -26,7 +26,16 @@ async function runCodegen(databaseUrl: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
       codegenBin,
-      ['--dialect', 'postgres', '--url', databaseUrl, '--out-file', 'src/db/types.generated.ts'],
+      [
+        '--dialect',
+        'postgres',
+        '--url',
+        databaseUrl,
+        '--out-file',
+        'src/db/types.generated.ts',
+        '--type-mapping',
+        '{"int8":"number"}',
+      ],
       {
         cwd: backendDir,
         stdio: 'inherit',

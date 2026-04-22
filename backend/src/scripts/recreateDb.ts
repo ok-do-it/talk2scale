@@ -53,6 +53,9 @@ async function main(): Promise<void> {
   const sqlFiles = await loadSqlFiles(initDir);
   logger.info({ initDir, sqlFiles }, 'Starting DB recreation');
 
+  logger.info('Dropping and recreating public schema');
+  await sql.raw('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;').execute(db);
+
   for (const sqlFilePath of sqlFiles) {
     await applySqlFile(sqlFilePath);
   }

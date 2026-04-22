@@ -4,32 +4,24 @@
 -- - TypeScript backend + PostgreSQL persistence.
 -- - Mobile app syncs food data and logs through backend APIs.
 -- - Core entities:
---   users, element (canonical nutrients/foods/recipes), alias (search/display names),
---   link (recursive composition), unit (serving definitions), meal, log.
+--   users, element (canonical nutrients/foods/recipes), food_name (search/display names),
+--   link (recursive composition), measure (serving definitions), meal, food_log.
 --
 -- Data scale estimations for full USDA FoodData Central import:
 -- - element: ~510k rows (nutrients, generic foods, branded foods)
 -- - link: ~6.7M rows (food->component mappings)
--- - alias: ~600k+ rows (search aliases)
+-- - food_name: ~600k+ rows (search aliases)
 -- - estimated storage: ~400-500MB
 --
 -- Key design decisions:
 -- 1) PostgreSQL enables fast recursive CTE traversal and fuzzy search (pg_trgm).
 -- 2) Composite pattern with element + link supports infinite nesting.
--- 3) alias is separate from element so canonical names and user-facing names diverge cleanly.
--- 4) log.element_id is nullable to support unresolved voice/text entries.
+-- 3) food_name is separate from element so canonical names and user-facing names diverge cleanly.
+-- 4) food_log.element_id is nullable to support unresolved voice/text entries.
 -- 5) Nutrition is computed on read from composition graph, not persisted as redundant totals.
 
-DROP TABLE IF EXISTS log;
-DROP TABLE IF EXISTS meal;
-DROP TABLE IF EXISTS alias;
-DROP TABLE IF EXISTS unit;
-DROP TABLE IF EXISTS link;
-DROP TABLE IF EXISTS element;
-DROP TABLE IF EXISTS users;
-DROP TYPE IF EXISTS element_type;
-
 CREATE TYPE element_type AS ENUM ('nutrient', 'whole_food', 'recipe', 'branded_food');
+CREATE TYPE data_source AS ENUM ('user', 'usda', 'admin');
 
 -- users: basic user account information.
 CREATE TABLE users (
@@ -41,14 +33,15 @@ CREATE TABLE users (
 -- element: canonical entity for anything with nutritional value/composition.
 -- - type classifies node as nutrient, whole_food, recipe, or branded_food.
 -- - name is internal canonical name.
--- - user_id is optional owner for user-specific nodes.
+-- - source identifies where this entity came from.
+-- - external_id is source-specific identifier (e.g., USDA FDC id).
 -- Quantities are always grams through unit/link math.
 CREATE TABLE element (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   type element_type NOT NULL,
   name TEXT NOT NULL,
-  usda_id INTEGER NULL,
-  user_id BIGINT REFERENCES users(id) ON DELETE SET NULL
+  source data_source NOT NULL,
+  external_id TEXT NULL
 );
 
 -- link: self-referencing composition junction (DAG edge).
@@ -64,20 +57,20 @@ CREATE TABLE link (
   CHECK (parent_id <> child_id)
 );
 
--- unit: serving label and gram conversion.
+-- measure: serving label and gram conversion.
 -- - element_id NULL means universal unit (not tied to one element).
 -- - examples: gram, ounce, slice, cup.
-CREATE TABLE unit (
+CREATE TABLE measure (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   element_id BIGINT REFERENCES element(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   grams DOUBLE PRECISION NOT NULL CHECK (grams > 0)
 );
 
--- alias: searchable/display names for an element.
--- Element.name remains canonical; alias stores user-facing alternatives.
+-- food_name: searchable/display names for an element.
+-- Element.name remains canonical; food_name stores user-facing alternatives.
 -- Supports trigram fuzzy search and optional embedding similarity search.
-CREATE TABLE alias (
+CREATE TABLE food_name (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   element_id BIGINT NOT NULL REFERENCES element(id) ON DELETE CASCADE,
   user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
@@ -94,38 +87,40 @@ CREATE TABLE meal (
   logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- log: one recorded food/recipe amount within a meal.
+-- food_log: one recorded food/recipe amount within a meal.
 -- - raw_name stores original voice/text input.
 -- - element_id is nullable until entity resolution completes.
 -- - amount + unit_id represent quantity (grams, cup, slice, etc.).
-CREATE TABLE log (
+CREATE TABLE food_log (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   meal_id BIGINT NOT NULL REFERENCES meal(id) ON DELETE CASCADE,
   element_id BIGINT REFERENCES element(id) ON DELETE SET NULL,
   raw_name TEXT NOT NULL,
   amount DOUBLE PRECISION NOT NULL CHECK (amount > 0),
-  unit_id BIGINT NOT NULL REFERENCES unit(id) ON DELETE RESTRICT
+  unit_id BIGINT NOT NULL REFERENCES measure(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX idx_element_type ON element(type);
-CREATE INDEX idx_element_user_id ON element(user_id);
-CREATE UNIQUE INDEX idx_element_usda_id ON element(usda_id) WHERE usda_id IS NOT NULL;
+CREATE INDEX idx_element_source ON element(source);
+CREATE UNIQUE INDEX idx_element_source_external_id
+  ON element(source, external_id)
+  WHERE external_id IS NOT NULL;
 
 CREATE INDEX idx_link_parent_id ON link(parent_id);
 CREATE INDEX idx_link_child_id ON link(child_id);
 
-CREATE INDEX idx_unit_element_id ON unit(element_id);
+CREATE INDEX idx_measure_element_id ON measure(element_id);
 
-CREATE INDEX idx_alias_element_id ON alias(element_id);
-CREATE INDEX idx_alias_user_id ON alias(user_id);
-CREATE INDEX idx_alias_embedding_cosine ON alias USING hnsw (embedding vector_cosine_ops);
-CREATE INDEX idx_alias_name_trgm ON alias USING GIN (name gin_trgm_ops);
+CREATE INDEX idx_food_name_element_id ON food_name(element_id);
+CREATE INDEX idx_food_name_user_id ON food_name(user_id);
+CREATE INDEX idx_food_name_embedding_cosine ON food_name USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_food_name_name_trgm ON food_name USING GIN (name gin_trgm_ops);
 
 CREATE INDEX idx_meal_user_id_logged_at ON meal(user_id, logged_at DESC);
 
-CREATE INDEX idx_log_meal_id ON log(meal_id);
-CREATE INDEX idx_log_element_id ON log(element_id);
-CREATE INDEX idx_log_unit_id ON log(unit_id);
+CREATE INDEX idx_food_log_meal_id ON food_log(meal_id);
+CREATE INDEX idx_food_log_element_id ON food_log(element_id);
+CREATE INDEX idx_food_log_unit_id ON food_log(unit_id);
 
 -- Example recursive CTE for computed nutrient totals:
 --

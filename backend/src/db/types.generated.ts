@@ -5,74 +5,74 @@
 
 import type { ColumnType } from "kysely";
 
+export type DataSource = "admin" | "usda" | "user";
+
 export type ElementType = "branded_food" | "nutrient" | "recipe" | "whole_food";
 
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
-export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
-
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
-export interface Alias {
-  element_id: Int8;
-  embedding: string | null;
-  id: Generated<Int8>;
-  locale: string | null;
+export interface Element {
+  external_id: string | null;
+  id: Generated<number>;
   name: string;
-  user_id: Int8 | null;
+  source: DataSource;
+  type: ElementType;
 }
 
-export interface Element {
-  id: Generated<Int8>;
+export interface FoodLog {
+  amount: number;
+  element_id: number | null;
+  id: Generated<number>;
+  meal_id: number;
+  raw_name: string;
+  unit_id: number;
+}
+
+export interface FoodName {
+  element_id: number;
+  embedding: string | null;
+  id: Generated<number>;
+  locale: string | null;
   name: string;
-  type: ElementType;
-  usda_id: number | null;
-  user_id: Int8 | null;
+  user_id: number | null;
 }
 
 export interface Link {
-  child_id: Int8;
-  parent_id: Int8;
+  child_id: number;
+  parent_id: number;
   ratio: number;
 }
 
-export interface Log {
-  amount: number;
-  element_id: Int8 | null;
-  id: Generated<Int8>;
-  meal_id: Int8;
-  raw_name: string;
-  unit_id: Int8;
-}
-
 export interface Meal {
-  id: Generated<Int8>;
+  id: Generated<number>;
   logged_at: Generated<Timestamp>;
   name: string | null;
-  user_id: Int8;
+  user_id: number;
 }
 
-export interface Unit {
-  element_id: Int8 | null;
+export interface Measure {
+  element_id: number | null;
   grams: number;
-  id: Generated<Int8>;
+  id: Generated<number>;
   name: string;
 }
 
 export interface Users {
   email: string;
-  id: Generated<Int8>;
+  id: Generated<number>;
   name: string;
 }
 
 export interface DB {
-  alias: Alias;
   element: Element;
+  food_log: FoodLog;
+  food_name: FoodName;
   link: Link;
-  log: Log;
   meal: Meal;
-  unit: Unit;
+  measure: Measure;
   users: Users;
 }

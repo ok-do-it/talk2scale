@@ -4,16 +4,6 @@ backend - TS - tRPC / nestjs ?
 DB for backend: postgres
 DB for phone app cache? - tbd
 
-Schema entities:
-- Nutrient 
-- Food Item
-- Food Name
-- Meal
-- Log
-
-
-
-
 
 Android app:
 1. Make main screen: 

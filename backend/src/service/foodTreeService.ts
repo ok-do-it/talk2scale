@@ -9,8 +9,8 @@ type ElementRow = {
   id: number;
   type: ElementType;
   name: string;
-  usda_id: number | null;
-  user_id: number | null;
+  source: 'user' | 'usda' | 'admin';
+  external_id: string | null;
 };
 
 export type TreeNode = {
@@ -76,7 +76,7 @@ export function createFoodTreeService(): FoodTreeService {
     listElements: async (type?: ElementType, filter?: string) => {
       let query = db
         .selectFrom('element')
-        .select(['id', 'type', 'name', 'usda_id', 'user_id']);
+        .select(['id', 'type', 'name', 'source', 'external_id']);
 
       if (type) {
         query = query.where('type', '=', type);
@@ -92,7 +92,7 @@ export function createFoodTreeService(): FoodTreeService {
     treeByElement: async (elementId: number) => {
       const root = await db
         .selectFrom('element')
-        .select(['id', 'type', 'name', 'usda_id', 'user_id'])
+        .select(['id', 'type', 'name', 'source', 'external_id'])
         .where('id', '=', elementId)
         .executeTakeFirst();
 
@@ -106,8 +106,8 @@ export function createFoodTreeService(): FoodTreeService {
         ratio: number;
         child_name: string;
         child_type: ElementType;
-        child_usda_id: number | null;
-        child_user_id: number | null;
+        child_source: 'user' | 'usda' | 'admin';
+        child_external_id: string | null;
       }>`
         WITH RECURSIVE tree AS (
           SELECT
@@ -137,8 +137,8 @@ export function createFoodTreeService(): FoodTreeService {
           t.ratio,
           e.name AS child_name,
           e.type AS child_type,
-          e.usda_id AS child_usda_id,
-          e.user_id AS child_user_id
+          e.source AS child_source,
+          e.external_id AS child_external_id
         FROM tree t
         JOIN element e ON e.id = t.child_id
         ORDER BY e.name
@@ -153,8 +153,8 @@ export function createFoodTreeService(): FoodTreeService {
           id: row.child_id,
           type: row.child_type,
           name: row.child_name,
-          usda_id: row.child_usda_id,
-          user_id: row.child_user_id,
+          source: row.child_source,
+          external_id: row.child_external_id,
         });
 
         const current = edgesByParent.get(row.parent_id) ?? [];

@@ -10,10 +10,10 @@ export const TABLE = {
   users: 'users',
   element: 'element',
   link: 'link',
-  unit: 'unit',
-  alias: 'alias',
+  measure: 'measure',
+  food_name: 'food_name',
   meal: 'meal',
-  log: 'log',
+  food_log: 'food_log',
 } as const satisfies Record<keyof Database, keyof Database>;
 
 export const COLUMN = {
@@ -26,23 +26,25 @@ export const COLUMN = {
     id: 'id',
     type: 'type',
     name: 'name',
-    usda_id: 'usda_id',
-    user_id: 'user_id',
+    source: 'source',
+    external_id: 'external_id',
   },
   link: {
     parent_id: 'parent_id',
     child_id: 'child_id',
     ratio: 'ratio',
   },
-  unit: {
+  measure: {
     id: 'id',
     element_id: 'element_id',
     name: 'name',
     grams: 'grams',
   },
-  alias: {
+  food_name: {
     id: 'id',
     element_id: 'element_id',
+    user_id: 'user_id',
+    embedding: 'embedding',
     name: 'name',
     locale: 'locale',
   },
@@ -52,7 +54,7 @@ export const COLUMN = {
     name: 'name',
     logged_at: 'logged_at',
   },
-  log: {
+  food_log: {
     id: 'id',
     meal_id: 'meal_id',
     element_id: 'element_id',
