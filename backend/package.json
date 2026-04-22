@@ -11,7 +11,8 @@
     "import-usda": "tsx src/scripts/importUsda.ts",
     "download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
     "recreate-db": "tsx src/scripts/recreateDb.ts",
-    "generate-types": "tsx src/scripts/generateDbTypes.ts"
+    "generate-types": "tsx src/scripts/generateDbTypes.ts",
+    "db-query": "tsx src/scripts/dbQuery.ts"
   },
   "author": "",
   "license": "ISC",

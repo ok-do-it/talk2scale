@@ -457,7 +457,7 @@ async function importFoundationUnits(
   foodElementByFdcId: Map<number, number>
 ): Promise<void> {
   const foodPortionFilePath = path.join(datasetDir, 'food_portion.csv');
-  logger.info({ foodPortionFilePath }, 'Phase 5: importing foundation units');
+  logger.info({ foodPortionFilePath }, 'Phase 5: importing foundation portions');
 
   const pendingUnits: Array<{
     element_id: number | null;

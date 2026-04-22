@@ -12,6 +12,22 @@ Use this for **project context**. Prefer the linked docs before inventing archit
 | Open decisions and scratch tasks | [docs/todo.txt](docs/todo.txt) |
 
 
+## Database access for data analysis
+
+Run arbitrary SQL and get results as JSON:
+
+```bash
+cd backend && npm run db-query -- "SELECT id, name FROM food LIMIT 5"
+```
+
+The command prints a JSON array of rows to stdout. On failure, it writes the error to stderr and exits with code 1.
+
+**Note:**
+- Use subagent if anticipated output is bulky.
+- Add sql limit if no other constraints
+- Don't make assumptions about schema, read `db/init/002_schema.sql` first
+
+
 # Coding guidelines
 
 ## Android app
