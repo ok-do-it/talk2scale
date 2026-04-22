@@ -27,10 +27,18 @@ export type NutrientAmount = {
   amount: number;
 };
 
+export type MeasureRow = {
+  id: number;
+  element_id: number | null;
+  name: string;
+  grams: number;
+};
+
 export type FoodTreeService = {
   listElements: (type?: ElementType, filter?: string) => Promise<ElementRow[]>;
   treeByElement: (elementId: number) => Promise<TreeNode | null>;
   nutrientsByElement: (elementId: number, mass: number) => Promise<NutrientAmount[] | null>;
+  listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
 };
 
 function buildTree(
@@ -221,6 +229,22 @@ export function createFoodTreeService(): FoodTreeService {
         name: row.name,
         amount: row.total_ratio * mass,
       }));
+    },
+
+    listMeasures: async (elementId?: number) => {
+      const scopedElementId = elementId ?? null;
+      const measures = await sql<MeasureRow>`
+        SELECT id, element_id, name, grams
+        FROM measure
+        WHERE element_id IS NULL
+        UNION
+        SELECT id, element_id, name, grams
+        FROM measure
+        WHERE element_id = ${scopedElementId}
+        ORDER BY name
+      `.execute(db);
+
+      return measures.rows;
     },
   };
 }

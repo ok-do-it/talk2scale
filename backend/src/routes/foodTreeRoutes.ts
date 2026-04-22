@@ -98,5 +98,25 @@ export function createFoodTreeRoutes(foodTreeService: FoodTreeService): express.
     res.json(nutrients);
   });
 
+  const listMeasuresHandler: express.RequestHandler = async (req, res) => {
+    const params = req.params as Record<string, string | undefined>;
+    const elementIdParam = params.elementId;
+
+    let elementId: number | undefined;
+    if (elementIdParam !== undefined) {
+      const parsedElementId = parseElementId(elementIdParam);
+      if (parsedElementId === null) {
+        res.status(400).json({ error: 'invalid elementId parameter' });
+        return;
+      }
+      elementId = parsedElementId;
+    }
+
+    const measures = await foodTreeService.listMeasures(elementId);
+    res.json(measures);
+  };
+
+  router.get('/measures{/:elementId}', listMeasuresHandler);
+
   return router;
 }

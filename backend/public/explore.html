@@ -196,6 +196,12 @@
         font-size: 13px;
       }
 
+      .measure-select {
+        width: 180px;
+        padding: 6px 8px;
+        font-size: 13px;
+      }
+
       .muted {
         color: #94a3b8;
       }
@@ -304,10 +310,12 @@
 
       function NutrientsCard({ selectedElement }) {
         const [nutrients, setNutrients] = useState([]);
+        const [measures, setMeasures] = useState([]);
         const [isLoading, setIsLoading] = useState(false);
         const [error, setError] = useState("");
         const [mass, setMass] = useState("100");
         const [debouncedMass, setDebouncedMass] = useState("100");
+        const [selectedMeasureId, setSelectedMeasureId] = useState("");
 
         useEffect(() => {
           const timer = window.setTimeout(() => {
@@ -315,6 +323,59 @@
           }, 300);
           return () => window.clearTimeout(timer);
         }, [mass]);
+
+        useEffect(() => {
+          if (!selectedElement) {
+            setMeasures([]);
+            setSelectedMeasureId("");
+            return;
+          }
+
+          const controller = new AbortController();
+
+          async function loadMeasures() {
+            try {
+              const response = await fetch(`/measures/${selectedElement.id}`, {
+                signal: controller.signal
+              });
+              if (!response.ok) {
+                throw new Error(`Measures request failed with ${response.status}`);
+              }
+
+              const payload = await response.json();
+              setMeasures(Array.isArray(payload) ? payload : []);
+              setSelectedMeasureId("");
+            } catch (err) {
+              if (err.name === "AbortError") {
+                return;
+              }
+              setMeasures([]);
+            }
+          }
+
+          loadMeasures();
+          return () => controller.abort();
+        }, [selectedElement]);
+
+        const selectedMeasure = useMemo(() => {
+          if (!selectedMeasureId) {
+            return null;
+          }
+          return measures.find((measure) => String(measure.id) === selectedMeasureId) ?? null;
+        }, [measures, selectedMeasureId]);
+
+        const effectiveMass = useMemo(() => {
+          const normalizedMass = Number(debouncedMass);
+          if (!Number.isFinite(normalizedMass) || normalizedMass <= 0) {
+            return Number.NaN;
+          }
+
+          if (!selectedMeasure) {
+            return normalizedMass;
+          }
+
+          return normalizedMass * selectedMeasure.grams;
+        }, [debouncedMass, selectedMeasure]);
 
         useEffect(() => {
           if (!selectedElement) {
@@ -330,15 +391,14 @@
             setError("");
 
             try {
-              const normalizedMass = Number(debouncedMass);
-              if (!Number.isFinite(normalizedMass) || normalizedMass <= 0) {
+              if (!Number.isFinite(effectiveMass) || effectiveMass <= 0) {
                 setNutrients([]);
-                setError("Mass must be a positive number");
+                setError("Amount must be a positive number");
                 return;
               }
 
               const params = new URLSearchParams();
-              params.set("mass", normalizedMass.toString());
+              params.set("mass", effectiveMass.toString());
               const response = await fetch(`/element/${selectedElement.id}/nutrients?${params.toString()}`, {
                 signal: controller.signal
               });
@@ -361,23 +421,37 @@
 
           loadNutrients();
           return () => controller.abort();
-        }, [selectedElement, debouncedMass]);
+        }, [selectedElement, effectiveMass]);
 
         return (
           <section className="card nutrients-card">
             <div className="card-title card-title-row">
               <span>Nutrients</span>
               <label className="card-title-controls">
-                <span className="muted">Mass</span>
+                <span className="muted">Amount</span>
                 <input
                   className="mass-input"
                   type="number"
                   min="0.000001"
-                  step="1"
+                  step="any"
                   value={mass}
                   onChange={(event) => setMass(event.target.value)}
                 />
-                <span className="muted">g</span>
+                <select
+                  className="measure-select"
+                  value={selectedMeasureId}
+                  onChange={(event) => setSelectedMeasureId(event.target.value)}
+                >
+                  <option value="">Grams</option>
+                  {measures.map((measure) => (
+                    <option key={measure.id} value={String(measure.id)}>
+                      {measure.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedMeasure && Number.isFinite(effectiveMass) && effectiveMass > 0 && (
+                  <span className="muted">(= {formatNumber(effectiveMass)} g)</span>
+                )}
               </label>
             </div>
             {isLoading && <div className="status">Loading nutrients...</div>}
