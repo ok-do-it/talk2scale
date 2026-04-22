@@ -4,13 +4,14 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { parse } from 'csv-parse';
 import { closeDatabaseConnection, db } from '../db/client.js';
-import type { ElementType } from '../db/types.js';
 import { COLUMN, TABLE } from '../db/typeIdentifiers.js';
 import { logger } from '../config/logger.js';
 
-type SupportedFoodType = Extract<ElementType, 'whole_food' | 'branded_food'>;
-
 type CsvRow = Record<string, string>;
+type CsvRowWithNumber = {
+  row: CsvRow;
+  rowNumber: number;
+};
 
 const FOOD_BATCH_SIZE = 5000;
 const LINK_BATCH_SIZE = 5000;
@@ -18,6 +19,11 @@ const ALIAS_BATCH_SIZE = 5000;
 const UNIT_BATCH_SIZE = 5000;
 const LOOKUP_CHUNK_SIZE = 10000;
 const LOG_EVERY_ROWS = 10000;
+const EXPECTED_DATA_TYPE = 'foundation_food';
+const FOUNDATION_DATASET_DIR = path.resolve(
+  process.cwd(),
+  '../db/raw_usda_datasets/FoodData_Central_foundation_food_csv_2025-12-18'
+);
 
 function toNumber(value: number | string): number {
   return typeof value === 'number' ? value : Number(value);
@@ -61,22 +67,44 @@ function unitMultiplierInGrams(unitName: string | undefined): number | null {
   return null;
 }
 
-function normalizeServingUnit(unitName: string | undefined): string | null {
-  if (!unitName) return null;
-  const normalized = unitName.trim().toLowerCase();
-  if (normalized === 'g' || normalized === 'gram' || normalized === 'grams') return 'g';
-  return null;
-}
+const SKIP_LOG_LIMIT = 10;
 
-function targetFoodDataType(foodType: SupportedFoodType): string {
-  return foodType === 'whole_food' ? 'foundation_food' : 'branded_food';
+class SkipCounter {
+  private counts = new Map<string, number>();
+  private fileName: string;
+
+  constructor(fileName: string) {
+    this.fileName = fileName;
+  }
+
+  add(reason: string, rowNumber: number, csvLine: CsvRow): void {
+    const prev = this.counts.get(reason) ?? 0;
+    this.counts.set(reason, prev + 1);
+    if (prev < SKIP_LOG_LIMIT) {
+      logger.warn({ file: this.fileName, row: rowNumber, reason, csvLine }, 'Skipped row');
+    }
+  }
+
+  countOnly(reason: string): void {
+    this.counts.set(reason, (this.counts.get(reason) ?? 0) + 1);
+  }
+
+  get total(): number {
+    let sum = 0;
+    for (const c of this.counts.values()) sum += c;
+    return sum;
+  }
+
+  toSummary(): Record<string, number> {
+    return Object.fromEntries(this.counts);
+  }
 }
 
 async function ensureReadableFile(filePath: string): Promise<void> {
   await access(filePath, fsConstants.R_OK);
 }
 
-async function* readCsvRows(filePath: string): AsyncGenerator<CsvRow> {
+async function* readCsvRows(filePath: string): AsyncGenerator<CsvRowWithNumber> {
   const parser = parse({
     columns: true,
     bom: true,
@@ -86,8 +114,10 @@ async function* readCsvRows(filePath: string): AsyncGenerator<CsvRow> {
   });
 
   createReadStream(filePath).pipe(parser);
+  let rowNumber = 1;
   for await (const row of parser) {
-    yield row as CsvRow;
+    rowNumber += 1;
+    yield { row: row as CsvRow, rowNumber };
   }
 }
 
@@ -123,7 +153,7 @@ async function importNutrients(datasetDir: string): Promise<{
   logger.info({ nutrientFilePath }, 'Phase 1: importing nutrients');
 
   const nutrientRows: Array<{
-    type: ElementType;
+    type: 'nutrient';
     name: string;
     source: 'usda';
     external_id: string;
@@ -131,17 +161,20 @@ async function importNutrients(datasetDir: string): Promise<{
   const nutrientMultiplierByUsdaId = new Map<number, number>();
 
   let totalRows = 0;
-  let skippedNonMassRows = 0;
+  const skipped = new SkipCounter('nutrient.csv');
 
-  for await (const row of readCsvRows(nutrientFilePath)) {
+  for await (const { row, rowNumber } of readCsvRows(nutrientFilePath)) {
     totalRows += 1;
 
     const nutrientId = parseInteger(row.id);
-    if (nutrientId == null) continue;
+    if (nutrientId == null) {
+      skipped.add('missing nutrient id', rowNumber, row);
+      continue;
+    }
 
     const multiplier = unitMultiplierInGrams(row.unit_name);
     if (multiplier == null) {
-      skippedNonMassRows += 1;
+      skipped.add(`unsupported unit (not mass): ${(row.unit_name ?? '').trim() || '<empty>'}`, rowNumber, row);
       continue;
     }
 
@@ -175,7 +208,7 @@ async function importNutrients(datasetDir: string): Promise<{
     {
       totalRows,
       importedOrExisting: nutrientElementByUsdaId.size,
-      skippedNonMassRows,
+      skipped: skipped.toSummary(),
     },
     'Phase 1 complete'
   );
@@ -183,17 +216,13 @@ async function importNutrients(datasetDir: string): Promise<{
   return { nutrientElementByUsdaId, nutrientMultiplierByUsdaId };
 }
 
-async function importFoods(
-  datasetDir: string,
-  foodType: SupportedFoodType
-): Promise<Map<number, number>> {
+async function importFoods(datasetDir: string): Promise<Map<number, number>> {
   const foodFilePath = path.join(datasetDir, 'food.csv');
-  const expectedDataType = targetFoodDataType(foodType);
-  logger.info({ foodFilePath, expectedDataType }, 'Phase 2: importing foods');
+  logger.info({ foodFilePath, expectedDataType: EXPECTED_DATA_TYPE }, 'Phase 2: importing foods');
 
   const foodElementByFdcId = new Map<number, number>();
   const pendingElements: Array<{
-    type: ElementType;
+    type: 'whole_food';
     name: string;
     source: 'usda';
     external_id: string;
@@ -203,6 +232,7 @@ async function importFoods(
   let totalRows = 0;
   let matchedRows = 0;
   let insertedRows = 0;
+  const skipped = new SkipCounter('food.csv');
 
   const flush = async (): Promise<void> => {
     if (pendingElements.length === 0) return;
@@ -229,19 +259,24 @@ async function importFoods(
     pendingFdcIds = [];
   };
 
-  for await (const row of readCsvRows(foodFilePath)) {
+  for await (const { row, rowNumber } of readCsvRows(foodFilePath)) {
     totalRows += 1;
 
-    if ((row.data_type ?? '').trim() !== expectedDataType) {
+    const dataType = (row.data_type ?? '').trim();
+    if (dataType !== EXPECTED_DATA_TYPE) {
+      skipped.countOnly(`non-foundation data_type: ${dataType || '<empty>'}`);
       continue;
     }
 
     matchedRows += 1;
     const fdcId = parseInteger(row.fdc_id);
-    if (fdcId == null) continue;
+    if (fdcId == null) {
+      skipped.add('missing fdc_id', rowNumber, row);
+      continue;
+    }
 
     pendingElements.push({
-      type: foodType,
+      type: 'whole_food',
       name: (row.description ?? '').trim() || `USDA food ${fdcId}`,
       source: 'usda',
       external_id: String(fdcId),
@@ -265,6 +300,7 @@ async function importFoods(
       matchedRows,
       insertedRows,
       mappedFoodRows: foodElementByFdcId.size,
+      skipped: skipped.toSummary(),
     },
     'Phase 2 complete'
   );
@@ -289,7 +325,7 @@ async function importLinks(
 
   let totalRows = 0;
   let insertedRows = 0;
-  let skippedRows = 0;
+  const skipped = new SkipCounter('food_nutrient.csv');
 
   const flush = async (): Promise<void> => {
     if (pendingLinks.length === 0) return;
@@ -304,28 +340,33 @@ async function importLinks(
     pendingLinks.length = 0;
   };
 
-  for await (const row of readCsvRows(foodNutrientFilePath)) {
+  for await (const { row, rowNumber } of readCsvRows(foodNutrientFilePath)) {
     totalRows += 1;
 
     const fdcId = parseInteger(row.fdc_id);
     const nutrientId = parseInteger(row.nutrient_id);
     const amount = parsePositiveNumber(row.amount);
     if (fdcId == null || nutrientId == null || amount == null) {
-      skippedRows += 1;
+      skipped.add('missing fdc_id/nutrient_id/amount', rowNumber, row);
       continue;
     }
 
     const parentElementId = foodElementByFdcId.get(fdcId);
+    if (parentElementId == null) {
+      skipped.add('unknown food fdc_id', rowNumber, row);
+      continue;
+    }
+
     const childElementId = nutrientElementByUsdaId.get(nutrientId);
     const multiplier = nutrientMultiplierByUsdaId.get(nutrientId);
-    if (parentElementId == null || childElementId == null || multiplier == null) {
-      skippedRows += 1;
+    if (childElementId == null || multiplier == null) {
+      skipped.add('unknown nutrient id', rowNumber, row);
       continue;
     }
 
     const ratio = (amount * multiplier) / 100;
     if (!Number.isFinite(ratio) || ratio <= 0) {
-      skippedRows += 1;
+      skipped.add('invalid ratio (zero or non-finite)', rowNumber, row);
       continue;
     }
 
@@ -340,21 +381,16 @@ async function importLinks(
     }
 
     if (totalRows % LOG_EVERY_ROWS === 0) {
-      logger.info({ totalRows, insertedRows, skippedRows }, 'Phase 3 progress');
+      logger.info({ totalRows, insertedRows, skipped: skipped.total }, 'Phase 3 progress');
     }
   }
 
   await flush();
-  logger.info({ totalRows, insertedRows, skippedRows }, 'Phase 3 complete');
+  logger.info({ totalRows, insertedRows, skipped: skipped.toSummary() }, 'Phase 3 complete');
 }
 
-async function importBaseAliases(
-  datasetDir: string,
-  foodType: SupportedFoodType,
-  foodElementByFdcId: Map<number, number>
-): Promise<void> {
+async function importBaseAliases(datasetDir: string, foodElementByFdcId: Map<number, number>): Promise<void> {
   const foodFilePath = path.join(datasetDir, 'food.csv');
-  const expectedDataType = targetFoodDataType(foodType);
   logger.info({ foodFilePath }, 'Phase 4A: importing food description aliases');
 
   const pendingAliases: Array<{
@@ -365,6 +401,7 @@ async function importBaseAliases(
 
   let totalRows = 0;
   let insertedRows = 0;
+  const skipped = new SkipCounter('food.csv');
 
   const flush = async (): Promise<void> => {
     if (pendingAliases.length === 0) return;
@@ -373,18 +410,32 @@ async function importBaseAliases(
     pendingAliases.length = 0;
   };
 
-  for await (const row of readCsvRows(foodFilePath)) {
+  for await (const { row, rowNumber } of readCsvRows(foodFilePath)) {
     totalRows += 1;
-    if ((row.data_type ?? '').trim() !== expectedDataType) continue;
+
+    const dataType = (row.data_type ?? '').trim();
+    if (dataType !== EXPECTED_DATA_TYPE) {
+      skipped.countOnly(`non-foundation data_type: ${dataType || '<empty>'}`);
+      continue;
+    }
 
     const fdcId = parseInteger(row.fdc_id);
-    if (fdcId == null) continue;
+    if (fdcId == null) {
+      skipped.add('missing fdc_id', rowNumber, row);
+      continue;
+    }
 
     const elementId = foodElementByFdcId.get(fdcId);
-    if (elementId == null) continue;
+    if (elementId == null) {
+      skipped.add('unknown food fdc_id', rowNumber, row);
+      continue;
+    }
 
     const name = (row.description ?? '').trim();
-    if (!name) continue;
+    if (!name) {
+      skipped.add('empty description', rowNumber, row);
+      continue;
+    }
 
     pendingAliases.push({
       element_id: elementId,
@@ -398,58 +449,7 @@ async function importBaseAliases(
   }
 
   await flush();
-  logger.info({ totalRows, insertedRows }, 'Phase 4A complete');
-}
-
-async function importBrandedAliases(
-  datasetDir: string,
-  foodElementByFdcId: Map<number, number>
-): Promise<void> {
-  const brandedFoodFilePath = path.join(datasetDir, 'branded_food.csv');
-  logger.info({ brandedFoodFilePath }, 'Phase 4B: importing branded aliases');
-
-  const pendingAliases: Array<{
-    element_id: number;
-    name: string;
-    locale: string | null;
-  }> = [];
-
-  let totalRows = 0;
-  let insertedRows = 0;
-
-  const flush = async (): Promise<void> => {
-    if (pendingAliases.length === 0) return;
-    await db.insertInto(TABLE.food_name).values(pendingAliases).execute();
-    insertedRows += pendingAliases.length;
-    pendingAliases.length = 0;
-  };
-
-  for await (const row of readCsvRows(brandedFoodFilePath)) {
-    totalRows += 1;
-    const fdcId = parseInteger(row.fdc_id);
-    if (fdcId == null) continue;
-
-    const elementId = foodElementByFdcId.get(fdcId);
-    if (elementId == null) continue;
-
-    const brandOwner = (row.brand_owner ?? '').trim();
-    const brandName = (row.brand_name ?? '').trim();
-    const joined = [brandOwner, brandName].filter(Boolean).join(' ');
-    if (!joined) continue;
-
-    pendingAliases.push({
-      element_id: elementId,
-      name: joined,
-      locale: 'en',
-    });
-
-    if (pendingAliases.length >= ALIAS_BATCH_SIZE) {
-      await flush();
-    }
-  }
-
-  await flush();
-  logger.info({ totalRows, insertedRows }, 'Phase 4B complete');
+  logger.info({ totalRows, insertedRows, skipped: skipped.toSummary() }, 'Phase 4A complete');
 }
 
 async function importFoundationUnits(
@@ -467,7 +467,7 @@ async function importFoundationUnits(
 
   let totalRows = 0;
   let insertedRows = 0;
-  let skippedRows = 0;
+  const skipped = new SkipCounter('food_portion.csv');
 
   const flush = async (): Promise<void> => {
     if (pendingUnits.length === 0) return;
@@ -476,23 +476,28 @@ async function importFoundationUnits(
     pendingUnits.length = 0;
   };
 
-  for await (const row of readCsvRows(foodPortionFilePath)) {
+  for await (const { row, rowNumber } of readCsvRows(foodPortionFilePath)) {
     totalRows += 1;
 
     const fdcId = parseInteger(row.fdc_id);
     const grams = parsePositiveNumber(row.gram_weight);
     if (fdcId == null || grams == null) {
-      skippedRows += 1;
+      skipped.add('missing fdc_id or gram_weight', rowNumber, row);
       continue;
     }
 
     const elementId = foodElementByFdcId.get(fdcId);
     if (elementId == null) {
-      skippedRows += 1;
+      skipped.add('unknown food fdc_id', rowNumber, row);
       continue;
     }
 
-    const rawName = (row.portion_description ?? '').trim() || (row.modifier ?? '').trim() || 'portion';
+    const rawName = (row.portion_description ?? '').trim() || (row.modifier ?? '').trim();
+    if (!rawName) {
+      skipped.add('empty portion name', rowNumber, row);
+      continue;
+    }
+
     pendingUnits.push({
       element_id: elementId,
       name: rawName,
@@ -505,119 +510,27 @@ async function importFoundationUnits(
   }
 
   await flush();
-  logger.info({ totalRows, insertedRows, skippedRows }, 'Phase 5 complete');
-}
-
-async function importBrandedUnits(
-  datasetDir: string,
-  foodElementByFdcId: Map<number, number>
-): Promise<void> {
-  const brandedFoodFilePath = path.join(datasetDir, 'branded_food.csv');
-  logger.info({ brandedFoodFilePath }, 'Phase 5: importing branded units');
-
-  const pendingUnits: Array<{
-    element_id: number | null;
-    name: string;
-    grams: number;
-  }> = [];
-
-  let totalRows = 0;
-  let insertedRows = 0;
-  let skippedRows = 0;
-
-  const flush = async (): Promise<void> => {
-    if (pendingUnits.length === 0) return;
-    await db.insertInto(TABLE.measure).values(pendingUnits).execute();
-    insertedRows += pendingUnits.length;
-    pendingUnits.length = 0;
-  };
-
-  for await (const row of readCsvRows(brandedFoodFilePath)) {
-    totalRows += 1;
-
-    const fdcId = parseInteger(row.fdc_id);
-    const servingSize = parsePositiveNumber(row.serving_size);
-    if (fdcId == null || servingSize == null) {
-      skippedRows += 1;
-      continue;
-    }
-
-    const elementId = foodElementByFdcId.get(fdcId);
-    if (elementId == null) {
-      skippedRows += 1;
-      continue;
-    }
-
-    const servingUnit = normalizeServingUnit(row.serving_size_unit);
-    if (servingUnit == null) {
-      skippedRows += 1;
-      continue;
-    }
-
-    const servingSizeUnitName = (row.serving_size_unit ?? '').trim() || servingUnit;
-    const householdServing = (row.household_serving_fulltext ?? '').trim();
-
-    pendingUnits.push({
-      element_id: elementId,
-      name: `${servingSizeUnitName} serving`,
-      grams: servingSize,
-    });
-
-    if (householdServing && householdServing.toLowerCase() !== `${servingSizeUnitName} serving`.toLowerCase()) {
-      pendingUnits.push({
-        element_id: elementId,
-        name: householdServing,
-        grams: servingSize,
-      });
-    }
-
-    if (pendingUnits.length >= UNIT_BATCH_SIZE) {
-      await flush();
-    }
-  }
-
-  await flush();
-  logger.info({ totalRows, insertedRows, skippedRows }, 'Phase 5 complete');
+  logger.info({ totalRows, insertedRows, skipped: skipped.toSummary() }, 'Phase 5 complete');
 }
 
 async function main(): Promise<void> {
-  const datasetDirArg = process.argv[2];
-  const foodTypeArg = process.argv[3];
-
-  if (!datasetDirArg || !foodTypeArg) {
-    logger.error(
-      'Usage: npx tsx src/scripts/importUsda.ts <dataset_dir> <whole_food|branded_food>'
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  if (foodTypeArg !== 'whole_food' && foodTypeArg !== 'branded_food') {
-    logger.error({ foodTypeArg }, 'Invalid food type argument');
-    process.exitCode = 1;
-    return;
-  }
-
-  const foodType = foodTypeArg as SupportedFoodType;
-  const datasetDir = path.resolve(process.cwd(), datasetDirArg);
+  const datasetDir = FOUNDATION_DATASET_DIR;
 
   const requiredFiles = [
     path.join(datasetDir, 'nutrient.csv'),
     path.join(datasetDir, 'food.csv'),
     path.join(datasetDir, 'food_nutrient.csv'),
-    foodType === 'branded_food'
-      ? path.join(datasetDir, 'branded_food.csv')
-      : path.join(datasetDir, 'food_portion.csv'),
+    path.join(datasetDir, 'food_portion.csv'),
   ];
 
   for (const filePath of requiredFiles) {
     await ensureReadableFile(filePath);
   }
 
-  logger.info({ datasetDir, foodType }, 'Starting USDA import');
+  logger.info({ datasetDir, foodType: 'whole_food' }, 'Starting USDA import');
 
   const { nutrientElementByUsdaId, nutrientMultiplierByUsdaId } = await importNutrients(datasetDir);
-  const foodElementByFdcId = await importFoods(datasetDir, foodType);
+  const foodElementByFdcId = await importFoods(datasetDir);
 
   await importLinks(
     datasetDir,
@@ -626,16 +539,8 @@ async function main(): Promise<void> {
     nutrientMultiplierByUsdaId
   );
 
-  await importBaseAliases(datasetDir, foodType, foodElementByFdcId);
-  if (foodType === 'branded_food') {
-    await importBrandedAliases(datasetDir, foodElementByFdcId);
-  }
-
-  if (foodType === 'branded_food') {
-    await importBrandedUnits(datasetDir, foodElementByFdcId);
-  } else {
-    await importFoundationUnits(datasetDir, foodElementByFdcId);
-  }
+  await importBaseAliases(datasetDir, foodElementByFdcId);
+  await importFoundationUnits(datasetDir, foodElementByFdcId);
 
   logger.info(
     {
