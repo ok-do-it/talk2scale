@@ -1,6 +1,6 @@
-import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 
 // Keep compatibility with both run locations:
 // - repo root (loads .env via default lookup)
@@ -21,11 +21,11 @@ const postgresHost = process.env.POSTGRES_HOST?.trim();
 const parsedPostgresPort = Number(process.env.POSTGRES_PORT);
 
 export const env = {
-  port: parsedPort,
-  postgresDb,
-  postgresUser,
-  postgresPassword,
-  postgresHost,
-  postgresPort: parsedPostgresPort,
-  searchPrefix: 'Represent this sentence for searching relevant passages: ',
+	port: parsedPort,
+	postgresDb,
+	postgresUser,
+	postgresPassword,
+	postgresHost,
+	postgresPort: parsedPostgresPort,
+	searchPrefix: 'Represent this sentence for searching relevant passages: ',
 };

@@ -30,6 +30,9 @@ The command prints a JSON array of rows to stdout. On failure, it writes the err
 
 # Coding guidelines
 
+## Backend app
+- run `cd backend && npm run typecheck && npm run check` before finishing backend changes
+
 ## Android app
 - use MaterialButton when need to show icon and text caption
 - don't use strings.xml hard code all captions

@@ -1,12 +1,12 @@
 import pino from 'pino';
 
 export const logger = pino({
-  level: process.env.LOG_LEVEL ?? 'info',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: process.stdout.isTTY ?? false,
-      translateTime: 'SYS:standard',
-    },
-  },
+	level: process.env.LOG_LEVEL ?? 'info',
+	transport: {
+		target: 'pino-pretty',
+		options: {
+			colorize: process.stdout.isTTY ?? false,
+			translateTime: 'SYS:standard',
+		},
+	},
 });

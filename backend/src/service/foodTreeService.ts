@@ -3,132 +3,137 @@ import { db } from '../db/client.js';
 import type { ElementType } from '../db/types.js';
 
 const MAX_TREE_DEPTH = 10;
-const ELEMENT_TYPES: ElementType[] = ['nutrient', 'whole_food', 'recipe', 'branded_food'];
 
 type ElementRow = {
-  id: number;
-  type: ElementType;
-  name: string;
-  source: 'user' | 'usda' | 'admin';
-  external_id: string | null;
+	id: number;
+	type: ElementType;
+	name: string;
+	source: 'user' | 'usda' | 'admin';
+	external_id: string | null;
 };
 
 export type TreeNode = {
-  id: number;
-  type: ElementType;
-  name: string;
-  ratio: number;
-  children: TreeNode[];
+	id: number;
+	type: ElementType;
+	name: string;
+	ratio: number;
+	children: TreeNode[];
 };
 
 export type NutrientAmount = {
-  id: number;
-  name: string;
-  amount: number;
+	id: number;
+	name: string;
+	amount: number;
 };
 
 export type MeasureRow = {
-  id: number;
-  element_id: number | null;
-  name: string;
-  grams: number;
+	id: number;
+	element_id: number | null;
+	name: string;
+	grams: number;
 };
 
 export type NutrientGroupRow = {
-  id: number;
-  name: string;
-  display_order: number;
-  element_ids: number[];
+	id: number;
+	name: string;
+	display_order: number;
+	element_ids: number[];
 };
 
 export type FoodTreeService = {
-  listElements: (type?: ElementType, filter?: string) => Promise<ElementRow[]>;
-  treeByElement: (elementId: number) => Promise<TreeNode | null>;
-  nutrientsByElement: (
-    elementId: number,
-    mass: number,
-    groupId?: number
-  ) => Promise<NutrientAmount[] | null>;
-  listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
-  listNutrientGroups: () => Promise<NutrientGroupRow[]>;
+	listElements: (type?: ElementType, filter?: string) => Promise<ElementRow[]>;
+	treeByElement: (elementId: number) => Promise<TreeNode | null>;
+	nutrientsByElement: (
+		elementId: number,
+		mass: number,
+		groupId?: number,
+	) => Promise<NutrientAmount[] | null>;
+	listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
+	listNutrientGroups: () => Promise<NutrientGroupRow[]>;
 };
 
 function buildTree(
-  elementId: number,
-  ratio: number,
-  elementsById: Map<number, ElementRow>,
-  edgesByParent: Map<number, Array<{ childId: number; ratio: number }>>,
-  visited: Set<number>
+	elementId: number,
+	ratio: number,
+	elementsById: Map<number, ElementRow>,
+	edgesByParent: Map<number, Array<{ childId: number; ratio: number }>>,
+	visited: Set<number>,
 ): TreeNode {
-  const element = elementsById.get(elementId);
-  if (!element) {
-    throw new Error(`Element ${elementId} is missing from fetched tree data`);
-  }
+	const element = elementsById.get(elementId);
+	if (!element) {
+		throw new Error(`Element ${elementId} is missing from fetched tree data`);
+	}
 
-  if (visited.has(elementId)) {
-    return {
-      id: element.id,
-      type: element.type,
-      name: element.name,
-      ratio,
-      children: [],
-    };
-  }
+	if (visited.has(elementId)) {
+		return {
+			id: element.id,
+			type: element.type,
+			name: element.name,
+			ratio,
+			children: [],
+		};
+	}
 
-  const nextVisited = new Set(visited);
-  nextVisited.add(elementId);
+	const nextVisited = new Set(visited);
+	nextVisited.add(elementId);
 
-  const children = (edgesByParent.get(elementId) ?? []).map(edge =>
-    buildTree(edge.childId, edge.ratio, elementsById, edgesByParent, nextVisited)
-  );
+	const children = (edgesByParent.get(elementId) ?? []).map((edge) =>
+		buildTree(
+			edge.childId,
+			edge.ratio,
+			elementsById,
+			edgesByParent,
+			nextVisited,
+		),
+	);
 
-  return {
-    id: element.id,
-    type: element.type,
-    name: element.name,
-    ratio,
-    children,
-  };
+	return {
+		id: element.id,
+		type: element.type,
+		name: element.name,
+		ratio,
+		children,
+	};
 }
 
 export function createFoodTreeService(): FoodTreeService {
-  return {
-    listElements: async (type?: ElementType, filter?: string) => {
-      let query = db
-        .selectFrom('element')
-        .select(['id', 'type', 'name', 'source', 'external_id']);
+	return {
+		listElements: async (type?: ElementType, filter?: string) => {
+			let query = db
+				.selectFrom('element')
+				.select(['id', 'type', 'name', 'source', 'external_id']);
 
-      if (type) {
-        query = query.where('type', '=', type);
-      }
+			if (type) {
+				query = query.where('type', '=', type);
+			}
 
-      if (filter) {
-        query = query.where('name', 'like', `%${filter}%`);
-      }
+			if (filter) {
+				query = query.where('name', 'like', `%${filter}%`);
+			}
 
-      return query.orderBy('name', 'asc').execute();
-    },
+			return query.orderBy('name', 'asc').execute();
+		},
 
-    treeByElement: async (elementId: number) => {
-      const root = await db
-        .selectFrom('element')
-        .select(['id', 'type', 'name', 'source', 'external_id'])
-        .where('id', '=', elementId)
-        .executeTakeFirst();
+		treeByElement: async (elementId: number) => {
+			const root = await db
+				.selectFrom('element')
+				.select(['id', 'type', 'name', 'source', 'external_id'])
+				.where('id', '=', elementId)
+				.executeTakeFirst();
 
-      if (!root) {
-        return null;
-      }
+			if (!root) {
+				return null;
+			}
 
-      const descendants = await sql<{
-        parent_id: number;
-        child_id: number;
-        ratio: number;
-        child_name: string;
-        child_type: ElementType;
-        child_source: 'user' | 'usda' | 'admin';
-        child_external_id: string | null;
-      }>`
+			const descendants = await sql<{
+				parent_id: number;
+				child_id: number;
+				ratio: number;
+				child_name: string;
+				child_type: ElementType;
+				child_source: 'user' | 'usda' | 'admin';
+				child_external_id: string | null;
+			}>`
         WITH RECURSIVE tree AS (
           SELECT
             l.parent_id,
@@ -164,53 +169,62 @@ export function createFoodTreeService(): FoodTreeService {
         ORDER BY e.name
       `.execute(db);
 
-      const elementsById = new Map<number, ElementRow>();
-      elementsById.set(root.id, root);
+			const elementsById = new Map<number, ElementRow>();
+			elementsById.set(root.id, root);
 
-      const edgesByParent = new Map<number, Array<{ childId: number; ratio: number }>>();
-      for (const row of descendants.rows) {
-        elementsById.set(row.child_id, {
-          id: row.child_id,
-          type: row.child_type,
-          name: row.child_name,
-          source: row.child_source,
-          external_id: row.child_external_id,
-        });
+			const edgesByParent = new Map<
+				number,
+				Array<{ childId: number; ratio: number }>
+			>();
+			for (const row of descendants.rows) {
+				elementsById.set(row.child_id, {
+					id: row.child_id,
+					type: row.child_type,
+					name: row.child_name,
+					source: row.child_source,
+					external_id: row.child_external_id,
+				});
 
-        const current = edgesByParent.get(row.parent_id) ?? [];
-        current.push({ childId: row.child_id, ratio: row.ratio });
-        edgesByParent.set(row.parent_id, current);
-      }
+				const current = edgesByParent.get(row.parent_id) ?? [];
+				current.push({ childId: row.child_id, ratio: row.ratio });
+				edgesByParent.set(row.parent_id, current);
+			}
 
-      return buildTree(root.id, 1, elementsById, edgesByParent, new Set<number>());
-    },
+			return buildTree(
+				root.id,
+				1,
+				elementsById,
+				edgesByParent,
+				new Set<number>(),
+			);
+		},
 
-    nutrientsByElement: async (
-      elementId: number,
-      mass: number,
-      groupId?: number
-    ) => {
-      const root = await db
-        .selectFrom('element')
-        .select(['id', 'type', 'name'])
-        .where('id', '=', elementId)
-        .executeTakeFirst();
+		nutrientsByElement: async (
+			elementId: number,
+			mass: number,
+			groupId?: number,
+		) => {
+			const root = await db
+				.selectFrom('element')
+				.select(['id', 'type', 'name'])
+				.where('id', '=', elementId)
+				.executeTakeFirst();
 
-      if (!root) {
-        return null;
-      }
+			if (!root) {
+				return null;
+			}
 
-      const groupIdParam = groupId ?? null;
+			const groupIdParam = groupId ?? null;
 
-      if (root.type === 'nutrient') {
-        return [{ id: root.id, name: root.name, amount: mass }];
-      }
+			if (root.type === 'nutrient') {
+				return [{ id: root.id, name: root.name, amount: mass }];
+			}
 
-      const nutrients = await sql<{
-        id: number;
-        name: string;
-        total_ratio: number;
-      }>`
+			const nutrients = await sql<{
+				id: number;
+				name: string;
+				total_ratio: number;
+			}>`
         WITH RECURSIVE tree AS (
           SELECT
             l.child_id,
@@ -251,16 +265,16 @@ export function createFoodTreeService(): FoodTreeService {
         ORDER BY e.name
       `.execute(db);
 
-      return nutrients.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        amount: row.total_ratio * mass,
-      }));
-    },
+			return nutrients.rows.map((row) => ({
+				id: row.id,
+				name: row.name,
+				amount: row.total_ratio * mass,
+			}));
+		},
 
-    listMeasures: async (elementId?: number) => {
-      const scopedElementId = elementId ?? null;
-      const measures = await sql<MeasureRow>`
+		listMeasures: async (elementId?: number) => {
+			const scopedElementId = elementId ?? null;
+			const measures = await sql<MeasureRow>`
         SELECT id, element_id, name, grams
         FROM measure
         WHERE element_id IS NULL
@@ -271,22 +285,22 @@ export function createFoodTreeService(): FoodTreeService {
         ORDER BY name
       `.execute(db);
 
-      return measures.rows;
-    },
+			return measures.rows;
+		},
 
-    listNutrientGroups: async () => {
-      const rows = await db
-        .selectFrom('nutrient_group')
-        .select(['id', 'name', 'display_order', 'element_ids'])
-        .orderBy('display_order', 'asc')
-        .execute();
+		listNutrientGroups: async () => {
+			const rows = await db
+				.selectFrom('nutrient_group')
+				.select(['id', 'name', 'display_order', 'element_ids'])
+				.orderBy('display_order', 'asc')
+				.execute();
 
-      return rows.map(row => ({
-        id: Number(row.id),
-        name: row.name,
-        display_order: row.display_order,
-        element_ids: row.element_ids.map(id => Number(id)),
-      }));
-    },
-  };
+			return rows.map((row) => ({
+				id: Number(row.id),
+				name: row.name,
+				display_order: row.display_order,
+				element_ids: row.element_ids.map((id) => Number(id)),
+			}));
+		},
+	};
 }

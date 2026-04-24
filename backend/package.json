@@ -1,38 +1,43 @@
 {
-  "type": "module",
-  "name": "talk2scale",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "predev": "lsof -ti :8888 | xargs kill -9 2>/dev/null || true",
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "clean-reseed": "tsx src/scripts/db/clean-reseed.ts",
-    "refresh-nutrient-groups": "tsx src/scripts/db/refreshNutrientGroups.ts",
-    "download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
-    "clean-db": "tsx src/scripts/db/clean-db.ts",
-    "generate-types": "tsx src/scripts/db/generateDbTypes.ts",
-    "query": "tsx src/scripts/db/query.ts"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@huggingface/transformers": "^3.8.1",
-    "@types/express": "^5.0.6",
-    "@types/pg": "^8.20.0",
-    "csv-parse": "^6.2.1",
-    "dotenv": "^17.4.1",
-    "express": "^5.2.1",
-    "kysely": "^0.28.16",
-    "pg": "^8.20.0",
-    "pino": "^10.3.1",
-    "pino-http": "^11.0.0",
-    "pino-pretty": "^13.1.3",
-    "tsx": "^4.21.0"
-  },
-  "devDependencies": {
-    "kysely-codegen": "^0.20.0",
-    "typescript": "^6.0.3"
-  }
+	"type": "module",
+	"name": "talk2scale",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"predev": "lsof -ti :8888 | xargs kill -9 2>/dev/null || true",
+		"dev": "tsx watch src/index.ts",
+		"start": "tsx src/index.ts",
+		"typecheck": "tsc --noEmit",
+		"check": "biome check .",
+		"check:fix": "biome check --write .",
+		"clean-reseed": "tsx src/scripts/db/clean-reseed.ts",
+		"refresh-nutrient-groups": "tsx src/scripts/db/refreshNutrientGroups.ts",
+		"download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
+		"clean-db": "tsx src/scripts/db/clean-db.ts",
+		"generate-types": "tsx src/scripts/db/generateDbTypes.ts",
+		"query": "tsx src/scripts/db/query.ts"
+	},
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"@huggingface/transformers": "^3.8.1",
+		"@types/express": "^5.0.6",
+		"@types/pg": "^8.20.0",
+		"csv-parse": "^6.2.1",
+		"dotenv": "^17.4.1",
+		"express": "^5.2.1",
+		"kysely": "^0.28.16",
+		"pg": "^8.20.0",
+		"pino": "^10.3.1",
+		"pino-http": "^11.0.0",
+		"pino-pretty": "^13.1.3",
+		"tsx": "^4.21.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.13",
+		"@types/node": "^25.6.0",
+		"kysely-codegen": "^0.20.0",
+		"typescript": "^6.0.3"
+	}
 }

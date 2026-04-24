@@ -6,29 +6,29 @@ import type { Database } from './types.js';
 const INT8_OID = 20;
 
 pgTypes.setTypeParser(INT8_OID, (value) => {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) {
-    throw new Error(`Received int8 outside JS safe integer range: ${value}`);
-  }
-  return parsed;
+	const parsed = Number(value);
+	if (!Number.isSafeInteger(parsed)) {
+		throw new Error(`Received int8 outside JS safe integer range: ${value}`);
+	}
+	return parsed;
 });
 
 const pool = new Pool({
-  host: env.postgresHost,
-  port: env.postgresPort,
-  database: env.postgresDb,
-  user: env.postgresUser,
-  password: env.postgresPassword,
+	host: env.postgresHost,
+	port: env.postgresPort,
+	database: env.postgresDb,
+	user: env.postgresUser,
+	password: env.postgresPassword,
 });
 
 export const db = new Kysely<Database>({
-  dialect: new PostgresDialect({ pool }),
+	dialect: new PostgresDialect({ pool }),
 });
 
 export async function assertDatabaseConnection(): Promise<void> {
-  await sql`select 1`.execute(db);
+	await sql`select 1`.execute(db);
 }
 
 export async function closeDatabaseConnection(): Promise<void> {
-  await db.destroy();
+	await db.destroy();
 }
