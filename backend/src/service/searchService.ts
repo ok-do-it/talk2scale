@@ -2,7 +2,7 @@ import {
 	type FeatureExtractionPipeline,
 	pipeline,
 } from '@huggingface/transformers';
-import foods from '../../foods_subset.json' with { type: 'json' };
+import foods from '../../data/foods_subset.json' with { type: 'json' };
 import { logger } from '../config/logger.js';
 
 function cosineSimilarity(a: number[], b: number[]): number {

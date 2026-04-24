@@ -8,9 +8,8 @@ It imports into these DB tables:
 
 - `element`
 - `link`
-- `alias`
-- `unit`
-- `nutrient_group`
+- `food_name` (food description aliases)
+- `measure` (foundation portions)
 
 It does **not** import into:
 
@@ -203,34 +202,9 @@ Target:
   - `name = portion description`
   - `grams = gram_weight`
 
-### Phase 6: Nutrient groups (`db/dataset/nutrient_group.json` -> `nutrient_group`)
+## Nutrient groups (not part of this import)
 
-Source:
-
-- `db/dataset/nutrient_group.json` — hand-curated list of presentation buckets. Each entry has:
-  - `name` (unique, e.g. `Basic`, `Vitamins`, `Minerals`)
-  - `display_order` (integer)
-  - `usda_ids` (array of USDA `nutrient.id` values)
-
-Target:
-
-- upsert one `nutrient_group` row per entry:
-  - `name`, `display_order`
-  - `element_ids = resolved element.id values` (USDA ids translated via `element.external_id` with `source = 'usda'`)
-
-Rules:
-
-- USDA ids that do not resolve to an imported nutrient element are logged as a warning and dropped from the resulting `element_ids` array.
-- Upsert behavior: `ON CONFLICT (name) DO UPDATE` — rerunning after editing the JSON is safe and overwrites `display_order` and `element_ids`.
-
-Standalone refresh (without re-running the full USDA import):
-
-```bash
-cd backend
-npm run refresh-nutrient-groups
-```
-
-This executes only Phase 6 against the current DB, so edits to `db/dataset/nutrient_group.json` can be applied in a few seconds.
+Presentation buckets for the nutrition API live in [`backend/data/nutrient_group.json`](../../backend/data/nutrient_group.json). The backend loads that file when serving `GET /nutrient-groups` and `GET /element/:id/nutrients`, resolving `usda_ids` to current `element.id` values. After changing the JSON or reseeding the database, restart the API process so the in-memory cache is rebuilt (or rely on a fresh process after import).
 
 ## Batching and performance
 

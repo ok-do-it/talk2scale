@@ -1,6 +1,12 @@
 import { sql } from 'kysely';
 import { db } from '../db/client.js';
 import type { ElementType } from '../db/types.js';
+import {
+	getNutrientGroupsResolved,
+	type NutrientGroupRow,
+} from './nutrientGroupsConfig.js';
+
+export type { NutrientGroupRow };
 
 const MAX_TREE_DEPTH = 10;
 
@@ -39,13 +45,6 @@ export type MeasureRow = {
 	element_id: number | null;
 	name: string;
 	grams: number;
-};
-
-export type NutrientGroupRow = {
-	id: number;
-	name: string;
-	display_order: number;
-	element_ids: number[];
 };
 
 export type FoodTreeService = {
@@ -133,21 +132,6 @@ function computeEnergyKcal(
 		}
 	}
 	return 4 * carbs + 4 * protein + 9 * fat;
-}
-
-async function listNutrientGroupsImpl(): Promise<NutrientGroupRow[]> {
-	const rows = await db
-		.selectFrom('nutrient_group')
-		.select(['id', 'name', 'display_order', 'element_ids'])
-		.orderBy('display_order', 'asc')
-		.execute();
-
-	return rows.map((row) => ({
-		id: Number(row.id),
-		name: row.name,
-		display_order: row.display_order,
-		element_ids: row.element_ids.map((id) => Number(id)),
-	}));
 }
 
 export function createFoodTreeService(): FoodTreeService {
@@ -319,7 +303,7 @@ export function createFoodTreeService(): FoodTreeService {
 				}
 			}
 
-			const groups = await listNutrientGroupsImpl();
+			const groups = await getNutrientGroupsResolved();
 			const result: NutrientGroupPayload[] = [];
 
 			for (const group of groups) {
@@ -371,6 +355,6 @@ export function createFoodTreeService(): FoodTreeService {
 			return measures.rows;
 		},
 
-		listNutrientGroups: listNutrientGroupsImpl,
+		listNutrientGroups: () => getNutrientGroupsResolved(),
 	};
 }

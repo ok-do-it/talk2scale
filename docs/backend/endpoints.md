@@ -62,7 +62,8 @@ Returns all admin-curated nutrient groups with their member element ids. Use thi
 GET /nutrient-groups
 ```
 
-**Response** `200` — array of groups ordered by `display_order` then `name`
+**Response** `200` — array of groups ordered by `display_order` then `name`. Each `id` is a stable synthetic integer (assignment order in the loaded file), not a database primary key.
+
 ```json
 [
   { "id": 1, "name": "Basic", "display_order": 10, "element_ids": [3, 4, 5, 48, 75, 89, 247, 248, 281, 282, 400] },
@@ -71,7 +72,7 @@ GET /nutrient-groups
 ]
 ```
 
-Membership is sourced from [`db/dataset/nutrient_group.json`](../../db/dataset/nutrient_group.json) and applied by Phase 6 of the USDA import pipeline. See [`docs/db/import-usda.md`](../db/import-usda.md).
+Membership is sourced from [`backend/data/nutrient_group.json`](../../backend/data/nutrient_group.json); USDA ids in that file are resolved to `element.id` when the server first loads groups. See [`docs/db/import-usda.md`](../db/import-usda.md).
 
 ---
 
@@ -128,28 +129,41 @@ GET /element/123/tree
 
 ### `GET /element/:id/nutrients`
 
-Returns aggregated nutrient amounts for the given element, walking the full tree.
+Returns aggregated nutrient amounts for the given element, walking the full tree, **grouped** into presentation sections. Empty groups (no matching nutrients for this element) are omitted. The `"Basic"` group may include a synthetic energy row (`id: null`, `calculated: true`) derived from macronutrients.
 
 | Param | In | Required | Description |
 |-------|------|----------|-------------|
 | `id` | path | yes | Element ID (integer) |
-| `mass` | query | no | Mass multiplier (positive number, defaults to `1`) |
-| `groupId` | query | no | Nutrient group id (integer). Filters returned nutrients to members of that group. Discover valid ids via `GET /nutrient-groups`. Unknown ids yield an empty array. |
+| `mass` | query | no | Mass multiplier in grams (positive number, defaults to `1`) |
 
 **Examples**
 
 ```
 GET /element/123/nutrients
 GET /element/123/nutrients?mass=2.5
-GET /element/123/nutrients?groupId=1
-GET /element/123/nutrients?groupId=3&mass=2.5
 ```
 
-**Response** `200` — array of nutrients with computed amounts
+**Response** `200` — array of nutrient groups, each with `nutrients` for that element at the given mass
+
 ```json
 [
-  { "id": 7, "name": "Fiber", "amount": 0.275 },
-  { "id": 12, "name": "Protein", "amount": 0.18 }
+  {
+    "id": 1,
+    "name": "Basic",
+    "displayOrder": 10,
+    "nutrients": [
+      { "id": null, "name": "Energy (kCal)", "amount": 112.5, "calculated": true },
+      { "id": 12, "name": "Protein", "amount": 0.18 }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Vitamins",
+    "displayOrder": 30,
+    "nutrients": [
+      { "id": 100, "name": "Vitamin C", "amount": 0.004 }
+    ]
+  }
 ]
 ```
 
@@ -159,9 +173,6 @@ GET /element/123/nutrients?groupId=3&mass=2.5
 ```
 ```json
 { "error": "invalid ?mass= parameter. expected positive number" }
-```
-```json
-{ "error": "invalid ?groupId= parameter. expected integer" }
 ```
 
 **Error** `404`

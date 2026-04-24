@@ -122,24 +122,6 @@ CREATE INDEX idx_food_log_meal_id ON food_log(meal_id);
 CREATE INDEX idx_food_log_element_id ON food_log(element_id);
 CREATE INDEX idx_food_log_unit_id ON food_log(unit_id);
 
--- nutrient_group: admin-curated presentation buckets for nutrient elements.
--- - name is the unique human-readable label, also used by API filter (?group=Vitamins).
--- - display_order drives section ordering in the mobile nutrition panel.
--- - element_ids is a flat array of element.id values (nutrient rows only).
---   Populated by the USDA import pipeline from db/dataset/nutrient_group.json
---   (see backend/src/scripts/db/clean-reseed.ts). No FK is enforced on array
---   members; admin-curated membership and rare nutrient deletions make this
---   acceptable.
-CREATE TABLE nutrient_group (
-  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  display_order INT NOT NULL DEFAULT 0,
-  element_ids BIGINT[] NOT NULL DEFAULT '{}'
-);
-
-CREATE INDEX idx_nutrient_group_element_ids
-  ON nutrient_group USING GIN (element_ids);
-
 -- Example recursive CTE for computed nutrient totals:
 --
 -- WITH RECURSIVE RecipeTree AS (

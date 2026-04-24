@@ -77,7 +77,7 @@ Exact UUIDs, byte order, field widths, command opcodes, and error handling belon
 | **Unit** | Serving definitions like "slice" or "cup" (`id`, `elementId`, `name`, `grams`). |
 | **Meal** | Timestamped collection of logs (`id`, `userId`, `name`, `loggedAt`). |
 | **Log** | A single weighed portion: `id`, `mealId` (FK → Meal), `elementId` (FK → Element), `amount`, `unitId` (FK → Unit), `rawName`. **No macro columns** — resolve nutrition by joining `Element` and `Link` using recursive CTEs. |
-| **NutrientGroup** | Admin-curated presentation bucket for nutrients (`id`, `name`, `displayOrder`, `elementIds[]`). Membership is sourced from [`db/dataset/nutrient_group.json`](db/dataset/nutrient_group.json) and applied by the USDA import pipeline. Used by API filters (e.g. `GET /elements?group=Vitamins`) — not part of composition math. |
+| **NutrientGroup** | (Concept, not an RDBMS table.) Admin-curated presentation buckets for nutrients. Membership is defined in [`backend/data/nutrient_group.json`](backend/data/nutrient_group.json) (USDA `nutrient.id` lists); the API resolves those to `element.id` at runtime after nutrients exist in the DB. Exposed as `GET /nutrient-groups` and used to build grouped responses for `GET /element/:id/nutrients`. Group `id` values are stable synthetic integers (load order), not persisted — not part of composition math. |
 
 Net intake for a day is derived as `consumed_calories − burned_calories` (or compute consumed from logs if you prefer a single source of truth later). See [`docs/db/schema.md`](docs/db/schema.md) for full details.
 

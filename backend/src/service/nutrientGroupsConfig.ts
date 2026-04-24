@@ -1,16 +1,23 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { logger } from '../../config/logger.js';
-import { closeDatabaseConnection, db } from '../../db/client.js';
-import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
-
-const NUTRIENT_GROUPS_JSON_PATH = path.resolve(
-	process.cwd(),
-	'../db/dataset/nutrient_group.json',
-);
+import { logger } from '../config/logger.js';
+import { db } from '../db/client.js';
+import { COLUMN, TABLE } from '../db/typeIdentifiers.js';
 
 const LOOKUP_CHUNK_SIZE = 10000;
+
+const NUTRIENT_GROUPS_JSON_PATH = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	'../../data/nutrient_group.json',
+);
+
+export type NutrientGroupRow = {
+	id: number;
+	name: string;
+	display_order: number;
+	element_ids: number[];
+};
 
 type NutrientGroupSeed = {
 	name: string;
@@ -91,8 +98,8 @@ async function loadElementIdsByExternalIds(
 	return elementByExternalId;
 }
 
-export async function importNutrientGroups(): Promise<void> {
-	logger.info({ path: NUTRIENT_GROUPS_JSON_PATH }, 'Importing nutrient groups');
+async function loadNutrientGroupsResolved(): Promise<NutrientGroupRow[]> {
+	logger.info({ path: NUTRIENT_GROUPS_JSON_PATH }, 'Loading nutrient groups');
 
 	const raw = await readFile(NUTRIENT_GROUPS_JSON_PATH, 'utf8');
 	const seeds = parseNutrientGroupsJson(raw);
@@ -101,6 +108,9 @@ export async function importNutrientGroups(): Promise<void> {
 		new Set(seeds.flatMap((seed) => seed.usda_ids)),
 	);
 	const elementByUsdaId = await loadElementIdsByExternalIds(allUsdaIds);
+
+	let unresolvedGroupCount = 0;
+	const rows: Omit<NutrientGroupRow, 'id'>[] = [];
 
 	for (const seed of seeds) {
 		const resolvedIds: number[] = [];
@@ -124,52 +134,41 @@ export async function importNutrientGroups(): Promise<void> {
 				},
 				'Some USDA ids did not resolve to elements; they will be skipped',
 			);
+			unresolvedGroupCount += 1;
 		}
 
-		await db
-			.insertInto(TABLE.nutrient_group)
-			.values({
-				name: seed.name,
-				display_order: seed.display_order,
-				element_ids: resolvedIds,
-			})
-			.onConflict((oc) =>
-				oc.column(COLUMN.nutrient_group.name).doUpdateSet({
-					display_order: seed.display_order,
-					element_ids: resolvedIds,
-				}),
-			)
-			.execute();
-
-		logger.info(
-			{
-				group: seed.name,
-				display_order: seed.display_order,
-				resolved: resolvedIds.length,
-				requested: seed.usda_ids.length,
-			},
-			'Nutrient group upserted',
-		);
+		rows.push({
+			name: seed.name,
+			display_order: seed.display_order,
+			element_ids: resolvedIds,
+		});
 	}
 
-	logger.info({ groups: seeds.length }, 'Nutrient groups import complete');
+	rows.sort((a, b) => {
+		if (a.display_order !== b.display_order) {
+			return a.display_order - b.display_order;
+		}
+		return a.name.localeCompare(b.name);
+	});
+
+	const withIds: NutrientGroupRow[] = rows.map((row, index) => ({
+		id: index + 1,
+		...row,
+	}));
+
+	logger.info(
+		{ groups: withIds.length, unresolvedGroupCount },
+		'Nutrient groups loaded',
+	);
+
+	return withIds;
 }
 
-function isDirectExecution(): boolean {
-	const entryScript = process.argv[1];
-	if (!entryScript) {
-		return false;
-	}
-	return path.resolve(entryScript) === fileURLToPath(import.meta.url);
-}
+let cached: Promise<NutrientGroupRow[]> | null = null;
 
-if (isDirectExecution()) {
-	try {
-		await importNutrientGroups();
-	} catch (error) {
-		logger.error({ err: error }, 'Nutrient groups refresh failed');
-		process.exitCode = 1;
-	} finally {
-		await closeDatabaseConnection();
+export function getNutrientGroupsResolved(): Promise<NutrientGroupRow[]> {
+	if (cached === null) {
+		cached = loadNutrientGroupsResolved();
 	}
+	return cached;
 }

@@ -5,14 +5,6 @@
 
 import type { ColumnType } from "kysely";
 
-export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[]
-  ? U[]
-  : ArrayTypeImpl<T>;
-
-export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S[], I[], U[]>
-  : T[];
-
 export type DataSource = "admin" | "usda" | "user";
 
 export type ElementType = "branded_food" | "nutrient" | "recipe" | "whole_food";
@@ -69,13 +61,6 @@ export interface Measure {
   name: string;
 }
 
-export interface NutrientGroup {
-  display_order: Generated<number>;
-  element_ids: Generated<ArrayType<number>>;
-  id: Generated<number>;
-  name: string;
-}
-
 export interface Users {
   email: string;
   id: Generated<number>;
@@ -89,6 +74,5 @@ export interface DB {
   link: Link;
   meal: Meal;
   measure: Measure;
-  nutrient_group: NutrientGroup;
   users: Users;
 }
