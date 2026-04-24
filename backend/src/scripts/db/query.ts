@@ -4,7 +4,7 @@ import { closeDatabaseConnection, db } from '../../db/client.js';
 function getQueryArg(): string {
   const query = process.argv[2]?.trim();
   if (!query) {
-    throw new Error('Usage: npm run db-query -- "SELECT 1"');
+    throw new Error('Usage: npm run query -- "SELECT 1"');
   }
   return query;
 }

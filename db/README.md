@@ -55,7 +55,7 @@ If Postgres is already running and you want to reset schema objects without recr
 
 ```bash
 cd backend
-npm run recreate-db
+npm run clean-db
 ```
 
 This command:

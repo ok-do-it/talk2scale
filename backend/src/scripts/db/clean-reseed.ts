@@ -7,7 +7,7 @@ import { parse } from 'csv-parse';
 import { logger } from '../../config/logger.js';
 import { closeDatabaseConnection, db } from '../../db/client.js';
 import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
-import { recreateDatabase } from './recreateDb.js';
+import { recreateDatabase } from './clean-db.js';
 import { importNutrientGroups } from './refreshNutrientGroups.js';
 
 type CsvRow = Record<string, string>;
@@ -25,7 +25,7 @@ const LOG_EVERY_ROWS = 10000;
 const EXPECTED_DATA_TYPE = 'foundation_food';
 const FOUNDATION_DATASET_DIR = path.resolve(
   process.cwd(),
-  '../db/raw_usda_datasets/FoodData_Central_foundation_food_csv_2025-12-18'
+  '../db/dataset/usda/FoodData_Central_foundation_food_csv_2025-12-18'
 );
 
 function toNumber(value: number | string): number {

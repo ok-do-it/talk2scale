@@ -8,12 +8,12 @@
     "predev": "lsof -ti :8888 | xargs kill -9 2>/dev/null || true",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "import-usda": "tsx src/scripts/db/importUsda.ts",
+    "clean-reseed": "tsx src/scripts/db/clean-reseed.ts",
     "refresh-nutrient-groups": "tsx src/scripts/db/refreshNutrientGroups.ts",
     "download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
-    "db-recreate": "tsx src/scripts/db/recreateDb.ts",
+    "clean-db": "tsx src/scripts/db/clean-db.ts",
     "generate-types": "tsx src/scripts/db/generateDbTypes.ts",
-    "db-query": "tsx src/scripts/db/dbQuery.ts"
+    "query": "tsx src/scripts/db/query.ts"
   },
   "author": "",
   "license": "ISC",

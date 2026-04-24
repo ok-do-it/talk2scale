@@ -1,6 +1,6 @@
 # USDA Import Script
 
-This document explains how `backend/src/scripts/importUsda.ts` imports USDA CSV datasets into our schema.
+This document explains how `backend/src/scripts/db/clean-reseed.ts` imports USDA CSV datasets into our schema.
 
 ## What the script imports
 
@@ -18,39 +18,38 @@ It does **not** import into:
 - `meal`
 - `log`
 
-## Input modes
+## Running
 
 Run with:
 
 ```bash
 cd backend
-npx tsx src/scripts/importUsda.ts <dataset_dir> <whole_food|branded_food>
+npm run clean-reseed
 ```
 
-Examples:
+By default this will first recreate the DB schema (via `clean-db`) and then
+import the USDA foundation dataset from
+`db/dataset/usda/FoodData_Central_foundation_food_csv_2025-12-18`.
+
+To skip the DB recreation step (for example, when you have already run
+`npm run clean-db` manually or want to append to the current schema):
 
 ```bash
-npx tsx src/scripts/importUsda.ts ../docs/db/FoodData_Central_foundation_food_csv_2025-12-18 whole_food
-npx tsx src/scripts/importUsda.ts ../docs/db/FoodData_Central_branded_food_csv_2025-12-18 branded_food
+npm run clean-reseed -- --skip-recreate
 ```
 
-Mode controls expected `food.csv.data_type`:
-
-- `whole_food` -> `foundation_food`
-- `branded_food` -> `branded_food`
+The script currently expects foundation (`food.csv.data_type = 'foundation_food'`)
+and produces `element` rows of type `whole_food`. Non-foundation rows in
+`food.csv` are skipped.
 
 ## Required source files
 
-Always required:
+Expected in `db/dataset/usda/FoodData_Central_foundation_food_csv_2025-12-18/`:
 
 - `nutrient.csv`
 - `food.csv`
 - `food_nutrient.csv`
-
-Mode-specific:
-
-- `branded_food`: `branded_food.csv`
-- `whole_food`: `food_portion.csv`
+- `food_portion.csv`
 
 ## Import order (execution flow)
 

@@ -10,8 +10,8 @@ const FOUNDATION_DATASET_URL =
 const BRANDED_DATASET_URL =
   'https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_branded_food_csv_2025-12-18.zip';
 
-// If running from the backend directory, this resolves to <repo>/docs/db.
-const OUTPUT_DIR = path.resolve(process.cwd(), '../db/raw_usda_datasets');
+// If running from the backend directory, this resolves to <repo>/db/dataset/usda.
+const OUTPUT_DIR = path.resolve(process.cwd(), '../db/dataset/usda');
 
 const execFileAsync = promisify(execFile);
 

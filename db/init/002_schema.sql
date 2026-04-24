@@ -127,7 +127,7 @@ CREATE INDEX idx_food_log_unit_id ON food_log(unit_id);
 -- - display_order drives section ordering in the mobile nutrition panel.
 -- - element_ids is a flat array of element.id values (nutrient rows only).
 --   Populated by the USDA import pipeline from db/dataset/nutrient_group.json
---   (see backend/src/scripts/db/importUsda.ts). No FK is enforced on array
+--   (see backend/src/scripts/db/clean-reseed.ts). No FK is enforced on array
 --   members; admin-curated membership and rare nutrient deletions make this
 --   acceptable.
 CREATE TABLE nutrient_group (

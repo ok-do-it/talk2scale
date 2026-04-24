@@ -17,7 +17,7 @@ Use this for **project context**. Prefer the linked docs before inventing archit
 Run arbitrary SQL and get results as JSON:
 
 ```bash
-cd backend && npm run db-query -- "SELECT id, name FROM food LIMIT 5"
+cd backend && npm run query -- "SELECT id, name FROM food LIMIT 5"
 ```
 
 The command prints a JSON array of rows to stdout. On failure, it writes the error to stderr and exits with code 1.
