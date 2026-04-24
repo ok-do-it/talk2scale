@@ -136,9 +136,37 @@
       }
 
       .nutrients-card {
-        min-height: 180px;
-        max-height: 220px;
+        min-height: 210px;
+        max-height: 260px;
         overflow: auto;
+      }
+
+      .nutrient-group-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .nutrient-group-tab {
+        padding: 6px 12px;
+        font-size: 13px;
+        border: 1px solid #334155;
+        border-radius: 999px;
+        background: #0b1220;
+        color: #e2e8f0;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .nutrient-group-tab:hover {
+        background: #1e293b;
+      }
+
+      .nutrient-group-tab.active {
+        background: #1d4ed8;
+        border-color: #1d4ed8;
       }
 
       .nutrient-table-wrap {
@@ -316,6 +344,35 @@
         const [mass, setMass] = useState("100");
         const [debouncedMass, setDebouncedMass] = useState("100");
         const [selectedMeasureId, setSelectedMeasureId] = useState("");
+        const [groups, setGroups] = useState([]);
+        const [selectedGroupId, setSelectedGroupId] = useState(null);
+
+        useEffect(() => {
+          const controller = new AbortController();
+
+          async function loadGroups() {
+            try {
+              const response = await fetch(`/nutrient-groups`, { signal: controller.signal });
+              if (!response.ok) {
+                throw new Error(`Nutrient groups request failed with ${response.status}`);
+              }
+              const payload = await response.json();
+              const nextGroups = Array.isArray(payload) ? payload : [];
+              setGroups(nextGroups);
+              if (nextGroups.length > 0) {
+                setSelectedGroupId((current) => current ?? nextGroups[0].id);
+              }
+            } catch (err) {
+              if (err.name === "AbortError") {
+                return;
+              }
+              setGroups([]);
+            }
+          }
+
+          loadGroups();
+          return () => controller.abort();
+        }, []);
 
         useEffect(() => {
           const timer = window.setTimeout(() => {
@@ -399,6 +456,9 @@
 
               const params = new URLSearchParams();
               params.set("mass", effectiveMass.toString());
+              if (selectedGroupId !== null) {
+                params.set("groupId", String(selectedGroupId));
+              }
               const response = await fetch(`/element/${selectedElement.id}/nutrients?${params.toString()}`, {
                 signal: controller.signal
               });
@@ -421,7 +481,7 @@
 
           loadNutrients();
           return () => controller.abort();
-        }, [selectedElement, effectiveMass]);
+        }, [selectedElement, effectiveMass, selectedGroupId]);
 
         return (
           <section className="card nutrients-card">
@@ -454,6 +514,20 @@
                 )}
               </label>
             </div>
+            {groups.length > 0 && (
+              <div className="nutrient-group-tabs">
+                {groups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    className={`nutrient-group-tab ${selectedGroupId === group.id ? "active" : ""}`}
+                    onClick={() => setSelectedGroupId(group.id)}
+                  >
+                    {group.name}
+                  </button>
+                ))}
+              </div>
+            )}
             {isLoading && <div className="status">Loading nutrients...</div>}
             {error && <div className="status error">{error}</div>}
             {!isLoading && !error && nutrients.length === 0 && (

@@ -34,11 +34,23 @@ export type MeasureRow = {
   grams: number;
 };
 
+export type NutrientGroupRow = {
+  id: number;
+  name: string;
+  display_order: number;
+  element_ids: number[];
+};
+
 export type FoodTreeService = {
   listElements: (type?: ElementType, filter?: string) => Promise<ElementRow[]>;
   treeByElement: (elementId: number) => Promise<TreeNode | null>;
-  nutrientsByElement: (elementId: number, mass: number) => Promise<NutrientAmount[] | null>;
+  nutrientsByElement: (
+    elementId: number,
+    mass: number,
+    groupId?: number
+  ) => Promise<NutrientAmount[] | null>;
   listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
+  listNutrientGroups: () => Promise<NutrientGroupRow[]>;
 };
 
 function buildTree(
@@ -173,7 +185,11 @@ export function createFoodTreeService(): FoodTreeService {
       return buildTree(root.id, 1, elementsById, edgesByParent, new Set<number>());
     },
 
-    nutrientsByElement: async (elementId: number, mass: number) => {
+    nutrientsByElement: async (
+      elementId: number,
+      mass: number,
+      groupId?: number
+    ) => {
       const root = await db
         .selectFrom('element')
         .select(['id', 'type', 'name'])
@@ -183,6 +199,8 @@ export function createFoodTreeService(): FoodTreeService {
       if (!root) {
         return null;
       }
+
+      const groupIdParam = groupId ?? null;
 
       if (root.type === 'nutrient') {
         return [{ id: root.id, name: root.name, amount: mass }];
@@ -220,6 +238,15 @@ export function createFoodTreeService(): FoodTreeService {
         FROM tree
         JOIN element e ON e.id = tree.child_id
         WHERE e.type = 'nutrient'
+          AND (
+            ${groupIdParam}::bigint IS NULL
+            OR e.id = ANY(
+              COALESCE(
+                (SELECT element_ids FROM nutrient_group WHERE id = ${groupIdParam}),
+                '{}'::bigint[]
+              )
+            )
+          )
         GROUP BY e.id, e.name
         ORDER BY e.name
       `.execute(db);
@@ -245,6 +272,21 @@ export function createFoodTreeService(): FoodTreeService {
       `.execute(db);
 
       return measures.rows;
+    },
+
+    listNutrientGroups: async () => {
+      const rows = await db
+        .selectFrom('nutrient_group')
+        .select(['id', 'name', 'display_order', 'element_ids'])
+        .orderBy('display_order', 'asc')
+        .execute();
+
+      return rows.map(row => ({
+        id: Number(row.id),
+        name: row.name,
+        display_order: row.display_order,
+        element_ids: row.element_ids.map(id => Number(id)),
+      }));
     },
   };
 }

@@ -60,6 +60,11 @@ export function createFoodTreeRoutes(foodTreeService: FoodTreeService): express.
     res.json(elements);
   });
 
+  router.get('/nutrient-groups', async (_req, res) => {
+    const groups = await foodTreeService.listNutrientGroups();
+    res.json(groups);
+  });
+
   router.get('/element/:id/tree', async (req, res) => {
     const elementId = parseElementId(req.params.id);
     if (elementId === null) {
@@ -89,7 +94,22 @@ export function createFoodTreeRoutes(foodTreeService: FoodTreeService): express.
       return;
     }
 
-    const nutrients = await foodTreeService.nutrientsByElement(elementId, mass);
+    const groupIdParam = req.query.groupId;
+    let groupId: number | undefined;
+    if (groupIdParam !== undefined) {
+      if (typeof groupIdParam !== 'string') {
+        res.status(400).json({ error: 'invalid ?groupId= parameter. expected integer' });
+        return;
+      }
+      const parsed = Number.parseInt(groupIdParam, 10);
+      if (!Number.isFinite(parsed)) {
+        res.status(400).json({ error: 'invalid ?groupId= parameter. expected integer' });
+        return;
+      }
+      groupId = parsed;
+    }
+
+    const nutrients = await foodTreeService.nutrientsByElement(elementId, mass, groupId);
     if (!nutrients) {
       res.status(404).json({ error: `element ${elementId} not found` });
       return;

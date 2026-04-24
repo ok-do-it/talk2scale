@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "import-usda": "tsx src/scripts/db/importUsda.ts",
+    "refresh-nutrient-groups": "tsx src/scripts/db/refreshNutrientGroups.ts",
     "download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
     "db-recreate": "tsx src/scripts/db/recreateDb.ts",
     "generate-types": "tsx src/scripts/db/generateDbTypes.ts",
