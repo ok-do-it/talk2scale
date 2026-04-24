@@ -21,21 +21,21 @@ function assertLocalTarget(): void {
   }
 }
 
-function resolveInitDir(): string {
+function resolveMigrationsDir(): string {
   const scriptFilePath = fileURLToPath(import.meta.url);
   const scriptDir = path.dirname(scriptFilePath);
-  return path.resolve(scriptDir, '../../../../db/init');
+  return path.resolve(scriptDir, '../../../../db/migrations');
 }
 
-async function loadSqlFiles(initDir: string): Promise<string[]> {
-  const entries = await readdir(initDir, { withFileTypes: true });
+async function loadSqlFiles(migrationsDir: string): Promise<string[]> {
+  const entries = await readdir(migrationsDir, { withFileTypes: true });
   const sqlFiles = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
-    .map((entry) => path.join(initDir, entry.name))
+    .map((entry) => path.join(migrationsDir, entry.name))
     .sort((left, right) => left.localeCompare(right));
 
   if (sqlFiles.length === 0) {
-    throw new Error(`No SQL files found in ${initDir}`);
+    throw new Error(`No SQL files found in ${migrationsDir}`);
   }
 
   return sqlFiles;
@@ -49,9 +49,9 @@ async function applySqlFile(sqlFilePath: string): Promise<void> {
 
 export async function recreateDatabase(): Promise<void> {
   assertLocalTarget();
-  const initDir = resolveInitDir();
-  const sqlFiles = await loadSqlFiles(initDir);
-  logger.info({ initDir, sqlFiles }, 'Starting DB recreation');
+  const migrationsDir = resolveMigrationsDir();
+  const sqlFiles = await loadSqlFiles(migrationsDir);
+  logger.info({ migrationsDir, sqlFiles }, 'Starting DB recreation');
 
   logger.info('Dropping and recreating public schema');
   await sql.raw('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;').execute(db);

@@ -47,9 +47,9 @@ docker compose down -v
 docker compose up -d
 ```
 
-`down -v` removes all DB data and reruns `init/*.sql` on next start.
+`down -v` removes all DB data and reruns `migrations/*.sql` on next start.
 
-## Recreate Schema From SQL Init
+## Recreate Schema From SQL Migrations
 
 If Postgres is already running and you want to reset schema objects without recreating the Docker volume:
 
@@ -59,8 +59,8 @@ npm run clean-db
 ```
 
 This command:
-- applies `db/init/*.sql` in filename order
-- drops existing schema objects via `db/init/002_schema.sql`
+- applies `db/migrations/*.sql` in filename order
+- drops existing schema objects via `db/migrations/002_schema.sql`
 - recreates all tables, types, and indexes
 
 Safety guard:

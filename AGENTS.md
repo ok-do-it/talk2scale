@@ -25,7 +25,7 @@ The command prints a JSON array of rows to stdout. On failure, it writes the err
 **Note:**
 - Use subagent if anticipated output is bulky.
 - Add sql limit if no other constraints
-- Don't make assumptions about schema, read `db/init/002_schema.sql` first
+- Don't make assumptions about schema, read `db/migrations/002_schema.sql` first
 
 
 # Coding guidelines
