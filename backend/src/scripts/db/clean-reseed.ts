@@ -6,6 +6,7 @@ import { logger } from '../../config/logger.js';
 import { closeDatabaseConnection, db } from '../../db/client.js';
 import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
 import { recreateDatabase } from './clean-db.js';
+import { dedupeWholeFoods } from './dedupe-whole-foods.js';
 
 type CsvRow = Record<string, string>;
 type CsvRowWithNumber = {
@@ -598,6 +599,8 @@ async function main(): Promise<void> {
 
 	await importBaseAliases(datasetDir, foodElementByFdcId);
 	await importFoundationUnits(datasetDir, foodElementByFdcId);
+
+	await dedupeWholeFoods();
 
 	logger.info(
 		{
