@@ -337,42 +337,14 @@
       }
 
       function NutrientsCard({ selectedElement }) {
-        const [nutrients, setNutrients] = useState([]);
+        const [groups, setGroups] = useState([]);
         const [measures, setMeasures] = useState([]);
         const [isLoading, setIsLoading] = useState(false);
         const [error, setError] = useState("");
         const [mass, setMass] = useState("100");
         const [debouncedMass, setDebouncedMass] = useState("100");
         const [selectedMeasureId, setSelectedMeasureId] = useState("");
-        const [groups, setGroups] = useState([]);
         const [selectedGroupId, setSelectedGroupId] = useState(null);
-
-        useEffect(() => {
-          const controller = new AbortController();
-
-          async function loadGroups() {
-            try {
-              const response = await fetch(`/nutrient-groups`, { signal: controller.signal });
-              if (!response.ok) {
-                throw new Error(`Nutrient groups request failed with ${response.status}`);
-              }
-              const payload = await response.json();
-              const nextGroups = Array.isArray(payload) ? payload : [];
-              setGroups(nextGroups);
-              if (nextGroups.length > 0) {
-                setSelectedGroupId((current) => current ?? nextGroups[0].id);
-              }
-            } catch (err) {
-              if (err.name === "AbortError") {
-                return;
-              }
-              setGroups([]);
-            }
-          }
-
-          loadGroups();
-          return () => controller.abort();
-        }, []);
 
         useEffect(() => {
           const timer = window.setTimeout(() => {
@@ -436,7 +408,7 @@
 
         useEffect(() => {
           if (!selectedElement) {
-            setNutrients([]);
+            setGroups([]);
             setError("");
             return;
           }
@@ -449,16 +421,13 @@
 
             try {
               if (!Number.isFinite(effectiveMass) || effectiveMass <= 0) {
-                setNutrients([]);
+                setGroups([]);
                 setError("Amount must be a positive number");
                 return;
               }
 
               const params = new URLSearchParams();
               params.set("mass", effectiveMass.toString());
-              if (selectedGroupId !== null) {
-                params.set("groupId", String(selectedGroupId));
-              }
               const response = await fetch(`/element/${selectedElement.id}/nutrients?${params.toString()}`, {
                 signal: controller.signal
               });
@@ -467,12 +436,12 @@
               }
 
               const payload = await response.json();
-              setNutrients(Array.isArray(payload) ? payload : []);
+              setGroups(Array.isArray(payload) ? payload : []);
             } catch (err) {
               if (err.name === "AbortError") {
                 return;
               }
-              setNutrients([]);
+              setGroups([]);
               setError(err.message ?? "Failed to load nutrients");
             } finally {
               setIsLoading(false);
@@ -481,7 +450,24 @@
 
           loadNutrients();
           return () => controller.abort();
-        }, [selectedElement, effectiveMass, selectedGroupId]);
+        }, [selectedElement, effectiveMass]);
+
+        useEffect(() => {
+          if (groups.length === 0) {
+            return;
+          }
+          const stillPresent = groups.some((group) => group.id === selectedGroupId);
+          if (!stillPresent) {
+            setSelectedGroupId(groups[0].id);
+          }
+        }, [groups, selectedGroupId]);
+
+        const activeGroup = useMemo(() => {
+          if (groups.length === 0) return null;
+          return groups.find((group) => group.id === selectedGroupId) ?? groups[0];
+        }, [groups, selectedGroupId]);
+
+        const activeNutrients = activeGroup?.nutrients ?? [];
 
         return (
           <section className="card nutrients-card">
@@ -520,7 +506,7 @@
                   <button
                     key={group.id}
                     type="button"
-                    className={`nutrient-group-tab ${selectedGroupId === group.id ? "active" : ""}`}
+                    className={`nutrient-group-tab ${(activeGroup?.id ?? null) === group.id ? "active" : ""}`}
                     onClick={() => setSelectedGroupId(group.id)}
                   >
                     {group.name}
@@ -530,23 +516,23 @@
             )}
             {isLoading && <div className="status">Loading nutrients...</div>}
             {error && <div className="status error">{error}</div>}
-            {!isLoading && !error && nutrients.length === 0 && (
+            {!isLoading && !error && activeNutrients.length === 0 && (
               <div className="status">No nutrients found</div>
             )}
-            {!isLoading && !error && nutrients.length > 0 && (
+            {!isLoading && !error && activeNutrients.length > 0 && (
               <div className="nutrient-table-wrap">
                 <table className="nutrient-table">
                   <thead>
                     <tr>
-                      {nutrients.map((nutrient) => (
-                        <th key={nutrient.id}>{nutrient.name}</th>
+                      {activeNutrients.map((nutrient, index) => (
+                        <th key={nutrient.id ?? `calc:${nutrient.name}:${index}`}>{nutrient.name}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      {nutrients.map((nutrient) => (
-                        <td key={nutrient.id}>{formatNumber(nutrient.amount)}</td>
+                      {activeNutrients.map((nutrient, index) => (
+                        <td key={nutrient.id ?? `calc:${nutrient.name}:${index}`}>{formatNumber(nutrient.amount)}</td>
                       ))}
                     </tr>
                   </tbody>

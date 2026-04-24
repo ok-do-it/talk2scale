@@ -20,10 +20,18 @@ export type TreeNode = {
 	children: TreeNode[];
 };
 
-export type NutrientAmount = {
-	id: number;
+export type NutrientEntry = {
+	id: number | null;
 	name: string;
 	amount: number;
+	calculated?: true;
+};
+
+export type NutrientGroupPayload = {
+	id: number;
+	name: string;
+	displayOrder: number;
+	nutrients: NutrientEntry[];
 };
 
 export type MeasureRow = {
@@ -46,11 +54,18 @@ export type FoodTreeService = {
 	nutrientsByElement: (
 		elementId: number,
 		mass: number,
-		groupId?: number,
-	) => Promise<NutrientAmount[] | null>;
+	) => Promise<NutrientGroupPayload[] | null>;
 	listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
 	listNutrientGroups: () => Promise<NutrientGroupRow[]>;
 };
+
+const BASIC_GROUP_NAME = 'Basic';
+const ENERGY_SOURCE_EXTERNAL_IDS = {
+	protein: '1003',
+	fat: '1004',
+	carbs: '1005',
+} as const;
+const ENERGY_NUTRIENT_NAME = 'Energy (kCal)';
 
 function buildTree(
 	elementId: number,
@@ -94,6 +109,45 @@ function buildTree(
 		ratio,
 		children,
 	};
+}
+
+type NutrientAmountEntry = {
+	name: string;
+	amount: number;
+	externalId: string | null;
+};
+
+function computeEnergyKcal(
+	amountsById: Map<number, NutrientAmountEntry>,
+): number {
+	let protein = 0;
+	let fat = 0;
+	let carbs = 0;
+	for (const entry of amountsById.values()) {
+		if (entry.externalId === ENERGY_SOURCE_EXTERNAL_IDS.protein) {
+			protein = entry.amount;
+		} else if (entry.externalId === ENERGY_SOURCE_EXTERNAL_IDS.fat) {
+			fat = entry.amount;
+		} else if (entry.externalId === ENERGY_SOURCE_EXTERNAL_IDS.carbs) {
+			carbs = entry.amount;
+		}
+	}
+	return 4 * carbs + 4 * protein + 9 * fat;
+}
+
+async function listNutrientGroupsImpl(): Promise<NutrientGroupRow[]> {
+	const rows = await db
+		.selectFrom('nutrient_group')
+		.select(['id', 'name', 'display_order', 'element_ids'])
+		.orderBy('display_order', 'asc')
+		.execute();
+
+	return rows.map((row) => ({
+		id: Number(row.id),
+		name: row.name,
+		display_order: row.display_order,
+		element_ids: row.element_ids.map((id) => Number(id)),
+	}));
 }
 
 export function createFoodTreeService(): FoodTreeService {
@@ -199,14 +253,10 @@ export function createFoodTreeService(): FoodTreeService {
 			);
 		},
 
-		nutrientsByElement: async (
-			elementId: number,
-			mass: number,
-			groupId?: number,
-		) => {
+		nutrientsByElement: async (elementId: number, mass: number) => {
 			const root = await db
 				.selectFrom('element')
-				.select(['id', 'type', 'name'])
+				.select(['id', 'type', 'name', 'external_id'])
 				.where('id', '=', elementId)
 				.executeTakeFirst();
 
@@ -214,62 +264,95 @@ export function createFoodTreeService(): FoodTreeService {
 				return null;
 			}
 
-			const groupIdParam = groupId ?? null;
+			const amountsById = new Map<number, NutrientAmountEntry>();
 
 			if (root.type === 'nutrient') {
-				return [{ id: root.id, name: root.name, amount: mass }];
+				amountsById.set(Number(root.id), {
+					name: root.name,
+					amount: mass,
+					externalId: root.external_id,
+				});
+			} else {
+				const nutrients = await sql<{
+					id: number;
+					name: string;
+					external_id: string | null;
+					total_ratio: number;
+				}>`
+          WITH RECURSIVE tree AS (
+            SELECT
+              l.child_id,
+              l.ratio::double precision AS cumulative_ratio,
+              ARRAY[l.parent_id, l.child_id]::bigint[] AS path,
+              1 AS depth
+            FROM link l
+            WHERE l.parent_id = ${elementId}
+
+            UNION ALL
+
+            SELECT
+              l.child_id,
+              t.cumulative_ratio * l.ratio,
+              t.path || l.child_id,
+              t.depth + 1
+            FROM link l
+            JOIN tree t ON l.parent_id = t.child_id
+            WHERE t.depth < ${MAX_TREE_DEPTH} AND NOT l.child_id = ANY(t.path)
+          )
+          SELECT
+            e.id,
+            e.name,
+            e.external_id,
+            SUM(tree.cumulative_ratio)::double precision AS total_ratio
+          FROM tree
+          JOIN element e ON e.id = tree.child_id
+          WHERE e.type = 'nutrient'
+          GROUP BY e.id, e.name, e.external_id
+        `.execute(db);
+
+				for (const row of nutrients.rows) {
+					amountsById.set(Number(row.id), {
+						name: row.name,
+						amount: row.total_ratio * mass,
+						externalId: row.external_id,
+					});
+				}
 			}
 
-			const nutrients = await sql<{
-				id: number;
-				name: string;
-				total_ratio: number;
-			}>`
-        WITH RECURSIVE tree AS (
-          SELECT
-            l.child_id,
-            l.ratio::double precision AS cumulative_ratio,
-            ARRAY[l.parent_id, l.child_id]::bigint[] AS path,
-            1 AS depth
-          FROM link l
-          WHERE l.parent_id = ${elementId}
+			const groups = await listNutrientGroupsImpl();
+			const result: NutrientGroupPayload[] = [];
 
-          UNION ALL
+			for (const group of groups) {
+				const nutrients: NutrientEntry[] = [];
 
-          SELECT
-            l.child_id,
-            t.cumulative_ratio * l.ratio,
-            t.path || l.child_id,
-            t.depth + 1
-          FROM link l
-          JOIN tree t ON l.parent_id = t.child_id
-          WHERE t.depth < ${MAX_TREE_DEPTH} AND NOT l.child_id = ANY(t.path)
-        )
-        SELECT
-          e.id,
-          e.name,
-          SUM(tree.cumulative_ratio)::double precision AS total_ratio
-        FROM tree
-        JOIN element e ON e.id = tree.child_id
-        WHERE e.type = 'nutrient'
-          AND (
-            ${groupIdParam}::bigint IS NULL
-            OR e.id = ANY(
-              COALESCE(
-                (SELECT element_ids FROM nutrient_group WHERE id = ${groupIdParam}),
-                '{}'::bigint[]
-              )
-            )
-          )
-        GROUP BY e.id, e.name
-        ORDER BY e.name
-      `.execute(db);
+				for (const id of group.element_ids) {
+					const entry = amountsById.get(id);
+					if (entry === undefined) continue;
+					nutrients.push({ id, name: entry.name, amount: entry.amount });
+				}
 
-			return nutrients.rows.map((row) => ({
-				id: row.id,
-				name: row.name,
-				amount: row.total_ratio * mass,
-			}));
+				nutrients.sort((a, b) => a.name.localeCompare(b.name));
+
+				if (group.name === BASIC_GROUP_NAME && nutrients.length > 0) {
+					nutrients.unshift({
+						id: null,
+						name: ENERGY_NUTRIENT_NAME,
+						amount: computeEnergyKcal(amountsById),
+						calculated: true,
+					});
+				}
+
+				if (nutrients.length === 0) continue;
+
+				result.push({
+					id: group.id,
+					name: group.name,
+					displayOrder: group.display_order,
+					nutrients,
+				});
+			}
+
+			return result;
 		},
 
 		listMeasures: async (elementId?: number) => {
@@ -288,19 +371,6 @@ export function createFoodTreeService(): FoodTreeService {
 			return measures.rows;
 		},
 
-		listNutrientGroups: async () => {
-			const rows = await db
-				.selectFrom('nutrient_group')
-				.select(['id', 'name', 'display_order', 'element_ids'])
-				.orderBy('display_order', 'asc')
-				.execute();
-
-			return rows.map((row) => ({
-				id: Number(row.id),
-				name: row.name,
-				display_order: row.display_order,
-				element_ids: row.element_ids.map((id) => Number(id)),
-			}));
-		},
+		listNutrientGroups: listNutrientGroupsImpl,
 	};
 }

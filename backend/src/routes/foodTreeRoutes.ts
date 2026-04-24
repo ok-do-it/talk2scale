@@ -104,36 +104,16 @@ export function createFoodTreeRoutes(
 			return;
 		}
 
-		const groupIdParam = req.query.groupId;
-		let groupId: number | undefined;
-		if (groupIdParam !== undefined) {
-			if (typeof groupIdParam !== 'string') {
-				res
-					.status(400)
-					.json({ error: 'invalid ?groupId= parameter. expected integer' });
-				return;
-			}
-			const parsed = Number.parseInt(groupIdParam, 10);
-			if (!Number.isFinite(parsed)) {
-				res
-					.status(400)
-					.json({ error: 'invalid ?groupId= parameter. expected integer' });
-				return;
-			}
-			groupId = parsed;
-		}
-
-		const nutrients = await foodTreeService.nutrientsByElement(
+		const nutrientGroups = await foodTreeService.nutrientsByElement(
 			elementId,
 			mass,
-			groupId,
 		);
-		if (!nutrients) {
+		if (!nutrientGroups) {
 			res.status(404).json({ error: `element ${elementId} not found` });
 			return;
 		}
 
-		res.json(nutrients);
+		res.json(nutrientGroups);
 	});
 
 	const listMeasuresHandler: express.RequestHandler = async (req, res) => {
