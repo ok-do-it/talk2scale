@@ -13,11 +13,12 @@
 		"check:fix": "biome check --write .",
 		"clean-reseed": "tsx src/scripts/db/clean-reseed.ts",
 		"dedupe-whole-foods": "tsx src/scripts/db/dedupe-whole-foods.ts",
-		"download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
+		"download-usda": "tsx src/scripts/download-usda-datasets.ts",
 		"clean-db": "tsx src/scripts/db/clean-db.ts",
-		"generate-types": "tsx src/scripts/db/generateDbTypes.ts",
+		"generate-types": "tsx src/scripts/db/generate-db-types.ts",
 		"query": "tsx src/scripts/db/query.ts",
-		"copy-vendor-js": "tsx src/scripts/copyVendorJs.ts"
+		"embed-food-names": "tsx src/scripts/db/embed-food-names.ts",
+		"copy-vendor-js": "tsx src/scripts/copy-vendor-js.ts"
 	},
 	"author": "",
 	"license": "ISC",

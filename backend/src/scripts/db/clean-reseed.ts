@@ -5,6 +5,7 @@ import { parse } from 'csv-parse';
 import { logger } from '../../config/logger.js';
 import { closeDatabaseConnection, db } from '../../db/client.js';
 import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
+import { createEmbeddingService } from '../../service/embeddingService.js';
 import { recreateDatabase } from './clean-db.js';
 import { dedupeWholeFoods } from './dedupe-whole-foods.js';
 
@@ -602,10 +603,15 @@ async function main(): Promise<void> {
 
 	await dedupeWholeFoods();
 
+	logger.info('Embedding food_name rows');
+	const embeddingService = await createEmbeddingService();
+	const { updated } = await embeddingService.embedAll();
+
 	logger.info(
 		{
 			importedFoods: foodElementByFdcId.size,
 			importedNutrients: nutrientElementByUsdaId.size,
+			embeddedFoodNames: updated,
 		},
 		'USDA import finished',
 	);
