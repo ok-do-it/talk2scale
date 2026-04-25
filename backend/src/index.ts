@@ -8,6 +8,7 @@ import {
 } from './db/client.js';
 import { createFoodTreeRoutes } from './routes/foodTreeRoutes.js';
 import { createSearchRoutes } from './routes/searchRoutes.js';
+import { createEmbeddingService } from './service/embeddingService.js';
 import { createFoodTreeService } from './service/foodTreeService.js';
 import { createSearchService } from './service/searchService.js';
 
@@ -19,8 +20,9 @@ app.use(express.static('public'));
 await assertDatabaseConnection();
 logger.info('Database connection is ready');
 
-const searchService = await createSearchService();
-app.use(createSearchRoutes(searchService));
+const embeddingService = await createEmbeddingService();
+const searchService = await createSearchService(embeddingService);
+app.use(createSearchRoutes(searchService, embeddingService));
 
 const foodTreeService = createFoodTreeService();
 app.use(createFoodTreeRoutes(foodTreeService));

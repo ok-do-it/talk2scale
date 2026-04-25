@@ -1,9 +1,11 @@
 import express from 'express';
 import { env } from '../config/env.js';
+import type { EmbeddingService } from '../service/embeddingService.js';
 import type { SearchService } from '../service/searchService.js';
 
 export function createSearchRoutes(
 	searchService: SearchService,
+	embeddingService: EmbeddingService,
 ): express.Router {
 	const router = express.Router();
 
@@ -33,6 +35,16 @@ export function createSearchRoutes(
 		}
 		const results = await searchService.searchMany(food, env.searchPrefix, 10);
 		res.json(results);
+	});
+
+	router.get('/search-food', async (req, res) => {
+		const foodName = (req.query.food_name as string | undefined)?.trim();
+		if (!foodName) {
+			res.status(400).json({ error: 'missing ?food_name= parameter' });
+			return;
+		}
+		const hits = await embeddingService.searchFoodName(foodName);
+		res.json(hits);
 	});
 
 	return router;
