@@ -16,7 +16,8 @@
 		"download-usda": "tsx src/scripts/downloadUsdaDatasets.ts",
 		"clean-db": "tsx src/scripts/db/clean-db.ts",
 		"generate-types": "tsx src/scripts/db/generateDbTypes.ts",
-		"query": "tsx src/scripts/db/query.ts"
+		"query": "tsx src/scripts/db/query.ts",
+		"copy-vendor-js": "tsx src/scripts/copyVendorJs.ts"
 	},
 	"author": "",
 	"license": "ISC",
@@ -35,9 +36,12 @@
 		"tsx": "^4.21.0"
 	},
 	"devDependencies": {
+		"@babel/standalone": "^7.28.5",
 		"@biomejs/biome": "^2.4.13",
 		"@types/node": "^25.6.0",
 		"kysely-codegen": "^0.20.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
 		"typescript": "^6.0.3"
 	}
 }

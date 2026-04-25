@@ -28,6 +28,9 @@ The command prints a JSON array of rows to stdout. On failure, it writes the err
 - Don't make assumptions about schema, read `db/migrations/002_schema.sql` first
 
 
+# Constraints
+- NEVER commit, let use review first
+
 # Coding guidelines
 
 ## Backend app
