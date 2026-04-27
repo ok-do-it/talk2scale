@@ -564,6 +564,7 @@
         const [filter, setFilter] = useState("");
         const [debouncedFilter, setDebouncedFilter] = useState("");
         const [type, setType] = useState("nutrient");
+        const [vectorSearch, setVectorSearch] = useState(false);
         const [elements, setElements] = useState([]);
         const [isLoading, setIsLoading] = useState(false);
         const [error, setError] = useState("");
@@ -575,18 +576,19 @@
           return () => window.clearTimeout(timer);
         }, [filter]);
 
-        const queryString = useMemo(() => {
-          const params = new URLSearchParams();
-          if (type) {
-            params.set("type", type);
-          }
-          if (debouncedFilter) {
-            params.set("filter", debouncedFilter);
-          }
-          return params.toString();
-        }, [type, debouncedFilter]);
+        const vectorEmpty = vectorSearch && !debouncedFilter;
 
         useEffect(() => {
+          if (vectorEmpty) {
+            setElements([]);
+            setError("");
+            setIsLoading(false);
+            if (selectedElementId !== null) {
+              onSelect(null);
+            }
+            return;
+          }
+
           const controller = new AbortController();
 
           async function loadElements() {
@@ -594,15 +596,44 @@
             setError("");
 
             try {
-              const response = await fetch(`/elements?${queryString}`, {
-                signal: controller.signal
-              });
-              if (!response.ok) {
-                throw new Error(`Elements request failed with ${response.status}`);
+              let nextElements;
+              if (vectorSearch) {
+                const params = new URLSearchParams();
+                params.set("food_name", debouncedFilter);
+                const response = await fetch(`/search-food?${params.toString()}`, {
+                  signal: controller.signal
+                });
+                if (!response.ok) {
+                  throw new Error(`Vector search failed with ${response.status}`);
+                }
+                const payload = await response.json();
+                const hits = Array.isArray(payload?.hits) ? payload.hits : [];
+                const winnerFoodNameId = payload?.winner?.foodNameId ?? null;
+                nextElements = hits.map((hit) => ({
+                  id: hit.elementId,
+                  name: hit.elementName,
+                  type: undefined,
+                  distance: typeof hit.distance === "number" ? hit.distance : null,
+                  isWinner: winnerFoodNameId === hit.foodNameId
+                }));
+              } else {
+                const params = new URLSearchParams();
+                if (type) {
+                  params.set("type", type);
+                }
+                if (debouncedFilter) {
+                  params.set("filter", debouncedFilter);
+                }
+                const response = await fetch(`/elements?${params.toString()}`, {
+                  signal: controller.signal
+                });
+                if (!response.ok) {
+                  throw new Error(`Elements request failed with ${response.status}`);
+                }
+                const payload = await response.json();
+                nextElements = Array.isArray(payload) ? payload : [];
               }
 
-              const payload = await response.json();
-              const nextElements = Array.isArray(payload) ? payload : [];
               setElements(nextElements);
 
               if (
@@ -624,7 +655,16 @@
 
           loadElements();
           return () => controller.abort();
-        }, [queryString, selectedElementId, onSelect]);
+        }, [vectorSearch, vectorEmpty, type, debouncedFilter, selectedElementId, onSelect]);
+
+        let statusLabel;
+        if (vectorEmpty) {
+          statusLabel = "Type a query to run vector search";
+        } else if (isLoading) {
+          statusLabel = "Loading...";
+        } else {
+          statusLabel = `Found ${elements.length} element(s)`;
+        }
 
         return (
           <aside className="search-panel">
@@ -636,7 +676,23 @@
                 placeholder="Search by name..."
                 onChange={(event) => setFilter(event.target.value)}
               />
-              <select value={type} onChange={(event) => setType(event.target.value)}>
+              <label
+                className="status"
+                style={{ display: "flex", alignItems: "center", gap: 6, width: "auto" }}
+              >
+                <input
+                  type="checkbox"
+                  style={{ width: "auto" }}
+                  checked={vectorSearch}
+                  onChange={(event) => setVectorSearch(event.target.checked)}
+                />
+                Vector search
+              </label>
+              <select
+                value={type}
+                onChange={(event) => setType(event.target.value)}
+                disabled={vectorSearch}
+              >
                 {TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -644,9 +700,7 @@
                 ))}
               </select>
 
-              <div className="status">
-                {isLoading ? "Loading..." : `Found ${elements.length} element(s)`}
-              </div>
+              <div className="status">{statusLabel}</div>
               {error && <div className="status error">{error}</div>}
 
               <div className="result-list">
@@ -658,7 +712,13 @@
                     onClick={() => onSelect({ id: element.id, type: element.type, name: element.name })}
                   >
                     <span className="list-item-id">{element.id}</span>
+                    {element.isWinner && <span style={{ color: "#facc15", marginRight: 6 }}>★</span>}
                     <span>{element.name}</span>
+                    {typeof element.distance === "number" && (
+                      <span className="muted" style={{ marginLeft: 6 }}>
+                        d={element.distance.toFixed(3)}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
