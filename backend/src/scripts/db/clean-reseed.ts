@@ -1,5 +1,5 @@
 import { createReadStream, constants as fsConstants } from 'node:fs';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parse } from 'csv-parse';
 import { logger } from '../../config/logger.js';
@@ -25,6 +25,15 @@ const EXPECTED_DATA_TYPE = 'foundation_food';
 const FOUNDATION_DATASET_DIR = path.resolve(
 	process.cwd(),
 	'../db/dataset/usda/FoodData_Central_foundation_food_csv_2025-12-18',
+);
+
+const STATIC_USERS_JSON = path.resolve(
+	process.cwd(),
+	'../db/dataset/users.json',
+);
+const STATIC_MEASURES_JSON = path.resolve(
+	process.cwd(),
+	'../db/dataset/static-measures.json',
 );
 
 function toNumber(value: number | string): number {
@@ -113,6 +122,88 @@ class SkipCounter {
 
 async function ensureReadableFile(filePath: string): Promise<void> {
 	await access(filePath, fsConstants.R_OK);
+}
+
+type StaticUserRow = { name: string; email: string };
+type StaticMeasureInsert = {
+	element_id: null;
+	name: string;
+	grams: number;
+};
+
+function parseUsersJson(raw: unknown): StaticUserRow[] {
+	if (!Array.isArray(raw)) {
+		throw new Error('users.json must be a JSON array');
+	}
+	const out: StaticUserRow[] = [];
+	for (let i = 0; i < raw.length; i++) {
+		const row = raw[i];
+		if (row === null || typeof row !== 'object') {
+			throw new Error(`users.json[${i}] must be an object`);
+		}
+		const name = (row as { name?: unknown }).name;
+		const email = (row as { email?: unknown }).email;
+		if (typeof name !== 'string' || name.trim() === '') {
+			throw new Error(`users.json[${i}].name must be a non-empty string`);
+		}
+		if (typeof email !== 'string' || email.trim() === '') {
+			throw new Error(`users.json[${i}].email must be a non-empty string`);
+		}
+		out.push({ name: name.trim(), email: email.trim() });
+	}
+	return out;
+}
+
+function parseStaticMeasuresJson(raw: unknown): StaticMeasureInsert[] {
+	if (!Array.isArray(raw)) {
+		throw new Error('static-measures.json must be a JSON array');
+	}
+	const out: StaticMeasureInsert[] = [];
+	for (let i = 0; i < raw.length; i++) {
+		const row = raw[i];
+		if (row === null || typeof row !== 'object') {
+			throw new Error(`static-measures.json[${i}] must be an object`);
+		}
+		const name = (row as { name?: unknown }).name;
+		const grams = (row as { grams?: unknown }).grams;
+		if (typeof name !== 'string' || name.trim() === '') {
+			throw new Error(
+				`static-measures.json[${i}].name must be a non-empty string`,
+			);
+		}
+		if (typeof grams !== 'number' || !Number.isFinite(grams) || grams <= 0) {
+			throw new Error(
+				`static-measures.json[${i}].grams must be a finite number > 0`,
+			);
+		}
+		out.push({ element_id: null, name: name.trim(), grams });
+	}
+	return out;
+}
+
+/** Volume rows use water density (1 ml = 1 g); cup uses US legal cup (240 ml). */
+async function importStaticSeed(): Promise<void> {
+	const usersRaw = JSON.parse(
+		await readFile(STATIC_USERS_JSON, 'utf8'),
+	) as unknown;
+	const measuresRaw = JSON.parse(
+		await readFile(STATIC_MEASURES_JSON, 'utf8'),
+	) as unknown;
+
+	const users = parseUsersJson(usersRaw);
+	const measures = parseStaticMeasuresJson(measuresRaw);
+
+	if (users.length > 0) {
+		await db.insertInto(TABLE.users).values(users).execute();
+	}
+	if (measures.length > 0) {
+		await db.insertInto(TABLE.measure).values(measures).execute();
+	}
+
+	logger.info(
+		{ usersInserted: users.length, measuresInserted: measures.length },
+		'Static JSON seed loaded',
+	);
 }
 
 async function* readCsvRows(
@@ -575,6 +666,8 @@ async function main(): Promise<void> {
 	const datasetDir = FOUNDATION_DATASET_DIR;
 
 	const requiredFiles = [
+		STATIC_USERS_JSON,
+		STATIC_MEASURES_JSON,
 		path.join(datasetDir, 'nutrient.csv'),
 		path.join(datasetDir, 'food.csv'),
 		path.join(datasetDir, 'food_nutrient.csv'),
@@ -584,6 +677,8 @@ async function main(): Promise<void> {
 	for (const filePath of requiredFiles) {
 		await ensureReadableFile(filePath);
 	}
+
+	await importStaticSeed();
 
 	logger.info({ datasetDir, foodType: 'whole_food' }, 'Starting USDA import');
 

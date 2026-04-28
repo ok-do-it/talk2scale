@@ -1,0 +1,16 @@
+[
+	{ "name": "g", "grams": 1 },
+	{ "name": "kg", "grams": 1000 },
+	{ "name": "mg", "grams": 0.001 },
+	{ "name": "ounce", "grams": 28.349523125 },
+	{ "name": "lb", "grams": 453.59237 },
+	{ "name": "ml", "grams": 1 },
+	{ "name": "l", "grams": 1000 },
+	{ "name": "tsp", "grams": 4.92892159375 },
+	{ "name": "tbsp", "grams": 14.78676478125 },
+	{ "name": "cup", "grams": 240 },
+	{ "name": "fl oz", "grams": 29.5735295625 },
+	{ "name": "pt", "grams": 473.1764728 },
+	{ "name": "qt", "grams": 946.3529456 },
+	{ "name": "gal", "grams": 3785.411784 }
+]
