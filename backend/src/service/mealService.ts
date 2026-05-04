@@ -1,4 +1,5 @@
 import type { Selectable } from 'kysely';
+import { z } from 'zod';
 import { db } from '../db/client.js';
 import type { Element, FoodLog, Link, Meal, Measure } from '../db/types.js';
 import type {
@@ -7,29 +8,34 @@ import type {
 	NutrientGroupPayload,
 } from './foodTreeService.js';
 
-export type FoodLogItem = {
-	element_id: number | null;
-	raw_name: string;
-	amount: number;
-	unit_id: number;
-};
+export const foodLogItemSchema = z.object({
+	element_id: z.number().int().positive().nullable(),
+	raw_name: z.string().min(1),
+	amount: z.number().positive(),
+	unit_id: z.number().int().positive(),
+});
 
-export type NewMeal = {
-	user_id: number;
-	logged_at?: string;
-	food_logs: FoodLogItem[];
-};
+export const newMealSchema = z.object({
+	user_id: z.number().int().positive(),
+	logged_at: z.coerce.date().optional(),
+	food_logs: z.array(foodLogItemSchema).min(1),
+});
 
-export type RecipeChild = {
-	element_id: number;
-	grams: number;
-};
+export const recipeChildSchema = z.object({
+	element_id: z.number().int().positive(),
+	grams: z.number().positive(),
+});
 
-export type NewRecipe = {
-	name: string;
-	children: RecipeChild[];
-	serving_grams?: number;
-};
+export const newRecipeSchema = z.object({
+	name: z.string().min(1),
+	children: z.array(recipeChildSchema).min(1),
+	serving_grams: z.number().positive().optional(),
+});
+
+export type FoodLogItem = z.infer<typeof foodLogItemSchema>;
+export type NewMeal = z.infer<typeof newMealSchema>;
+export type RecipeChild = z.infer<typeof recipeChildSchema>;
+export type NewRecipe = z.infer<typeof newRecipeSchema>;
 
 export type MealWithLogs = Selectable<Meal> & {
 	food_logs: Selectable<FoodLog>[];
@@ -134,9 +140,7 @@ export function createMealService(foodTreeService: FoodTreeService) {
 	return {
 		async createMeal(input: NewMeal): Promise<MealWithLogs> {
 			return db.transaction().execute(async (trx) => {
-				const loggedAt = input.logged_at
-					? new Date(input.logged_at)
-					: new Date();
+				const loggedAt = input.logged_at ?? new Date();
 				const name = resolveMealName(loggedAt);
 
 				const meal = await trx

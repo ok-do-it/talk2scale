@@ -19,14 +19,7 @@ Returns server health status.
 
 ### `GET /elements`
 
-List elements with optional type and name filtering.
-
-| Param | In | Required | Description |
-|-------|------|----------|-------------|
-| `type` | query | no | One of `nutrient`, `whole_food`, `recipe`, `branded_food` |
-| `filter` | query | no | Substring to match against element name (SQL `LIKE %...%`) |
-
-**Examples**
+List elements with optional type and name filtering. `type` is one of `nutrient`, `whole_food`, `recipe`, `branded_food`. `filter` is a substring match on name.
 
 ```
 GET /elements
@@ -35,17 +28,12 @@ GET /elements?filter=vitamin
 GET /elements?type=branded_food&filter=oat
 ```
 
-**Response** `200` — array of elements ordered by name
+**Response** `200`
 ```json
 [
   { "id": 42, "type": "whole_food", "name": "Apple", "usda_id": 1001, "user_id": null },
   { "id": 87, "type": "whole_food", "name": "Avocado", "usda_id": 1024, "user_id": null }
 ]
-```
-
-**Error** `400`
-```json
-{ "error": "invalid type parameter. expected one of nutrient, whole_food, recipe, branded_food" }
 ```
 
 ---
@@ -56,13 +44,7 @@ GET /elements?type=branded_food&filter=oat
 
 Returns all admin-curated nutrient groups with their member element ids. Use this to render grouped nutrition panels on the client.
 
-**Examples**
-
-```
-GET /nutrient-groups
-```
-
-**Response** `200` — array of groups ordered by `display_order` then `name`. Each `id` is a stable synthetic integer (assignment order in the loaded file), not a database primary key.
+**Response** `200` — ordered by `display_order` then `name`. Each `id` is a stable synthetic integer, not a database primary key.
 
 ```json
 [
@@ -82,17 +64,11 @@ Membership is sourced from [`backend/data/nutrient_group.json`](../../backend/da
 
 Returns the full ingredient tree rooted at the given element.
 
-| Param | In | Required | Description |
-|-------|------|----------|-------------|
-| `id` | path | yes | Element ID (integer) |
-
-**Examples**
-
 ```
 GET /element/123/tree
 ```
 
-**Response** `200` — recursive tree structure
+**Response** `200`
 ```json
 {
   "id": 123,
@@ -113,38 +89,20 @@ GET /element/123/tree
 }
 ```
 
-**Error** `400`
-```json
-{ "error": "invalid id parameter" }
-```
-
-**Error** `404`
-```json
-{ "error": "element 123 not found" }
-```
-
 ---
 
 ## Element Nutrients
 
 ### `GET /element/:id/nutrients`
 
-Returns aggregated nutrient amounts for the given element, walking the full tree, **grouped** into presentation sections. Empty groups (no matching nutrients for this element) are omitted. The `"Basic"` group may include a synthetic energy row (`id: null`, `calculated: true`) derived from macronutrients.
-
-| Param | In | Required | Description |
-|-------|------|----------|-------------|
-| `id` | path | yes | Element ID (integer) |
-| `mass` | query | no | Mass multiplier in grams (positive number, defaults to `1`) |
-
-**Examples**
+Returns aggregated nutrient amounts for the given element, walking the full tree, **grouped** into presentation sections. Empty groups are omitted. The `"Basic"` group may include a synthetic energy row (`id: null`, `calculated: true`) derived from macronutrients. `mass` defaults to `1`.
 
 ```
 GET /element/123/nutrients
 GET /element/123/nutrients?mass=2.5
 ```
 
-**Response** `200` — array of nutrient groups, each with `nutrients` for that element at the given mass
-
+**Response** `200`
 ```json
 [
   {
@@ -167,15 +125,145 @@ GET /element/123/nutrients?mass=2.5
 ]
 ```
 
-**Error** `400`
+---
+
+## Meals
+
+### `POST /meals`
+
+Create a new meal. Name is assigned by the server based on `logged_at` (or `NOW()` if omitted): **Breakfast** 05–11h, **Lunch** 11–16h, **Dinner** 16–22h, **Late Night** otherwise.
+
+**Request body**
 ```json
-{ "error": "invalid id parameter" }
-```
-```json
-{ "error": "invalid ?mass= parameter. expected positive number" }
+{
+  "user_id": 1,
+  "logged_at": "2026-05-04T08:30:00Z",
+  "food_logs": [
+    { "element_id": 42, "raw_name": "oatmeal", "amount": 1, "unit_id": 5 },
+    { "element_id": null, "raw_name": "mystery berry", "amount": 100, "unit_id": 1 }
+  ]
+}
 ```
 
-**Error** `404`
+`element_id` may be `null` for unresolved voice/text entries. `unit_id` references a measure (see `GET /measures`).
+
+**Response** `201`
 ```json
-{ "error": "element 123 not found" }
+{
+  "id": 7,
+  "user_id": 1,
+  "name": "Breakfast",
+  "logged_at": "2026-05-04T08:30:00.000Z",
+  "food_logs": [
+    { "id": 12, "meal_id": 7, "element_id": 42, "raw_name": "oatmeal", "amount": 1, "unit_id": 5 },
+    { "id": 13, "meal_id": 7, "element_id": null, "raw_name": "mystery berry", "amount": 100, "unit_id": 1 }
+  ]
+}
+```
+
+---
+
+### `GET /meals/:id`
+
+Fetch a meal with its food logs.
+
+**Response** `200` — same shape as `POST /meals` response
+
+---
+
+### `PATCH /meals/:id/name`
+
+Rename a meal.
+
+**Request body**
+```json
+{ "name": "Sunday Brunch" }
+```
+
+**Response** `200` — updated meal row (without food logs)
+
+---
+
+### `POST /meals/:id/food-logs`
+
+Add a food log item to an existing meal. Request body is a single food log item (same shape as items in `POST /meals`).
+
+**Response** `201` — created food log row
+
+---
+
+### `DELETE /meals/:id/food-logs/:logId`
+
+Remove a food log item from a meal.
+
+**Response** `204`
+
+---
+
+### `GET /meals/:id/nutrients`
+
+Aggregated nutrients for all resolved food log items in the meal. Nutrients are summed across items. Unresolved items (`element_id: null`) are skipped.
+
+**Response** `200` — same structure as `GET /element/:id/nutrients`
+
+---
+
+### `GET /users/:userId/meals`
+
+List all meals for a user, newest first. Each meal includes its food logs. `from` / `to` are optional ISO 8601 datetimes bounding `logged_at`.
+
+```
+GET /users/1/meals
+GET /users/1/meals?from=2026-05-04T00:00:00Z&to=2026-05-04T23:59:59Z
+```
+
+**Response** `200` — array of meals in `POST /meals` shape, ordered by `logged_at` desc
+
+---
+
+### `GET /users/:userId/meals/nutrients`
+
+Aggregated nutrients across all of a user's meals in a date range. Same `from` / `to` query params as `GET /users/:userId/meals`.
+
+**Response** `200` — same structure as `GET /element/:id/nutrients`
+
+---
+
+## Recipes
+
+### `POST /recipes`
+
+Create a new user recipe. Automatically adds a `whole batch` measure (total of all child grams) and optionally a `serving` measure.
+
+**Request body**
+```json
+{
+  "name": "Overnight Oats",
+  "children": [
+    { "element_id": 10, "grams": 80 },
+    { "element_id": 20, "grams": 150 }
+  ],
+  "serving_grams": 230
+}
+```
+
+`serving_grams` is optional. `link.ratio` is computed as `child.grams / sum(children.grams)`.
+
+**Response** `201`
+```json
+{
+  "id": 55,
+  "type": "recipe",
+  "name": "Overnight Oats",
+  "source": "user",
+  "external_id": null,
+  "links": [
+    { "parent_id": 55, "child_id": 10, "ratio": 0.348 },
+    { "parent_id": 55, "child_id": 20, "ratio": 0.652 }
+  ],
+  "measures": [
+    { "id": 201, "element_id": 55, "name": "whole batch", "grams": 230 },
+    { "id": 202, "element_id": 55, "name": "serving", "grams": 230 }
+  ]
+}
 ```

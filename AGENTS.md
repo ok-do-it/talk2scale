@@ -9,6 +9,7 @@ Use this for **project context**. Prefer the linked docs before inventing archit
 | Product overview, modules, flows, BLE sketch, RDBMS data model | [README.md](README.md) |
 | Hardware schematics, wiring, BOM (placeholders and conventions) | [docs/hardware/README.md](docs/hardware/README.md) |
 | Mobile app BLE design (Android stack, permissions, GATT flow, UUIDs) | [docs/mobile-app/design.md](docs/mobile-app/design.md) |
+| Backend API endpoint reference (request/response shapes, error codes) | [docs/backend/endpoints.md](docs/backend/endpoints.md) |
 | Open decisions and scratch tasks | [docs/todo.txt](docs/todo.txt) |
 
 
