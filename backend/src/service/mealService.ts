@@ -30,6 +30,7 @@ export const newRecipeSchema = z.object({
 	name: z.string().min(1),
 	children: z.array(recipeChildSchema).min(1),
 	serving_grams: z.number().positive().optional(),
+	user_id: z.number().int().positive().optional(),
 });
 
 export type FoodLogItem = z.infer<typeof foodLogItemSchema>;
@@ -311,7 +312,7 @@ export function createMealService(foodTreeService: FoodTreeService) {
 						type: 'recipe',
 						source: 'user',
 						name: input.name,
-						external_id: null,
+						external_id: input.user_id ? String(input.user_id) : null,
 					})
 					.returningAll()
 					.executeTakeFirstOrThrow();

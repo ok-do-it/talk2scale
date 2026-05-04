@@ -26,9 +26,12 @@ export function createFoodTreeRoutes(
 			});
 			return;
 		}
+
+		const userId = req.query.user_id !== undefined ? String(req.query.user_id) : undefined;
 		const elements = await foodTreeService.listElements(
 			type.data,
 			req.query.filter as string | undefined,
+			userId,
 		);
 		res.json(elements);
 	});

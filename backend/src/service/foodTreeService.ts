@@ -48,7 +48,7 @@ export type MeasureRow = {
 };
 
 export type FoodTreeService = {
-	listElements: (type?: ElementType, filter?: string) => Promise<ElementRow[]>;
+	listElements: (type?: ElementType, filter?: string, userId?: string) => Promise<ElementRow[]>;
 	treeByElement: (elementId: number) => Promise<TreeNode | null>;
 	nutrientsByElement: (
 		elementId: number,
@@ -136,7 +136,7 @@ function computeEnergyKcal(
 
 export function createFoodTreeService(): FoodTreeService {
 	return {
-		listElements: async (type?: ElementType, filter?: string) => {
+		listElements: async (type?: ElementType, filter?: string, userId?: string) => {
 			let query = db
 				.selectFrom('element')
 				.select(['id', 'type', 'name', 'source', 'external_id']);
@@ -147,6 +147,11 @@ export function createFoodTreeService(): FoodTreeService {
 
 			if (filter) {
 				query = query.where('name', 'like', `%${filter}%`);
+			}
+
+			if (userId !== undefined) {
+				query = query.where('source', '=', 'user').
+				where('external_id', '=', userId);
 			}
 
 			return query.orderBy('name', 'asc').execute();

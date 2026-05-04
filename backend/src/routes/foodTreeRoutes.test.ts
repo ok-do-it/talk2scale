@@ -8,6 +8,8 @@ let nutrientId: number;
 let wholeFoodId: number;
 let measureWithElementId: number;
 let measureElementId: number;
+let testUserId: string;
+let testUserRecipeId: number;
 
 beforeAll(async () => {
 	const nutrient = await db
@@ -34,9 +36,24 @@ beforeAll(async () => {
 		.executeTakeFirstOrThrow();
 	measureWithElementId = measure.id;
 	measureElementId = measure.element_id as number;
+
+	const user = await db
+		.selectFrom('users')
+		.select('id')
+		.limit(1)
+		.executeTakeFirstOrThrow();
+	testUserId = String(user.id);
+
+	const recipe = await db
+		.insertInto('element')
+		.values({ type: 'recipe', source: 'user', name: '__test_user_recipe__', external_id: testUserId })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+	testUserRecipeId = recipe.id;
 });
 
 afterAll(async () => {
+	await db.deleteFrom('element').where('id', '=', testUserRecipeId).execute();
 	await db.destroy();
 });
 
@@ -66,6 +83,28 @@ describe('GET /elements', () => {
 		const res = await request(app).get('/elements?type=garbage');
 		expect(res.status).toBe(400);
 		expect(res.body.error).toMatch(/invalid type/);
+	});
+
+	it('filters by user_id and return elements for that user', async () => {
+		const res = await request(app).get(`/elements?user_id=${testUserId}`);
+		expect(res.status).toBe(200);
+		expect(Array.isArray(res.body)).toBe(true);
+		const ids = res.body.map((e: { id: number }) => e.id);
+		expect(ids).toContain(testUserRecipeId);
+	});
+
+	it('returns empty array for user_id with no elements', async () => {
+		const res = await request(app).get('/elements?user_id=999999999');
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual([]);
+	});
+
+	it('can combine user_id with type=recipe', async () => {
+		const res = await request(app).get(`/elements?user_id=${testUserId}&type=recipe`);
+		expect(res.status).toBe(200);
+		const ids = res.body.map((e: { id: number }) => e.id);
+		expect(ids).toContain(testUserRecipeId);
+		expect(res.body.every((e: { type: string }) => e.type === 'recipe')).toBe(true);
 	});
 });
 

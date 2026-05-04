@@ -1,9 +1,3 @@
-Tech stack questions:
-
-backend - TS - tRPC / nestjs ?
-DB for backend: postgres
-DB for phone app cache? - tbd
-
 
 Android app:
 1. Make main screen: 
@@ -14,6 +8,18 @@ Android app:
 2. Add precise meal or edit meal dialog
 
 3. on top set user icon and set user id - just text input for now, stored in persisted props
+
+Backend:
+- research how to use whispr local model vs hosted how better is quality
+- GET user recepies / get elements by user and id?
+- assign name for user's element = add food name endpoint
+- 
+
+
+
+
+DB:
+
 
 
 
