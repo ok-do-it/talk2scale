@@ -7,9 +7,11 @@ import {
 	closeDatabaseConnection,
 } from './db/client.js';
 import { createFoodTreeRoutes } from './routes/foodTreeRoutes.js';
+import { createMealRoutes } from './routes/mealRoutes.js';
 import { createSearchRoutes } from './routes/searchRoutes.js';
 import { createEmbeddingService } from './service/embeddingService.js';
 import { createFoodTreeService } from './service/foodTreeService.js';
+import { createMealService } from './service/mealService.js';
 import { createSearchService } from './service/searchService.js';
 
 const app = express();
@@ -26,6 +28,9 @@ app.use(createSearchRoutes(searchService, embeddingService));
 
 const foodTreeService = createFoodTreeService();
 app.use(createFoodTreeRoutes(foodTreeService));
+
+const mealService = createMealService(foodTreeService);
+app.use(createMealRoutes(mealService));
 
 app.listen({ port: env.port }, () => {
 	logger.info({ port: env.port }, 'Server ready');
