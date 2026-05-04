@@ -60,7 +60,7 @@ export const COLUMN = {
 		element_id: 'element_id',
 		raw_name: 'raw_name',
 		amount: 'amount',
-		unit_id: 'unit_id',
+		measure_id: 'measure_id',
 	},
 } as const satisfies ColumnIdentifiers;
 

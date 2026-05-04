@@ -57,7 +57,7 @@ function mealPayload(overrides?: Record<string, unknown>) {
 				element_id: elementId,
 				raw_name: 'test food',
 				amount: 100,
-				unit_id: unitId,
+				measure_id: unitId,
 			},
 		],
 		...overrides,
@@ -101,7 +101,7 @@ describe('POST /meals', () => {
 	it('returns 400 when user_id is missing', async () => {
 		const res = await request(app)
 			.post('/meals')
-			.send({ food_logs: [{ element_id: elementId, raw_name: 'x', amount: 1, unit_id: unitId }] });
+			.send({ food_logs: [{ element_id: elementId, raw_name: 'x', amount: 1, measure_id: unitId }] });
 		expect(res.status).toBe(400);
 	});
 });
@@ -172,7 +172,7 @@ describe('POST /meals/:id/food-logs', () => {
 				element_id: elementId,
 				raw_name: 'extra food',
 				amount: 50,
-				unit_id: unitId,
+				measure_id: unitId,
 			});
 		expect(res.status).toBe(201);
 		expect(res.body).toMatchObject({
@@ -189,7 +189,7 @@ describe('POST /meals/:id/food-logs', () => {
 				element_id: elementId,
 				raw_name: 'x',
 				amount: 1,
-				unit_id: unitId,
+				measure_id: unitId,
 			});
 		expect(res.status).toBe(404);
 	});
@@ -198,7 +198,7 @@ describe('POST /meals/:id/food-logs', () => {
 		const meal = await createMeal();
 		const res = await request(app)
 			.post(`/meals/${meal.id}/food-logs`)
-			.send({ element_id: elementId, raw_name: 'x', unit_id: unitId });
+			.send({ element_id: elementId, raw_name: 'x', measure_id: unitId });
 		expect(res.status).toBe(400);
 	});
 });

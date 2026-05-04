@@ -139,13 +139,13 @@ Create a new meal. Name is assigned by the server based on `logged_at` (or `NOW(
   "user_id": 1,
   "logged_at": "2026-05-04T08:30:00Z",
   "food_logs": [
-    { "element_id": 42, "raw_name": "oatmeal", "amount": 1, "unit_id": 5 },
-    { "element_id": null, "raw_name": "mystery berry", "amount": 100, "unit_id": 1 }
+    { "element_id": 42, "raw_name": "oatmeal", "amount": 1, "measure_id": 5 },
+    { "element_id": null, "raw_name": "mystery berry", "amount": 100, "measure_id": 1 }
   ]
 }
 ```
 
-`element_id` may be `null` for unresolved voice/text entries. `unit_id` references a measure (see `GET /measures`).
+`element_id` may be `null` for unresolved voice/text entries. `measure_id` references a measure (see `GET /measures`).
 
 **Response** `201`
 ```json
@@ -155,8 +155,8 @@ Create a new meal. Name is assigned by the server based on `logged_at` (or `NOW(
   "name": "Breakfast",
   "logged_at": "2026-05-04T08:30:00.000Z",
   "food_logs": [
-    { "id": 12, "meal_id": 7, "element_id": 42, "raw_name": "oatmeal", "amount": 1, "unit_id": 5 },
-    { "id": 13, "meal_id": 7, "element_id": null, "raw_name": "mystery berry", "amount": 100, "unit_id": 1 }
+    { "id": 12, "meal_id": 7, "element_id": 42, "raw_name": "oatmeal", "amount": 1, "measure_id": 5 },
+    { "id": 13, "meal_id": 7, "element_id": null, "raw_name": "mystery berry", "amount": 100, "measure_id": 1 }
   ]
 }
 ```

@@ -29,7 +29,7 @@ export interface FoodLog {
   id: Generated<number>;
   meal_id: number;
   raw_name: string;
-  unit_id: number;
+  measure_id: number;
 }
 
 export interface FoodName {

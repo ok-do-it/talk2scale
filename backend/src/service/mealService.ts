@@ -12,7 +12,7 @@ export const foodLogItemSchema = z.object({
 	element_id: z.number().int().positive().nullable(),
 	raw_name: z.string().min(1),
 	amount: z.number().positive(),
-	unit_id: z.number().int().positive(),
+	measure_id: z.number().int().positive(),
 });
 
 export const newMealSchema = z.object({
@@ -113,17 +113,17 @@ async function computeNutrientsForLogs(
 	);
 	if (resolvedLogs.length === 0) return [];
 
-	const unitIds = [...new Set(resolvedLogs.map((log) => log.unit_id))];
+	const measureIds = [...new Set(resolvedLogs.map((log) => log.measure_id))];
 	const measures = await db
 		.selectFrom('measure')
 		.selectAll()
-		.where('id', 'in', unitIds)
+		.where('id', 'in', measureIds)
 		.execute();
 	const measureById = new Map(measures.map((m) => [m.id, m]));
 
 	const allGroups: NutrientGroupPayload[][] = [];
 	for (const log of resolvedLogs) {
-		const measure = measureById.get(log.unit_id);
+		const measure = measureById.get(log.measure_id);
 		if (!measure) continue;
 		const mass = Number(log.amount) * Number(measure.grams);
 		const groups = await foodTreeService.nutrientsByElement(
@@ -159,7 +159,7 @@ export function createMealService(foodTreeService: FoodTreeService) {
 										element_id: item.element_id,
 										raw_name: item.raw_name,
 										amount: item.amount,
-										unit_id: item.unit_id,
+										measure_id: item.measure_id,
 									})),
 								)
 								.returningAll()
@@ -248,7 +248,7 @@ export function createMealService(foodTreeService: FoodTreeService) {
 					element_id: item.element_id,
 					raw_name: item.raw_name,
 					amount: item.amount,
-					unit_id: item.unit_id,
+					measure_id: item.measure_id,
 				})
 				.returningAll()
 				.executeTakeFirstOrThrow();

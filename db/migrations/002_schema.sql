@@ -90,14 +90,14 @@ CREATE TABLE meal (
 -- food_log: one recorded food/recipe amount within a meal.
 -- - raw_name stores original voice/text input.
 -- - element_id is nullable until entity resolution completes.
--- - amount + unit_id represent quantity (grams, cup, slice, etc.).
+-- - amount + measure_id represent quantity (grams, cup, slice, etc.).
 CREATE TABLE food_log (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   meal_id BIGINT NOT NULL REFERENCES meal(id) ON DELETE CASCADE,
   element_id BIGINT REFERENCES element(id) ON DELETE SET NULL,
   raw_name TEXT NOT NULL,
   amount DOUBLE PRECISION NOT NULL CHECK (amount > 0),
-  unit_id BIGINT NOT NULL REFERENCES measure(id) ON DELETE RESTRICT
+  measure_id BIGINT NOT NULL REFERENCES measure(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX idx_element_type ON element(type);
@@ -120,7 +120,7 @@ CREATE INDEX idx_meal_user_id_logged_at ON meal(user_id, logged_at DESC);
 
 CREATE INDEX idx_food_log_meal_id ON food_log(meal_id);
 CREATE INDEX idx_food_log_element_id ON food_log(element_id);
-CREATE INDEX idx_food_log_unit_id ON food_log(unit_id);
+CREATE INDEX idx_food_log_measure_id ON food_log(measure_id);
 
 -- Example recursive CTE for computed nutrient totals:
 --
