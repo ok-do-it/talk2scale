@@ -1,25 +1,58 @@
 
+General issue:
+if im making salad every day, it's slightly different content. 
+- use pre saved recepie and adhere to it
+- don't save recepie, just make new meal every time
+
 Android app:
-1. Make main screen: 
-- day summary block / chart
-- list of meals
-- plus button to add meal (later 2 types: precise (with scale) or dictation sending audio to beckend and resolving whole meal)
 
-2. Add precise meal or edit meal dialog
+## Make main screen: 
+- top left - user icon, click - open user settings screen
+- summary block / chart, take daily targets from user's json, each target is 100% and show bars,
+   (if target for nutrient is not set just show grams)
+- list of today meals (table: time, name) - clickable, if clicked open meal edit dialog
+- plus button to add meal - open edit meal dialog with empty new meal
+- dictate button - sending audio to backend and resolving whole meal
 
-3. on top set user icon and set user id - just text input for now, stored in persisted props
+**Single food meals / snack** ???
+need something to add meal with single food_log?
+or add food_log directly to user's day 
+
+## Detailed chart:
+clicking on the chart snapshot open screen:
+- tabs on top: today (default), 7d (avg), 30d, from beginning (start measuring date on user)
+- the longer chart with all vitamins (if target for nutrient is not set just show grams)
+
+## Add/Edit meal or dialog (partially implemented):
+- title - New Meal or based on time default name, editable
+- if scale detected and weight positive the mic button should have icon (scale and mic).
+   user hit button say food name and food log added to in memory array
+- of no scale mode, the button should state "food name and grams", same thing but grams should be detected somehow
+
+## User settings screen:
+- Sign in replacement: set user id - just text input for now, stored in persisted props
+- set daily targets: multiline table (nutrient_name, target_value) with predefined set: kcal, protein, fiber, soluble fiber
+
 
 Backend:
 - research how to use whispr local model vs hosted how better is quality
-- GET user recepies / get elements by user and id?
-- assign name for user's element = add food name endpoint
-- 
+  maybe new search endpoint accepting audio and return elements
+- add custom user food name for element
+- add user's measure 
+- add burned calories, param - user,date,kcal number, if exist - update
+  ? can get from garmin?
 
 
 
 
 DB:
+add table: user's burned calories: user_id fk, date, kcal. use (user_id+date as PK)
 
+
+to user add jsonb field - daily targets: 
+{energy: amount, nutrient_amounts: [{id, grams}]}
+
+automatically remember the date when user started measuring
 
 
 

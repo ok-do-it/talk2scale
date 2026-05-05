@@ -26,6 +26,7 @@ GET /elements
 GET /elements?type=whole_food
 GET /elements?filter=vitamin
 GET /elements?type=branded_food&filter=oat
+GET /elements?type=recepie&user_id=1
 ```
 
 **Response** `200`

@@ -35,6 +35,7 @@ CREATE TABLE users (
 -- - name is internal canonical name.
 -- - source identifies where this entity came from.
 -- - external_id is source-specific identifier (e.g., USDA FDC id).
+--   if source is 'user' external_id is stringified user_id, that way we know private recepies
 -- Quantities are always grams through unit/link math.
 CREATE TABLE element (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

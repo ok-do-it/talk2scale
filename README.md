@@ -1,6 +1,8 @@
 # Talk to Scale
 
 A smart kitchen scale that combines hardware weight sensing with AI-powered voice logging to track food nutrition, net calories, and health metrics in one workflow.
+The whole idea of the project - minimize nutrition tracking efforts as much as possible. Every minor improvement can be crutial for keeping diet.
+
 
 ## Concept
 
