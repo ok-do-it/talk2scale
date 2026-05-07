@@ -37,6 +37,7 @@ export type FoodNameSearchResponse = {
 export type EmbeddingService = {
 	embed(text: string): Promise<number[]>;
 	embedBatch(texts: string[]): Promise<number[][]>;
+	embedName(name: string): Promise<number[]>;
 	embedAll(opts?: { batchSize?: number }): Promise<{ updated: number }>;
 	searchFoodName(query: string): Promise<FoodNameSearchResponse>;
 };
@@ -188,5 +189,8 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 		return { winner: pickWinner(hits), hits };
 	};
 
-	return { embed, embedBatch, embedAll, searchFoodName };
+	const embedName = (name: string): Promise<number[]> =>
+		embed(`${PASSAGE_PREFIX}${name}`);
+
+	return { embed, embedBatch, embedName, embedAll, searchFoodName };
 }

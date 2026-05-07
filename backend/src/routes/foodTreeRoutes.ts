@@ -1,17 +1,24 @@
 import express from 'express';
 import { z } from 'zod';
+import type { EmbeddingService } from '../service/embeddingService.js';
 import type { FoodTreeService } from '../service/foodTreeService.js';
 
 const elementIdSchema = z.coerce.number().int().positive();
 const massSchema = z.coerce.number().positive().default(1);
+const addNameBodySchema = z.object({
+	user_id: z.number().int().positive(),
+	name: z.string().min(1),
+});
 const elementTypeSchema = z
 	.enum(['nutrient', 'whole_food', 'recipe', 'branded_food'])
 	.optional();
 
 export function createFoodTreeRoutes(
 	foodTreeService: FoodTreeService,
+	embeddingService?: EmbeddingService,
 ): express.Router {
 	const router = express.Router();
+	router.use(express.json());
 
 	router.get('/health', (_req, res) => {
 		res.status(200).json({ status: true }).end();
@@ -76,6 +83,32 @@ export function createFoodTreeRoutes(
 			return;
 		}
 		res.json(nutrientGroups);
+	});
+
+	router.post('/element/:id/names', async (req, res) => {
+		const id = elementIdSchema.safeParse(req.params.id);
+		if (!id.success) {
+			res.status(400).json({ error: 'invalid id parameter' });
+			return;
+		}
+		const body = addNameBodySchema.safeParse(req.body);
+		if (!body.success) {
+			res.status(400).json({ error: 'invalid body', details: body.error.flatten() });
+			return;
+		}
+		const embedding = embeddingService
+			? await embeddingService.embedName(body.data.name)
+			: undefined;
+		const result = await foodTreeService.addElementName(id.data, body.data.user_id, body.data.name, embedding);
+		if (result === 'element_not_found') {
+			res.status(404).json({ error: `element ${id.data} not found` });
+			return;
+		}
+		if (result === 'user_not_found') {
+			res.status(400).json({ error: 'user not found' });
+			return;
+		}
+		res.status(201).json(result);
 	});
 
 	router.get('/measures{/:elementId}', async (req, res) => {

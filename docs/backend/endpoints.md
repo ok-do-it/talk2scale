@@ -59,6 +59,30 @@ Membership is sourced from [`backend/data/nutrient_group.json`](../../backend/da
 
 ---
 
+### `POST /element/:id/names`
+
+Add a custom user-facing name for an element. The name is stored in `food_name` with the given `user_id` and immediately embedded for vector search.
+
+```
+POST /element/42/names
+```
+
+**Request body**
+```json
+{ "user_id": 1, "name": "my chicken breast" }
+```
+
+**Response** `201`
+```json
+{ "id": 9001, "element_id": 42, "user_id": 1, "name": "my chicken breast" }
+```
+
+**Errors**
+- `404` — element not found
+- `400` — invalid body or user not found
+
+---
+
 ## Element Tree
 
 ### `GET /element/:id/tree`

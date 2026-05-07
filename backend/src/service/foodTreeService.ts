@@ -47,6 +47,13 @@ export type MeasureRow = {
 	grams: number;
 };
 
+export type FoodNameRow = {
+	id: number;
+	element_id: number;
+	user_id: number;
+	name: string;
+};
+
 export type FoodTreeService = {
 	listElements: (type?: ElementType, filter?: string, userId?: string) => Promise<ElementRow[]>;
 	treeByElement: (elementId: number) => Promise<TreeNode | null>;
@@ -56,6 +63,12 @@ export type FoodTreeService = {
 	) => Promise<NutrientGroupPayload[] | null>;
 	listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
 	listNutrientGroups: () => Promise<NutrientGroupRow[]>;
+	addElementName: (
+		elementId: number,
+		userId: number,
+		name: string,
+		embedding?: number[],
+	) => Promise<FoodNameRow | 'element_not_found' | 'user_not_found'>;
 };
 
 const BASIC_GROUP_NAME = 'Basic';
@@ -361,5 +374,29 @@ export function createFoodTreeService(): FoodTreeService {
 		},
 
 		listNutrientGroups: () => getNutrientGroupsResolved(),
+
+		addElementName: async (elementId: number, userId: number, name: string, embedding?: number[]) => {
+			const element = await db
+				.selectFrom('element')
+				.select('id')
+				.where('id', '=', elementId)
+				.executeTakeFirst();
+			if (!element) return 'element_not_found';
+
+			const user = await db
+				.selectFrom('users')
+				.select('id')
+				.where('id', '=', userId)
+				.executeTakeFirst();
+			if (!user) return 'user_not_found';
+
+			const embeddingValue = embedding ? `[${embedding.join(',')}]` : null;
+
+			return db
+				.insertInto('food_name')
+				.values({ element_id: elementId, user_id: userId, name, embedding: embeddingValue })
+				.returning(['id', 'element_id', 'user_id', 'name'])
+				.executeTakeFirstOrThrow() as Promise<FoodNameRow>;
+		},
 	};
 }

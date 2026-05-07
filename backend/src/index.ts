@@ -27,7 +27,7 @@ const searchService = await createSearchService(embeddingService);
 app.use(createSearchRoutes(searchService, embeddingService));
 
 const foodTreeService = createFoodTreeService();
-app.use(createFoodTreeRoutes(foodTreeService));
+app.use(createFoodTreeRoutes(foodTreeService, embeddingService));
 
 const mealService = createMealService(foodTreeService);
 app.use(createMealRoutes(mealService));

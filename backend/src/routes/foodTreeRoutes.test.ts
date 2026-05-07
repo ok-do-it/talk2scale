@@ -10,6 +10,7 @@ let measureWithElementId: number;
 let measureElementId: number;
 let testUserId: string;
 let testUserRecipeId: number;
+const createdFoodNameIds: number[] = [];
 
 beforeAll(async () => {
 	const nutrient = await db
@@ -53,6 +54,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+	if (createdFoodNameIds.length > 0) {
+		await db.deleteFrom('food_name').where('id', 'in', createdFoodNameIds).execute();
+	}
 	await db.deleteFrom('element').where('id', '=', testUserRecipeId).execute();
 	await db.destroy();
 });
@@ -198,6 +202,58 @@ describe('GET /measures', () => {
 		expect(
 			res.body.every((m: { element_id: unknown }) => m.element_id === null),
 		).toBe(true);
+	});
+});
+
+describe('POST /element/:id/names', () => {
+	it('creates a custom name and returns 201', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/names`)
+			.send({ user_id: Number(testUserId), name: 'my custom name' });
+		expect(res.status).toBe(201);
+		expect(res.body).toMatchObject({
+			id: expect.any(Number),
+			element_id: wholeFoodId,
+			user_id: Number(testUserId),
+			name: 'my custom name',
+		});
+		createdFoodNameIds.push(res.body.id);
+	});
+
+	it('returns 404 for nonexistent element', async () => {
+		const res = await request(app)
+			.post('/element/999999999/names')
+			.send({ user_id: Number(testUserId), name: 'ghost' });
+		expect(res.status).toBe(404);
+	});
+
+	it('returns 400 for nonexistent user_id', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/names`)
+			.send({ user_id: 999999999, name: 'ghost' });
+		expect(res.status).toBe(400);
+		expect(res.body.error).toBe('user not found');
+	});
+
+	it('returns 400 for missing name', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/names`)
+			.send({ user_id: Number(testUserId) });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for empty name', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/names`)
+			.send({ user_id: Number(testUserId), name: '' });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for non-numeric id', async () => {
+		const res = await request(app)
+			.post('/element/abc/names')
+			.send({ user_id: Number(testUserId), name: 'test' });
+		expect(res.status).toBe(400);
 	});
 });
 
