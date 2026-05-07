@@ -2,7 +2,7 @@
 General issue:
 if im making salad every day, it's slightly different content. 
 - use pre saved recepie and adhere to it
-- don't save recepie, just make new meal every time
+- don't save recepie, just make new meal every time - but what if I shared the salad?
 
 Android app:
 
@@ -14,9 +14,10 @@ Android app:
 - plus button to add meal - open edit meal dialog with empty new meal
 - dictate button - sending audio to backend and resolving whole meal
 
-**Single food meals / snack** ???
-need something to add meal with single food_log?
-or add food_log directly to user's day 
+**Single food meals / snack** 
+in db - 1 meal and 1 food_log inside
+in ui - single button
+
 
 ## Detailed chart:
 clicking on the chart snapshot open screen:
