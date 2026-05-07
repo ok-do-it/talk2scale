@@ -59,6 +59,7 @@ export interface Measure {
   grams: number;
   id: Generated<number>;
   name: string;
+  user_id: number | null;
 }
 
 export interface Users {

@@ -11,6 +11,7 @@ let measureElementId: number;
 let testUserId: string;
 let testUserRecipeId: number;
 const createdFoodNameIds: number[] = [];
+const createdMeasureIds: number[] = [];
 
 beforeAll(async () => {
 	const nutrient = await db
@@ -56,6 +57,9 @@ beforeAll(async () => {
 afterAll(async () => {
 	if (createdFoodNameIds.length > 0) {
 		await db.deleteFrom('food_name').where('id', 'in', createdFoodNameIds).execute();
+	}
+	if (createdMeasureIds.length > 0) {
+		await db.deleteFrom('measure').where('id', 'in', createdMeasureIds).execute();
 	}
 	await db.deleteFrom('element').where('id', '=', testUserRecipeId).execute();
 	await db.destroy();
@@ -274,6 +278,77 @@ describe('GET /measures/:elementId', () => {
 
 	it('returns 400 for non-numeric elementId', async () => {
 		const res = await request(app).get('/measures/abc');
+		expect(res.status).toBe(400);
+	});
+
+	it('returns user measures when user_id is provided', async () => {
+		const create = await request(app)
+			.post(`/element/${wholeFoodId}/measures`)
+			.send({ user_id: Number(testUserId), name: 'my bowl', grams: 300 });
+		expect(create.status).toBe(201);
+		createdMeasureIds.push(create.body.id);
+
+		const res = await request(app).get(`/measures?user_id=${testUserId}`);
+		expect(res.status).toBe(200);
+		const ids = res.body.map((m: { id: number }) => m.id);
+		expect(ids).toContain(create.body.id);
+	});
+
+	it('returns 400 for invalid user_id', async () => {
+		const res = await request(app).get('/measures?user_id=abc');
+		expect(res.status).toBe(400);
+	});
+});
+
+describe('POST /element/:id/measures', () => {
+	it('creates a custom measure and returns 201', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/measures`)
+			.send({ user_id: Number(testUserId), name: 'my cup', grams: 240 });
+		expect(res.status).toBe(201);
+		expect(res.body).toMatchObject({
+			id: expect.any(Number),
+			element_id: wholeFoodId,
+			user_id: Number(testUserId),
+			name: 'my cup',
+			grams: 240,
+		});
+		createdMeasureIds.push(res.body.id);
+	});
+
+	it('returns 404 for nonexistent element', async () => {
+		const res = await request(app)
+			.post('/element/999999999/measures')
+			.send({ user_id: Number(testUserId), name: 'ghost', grams: 100 });
+		expect(res.status).toBe(404);
+	});
+
+	it('returns 400 for nonexistent user_id', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/measures`)
+			.send({ user_id: 999999999, name: 'ghost', grams: 100 });
+		expect(res.status).toBe(400);
+		expect(res.body.error).toBe('user not found');
+	});
+
+	it('returns 400 for missing grams', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/measures`)
+			.send({ user_id: Number(testUserId), name: 'no grams' });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for non-positive grams', async () => {
+		const res = await request(app)
+			.post(`/element/${wholeFoodId}/measures`)
+			.send({ user_id: Number(testUserId), name: 'bad grams', grams: 0 });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for non-numeric id', async () => {
+		const res = await request(app)
+			.post('/element/abc/measures')
+			.send({ user_id: Number(testUserId), name: 'test', grams: 100 });
 		expect(res.status).toBe(400);
 	});
 });

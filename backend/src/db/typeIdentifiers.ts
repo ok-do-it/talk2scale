@@ -37,6 +37,7 @@ export const COLUMN = {
 	measure: {
 		id: 'id',
 		element_id: 'element_id',
+		user_id: 'user_id',
 		name: 'name',
 		grams: 'grams',
 	},

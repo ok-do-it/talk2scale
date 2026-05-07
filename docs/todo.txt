@@ -38,7 +38,6 @@ clicking on the chart snapshot open screen:
 Backend:
 - research how to use whispr local model vs hosted how better is quality
   maybe new search endpoint accepting audio and return elements
-- add custom user food name for element
 - add user's measure 
 - add burned calories, param - user,date,kcal number, if exist - update
   ? can get from garmin?

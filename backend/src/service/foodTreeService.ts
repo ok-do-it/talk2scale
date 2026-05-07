@@ -43,6 +43,7 @@ export type NutrientGroupPayload = {
 export type MeasureRow = {
 	id: number;
 	element_id: number | null;
+	user_id: number | null;
 	name: string;
 	grams: number;
 };
@@ -61,7 +62,13 @@ export type FoodTreeService = {
 		elementId: number,
 		mass: number,
 	) => Promise<NutrientGroupPayload[] | null>;
-	listMeasures: (elementId?: number) => Promise<MeasureRow[]>;
+	listMeasures: (elementId?: number, userId?: number) => Promise<MeasureRow[]>;
+	addElementMeasure: (
+		elementId: number,
+		userId: number,
+		name: string,
+		grams: number,
+	) => Promise<MeasureRow | 'element_not_found' | 'user_not_found'>;
 	listNutrientGroups: () => Promise<NutrientGroupRow[]>;
 	addElementName: (
 		elementId: number,
@@ -357,20 +364,56 @@ export function createFoodTreeService(): FoodTreeService {
 			return result;
 		},
 
-		listMeasures: async (elementId?: number) => {
-			const scopedElementId = elementId ?? null;
-			const measures = await sql<MeasureRow>`
-        SELECT id, element_id, name, grams
-        FROM measure
-        WHERE element_id IS NULL
-        UNION
-        SELECT id, element_id, name, grams
-        FROM measure
-        WHERE element_id = ${scopedElementId}
-        ORDER BY name
-      `.execute(db);
+		listMeasures: async (elementId?: number, userId?: number) => {
+			const base = db
+				.selectFrom('measure')
+				.select(['id', 'element_id', 'user_id', 'name', 'grams']);
 
-			return measures.rows;
+			const global = await base
+				.where('element_id', 'is', null)
+				.where('user_id', 'is', null)
+				.execute();
+
+			const byElement = elementId !== undefined
+				? await base.where('element_id', '=', elementId).execute()
+				: [];
+
+			const byUser = userId !== undefined
+				? await base.where('user_id', '=', userId).execute()
+				: [];
+
+			const seen = new Set<number>();
+			const result: MeasureRow[] = [];
+			for (const row of [...global, ...byElement, ...byUser]) {
+				if (!seen.has(row.id)) {
+					seen.add(row.id);
+					result.push(row as MeasureRow);
+				}
+			}
+			result.sort((a, b) => a.name.localeCompare(b.name));
+			return result;
+		},
+
+		addElementMeasure: async (elementId: number, userId: number, name: string, grams: number) => {
+			const element = await db
+				.selectFrom('element')
+				.select('id')
+				.where('id', '=', elementId)
+				.executeTakeFirst();
+			if (!element) return 'element_not_found';
+
+			const user = await db
+				.selectFrom('users')
+				.select('id')
+				.where('id', '=', userId)
+				.executeTakeFirst();
+			if (!user) return 'user_not_found';
+
+			return db
+				.insertInto('measure')
+				.values({ element_id: elementId, user_id: userId, name, grams })
+				.returning(['id', 'element_id', 'user_id', 'name', 'grams'])
+				.executeTakeFirstOrThrow() as Promise<MeasureRow>;
 		},
 
 		listNutrientGroups: () => getNutrientGroupsResolved(),

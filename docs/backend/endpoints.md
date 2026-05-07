@@ -83,6 +83,30 @@ POST /element/42/names
 
 ---
 
+### `POST /element/:id/measures`
+
+Add a custom user measure for an element (e.g. "my bowl = 300g").
+
+```
+POST /element/42/measures
+```
+
+**Request body**
+```json
+{ "user_id": 1, "name": "my bowl", "grams": 300 }
+```
+
+**Response** `201`
+```json
+{ "id": 9002, "element_id": 42, "user_id": 1, "name": "my bowl", "grams": 300 }
+```
+
+**Errors**
+- `404` — element not found
+- `400` — invalid body or user not found
+
+---
+
 ## Element Tree
 
 ### `GET /element/:id/tree`
@@ -147,6 +171,31 @@ GET /element/123/nutrients?mass=2.5
       { "id": 100, "name": "Vitamin C", "amount": 0.004 }
     ]
   }
+]
+```
+
+---
+
+## Measures
+
+### `GET /measures`  
+### `GET /measures/:elementId`
+
+Returns measures for use in food logging. Always includes global measures (`element_id: null`, `user_id: null`). Pass `elementId` to also include element-specific measures. Pass `user_id` to also include that user's custom measures.
+
+```
+GET /measures
+GET /measures/42
+GET /measures?user_id=1
+GET /measures/42?user_id=1
+```
+
+**Response** `200`
+```json
+[
+  { "id": 1, "element_id": null, "user_id": null, "name": "gram", "grams": 1 },
+  { "id": 5, "element_id": 42, "user_id": null, "name": "slice", "grams": 30 },
+  { "id": 9002, "element_id": 42, "user_id": 1, "name": "my bowl", "grams": 300 }
 ]
 ```
 

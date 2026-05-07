@@ -60,10 +60,12 @@ CREATE TABLE link (
 
 -- measure: serving label and gram conversion.
 -- - element_id NULL means universal unit (not tied to one element).
+-- - user_id NULL means global/admin measure; set for user-defined measures.
 -- - examples: gram, ounce, slice, cup.
 CREATE TABLE measure (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   element_id BIGINT REFERENCES element(id) ON DELETE CASCADE,
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   grams DOUBLE PRECISION NOT NULL CHECK (grams > 0)
 );
