@@ -14,6 +14,7 @@ export const TABLE = {
 	food_name: 'food_name',
 	meal: 'meal',
 	food_log: 'food_log',
+	calories_burned: 'calories_burned',
 } as const satisfies Record<keyof Database, keyof Database>;
 
 export const COLUMN = {
@@ -62,6 +63,11 @@ export const COLUMN = {
 		raw_name: 'raw_name',
 		amount: 'amount',
 		measure_id: 'measure_id',
+	},
+	calories_burned: {
+		user_id: 'user_id',
+		day: 'day',
+		kcal: 'kcal',
 	},
 } as const satisfies ColumnIdentifiers;
 

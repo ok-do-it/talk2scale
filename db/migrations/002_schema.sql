@@ -125,6 +125,15 @@ CREATE INDEX idx_food_log_meal_id ON food_log(meal_id);
 CREATE INDEX idx_food_log_element_id ON food_log(element_id);
 CREATE INDEX idx_food_log_measure_id ON food_log(measure_id);
 
+-- calories_burned: one row per user per day for tracking expenditure.
+-- Composite PK doubles as upsert target and index for date-range queries.
+CREATE TABLE calories_burned (
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  kcal DOUBLE PRECISION NOT NULL CHECK (kcal >= 0),
+  PRIMARY KEY (user_id, day)
+);
+
 -- Example recursive CTE for computed nutrient totals:
 --
 -- WITH RECURSIVE RecipeTree AS (

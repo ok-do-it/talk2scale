@@ -15,6 +15,12 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface CaloriesBurned {
+  day: string;
+  kcal: number;
+  user_id: number;
+}
+
 export interface Element {
   external_id: string | null;
   id: Generated<number>;
@@ -69,6 +75,7 @@ export interface Users {
 }
 
 export interface DB {
+  calories_burned: CaloriesBurned;
   element: Element;
   food_log: FoodLog;
   food_name: FoodName;

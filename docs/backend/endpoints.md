@@ -341,3 +341,44 @@ Create a new user recipe. Automatically adds a `whole batch` measure (total of a
   ]
 }
 ```
+
+---
+
+## User
+
+### `POST /users/:userId/calories-burned`
+
+Record calories burned by the user on a given day. Upserts on `(user_id, day)` — posting twice for the same day overwrites.
+
+**Request body**
+```json
+{ "day": "2026-05-07", "kcal": 450 }
+```
+
+**Response** `200`
+```json
+{ "user_id": 1, "day": "2026-05-07", "kcal": 450 }
+```
+
+**Errors**
+- `400` — invalid body (bad date format, negative kcal) or user not found
+
+---
+
+### `GET /users/:userId/balance`
+
+Returns daily calorie balance combining burned (from `POST /calories-burned`) and consumed (computed from food logs). Day boundaries are UTC. Days where both values would be zero are omitted.
+
+```
+GET /users/1/balance
+GET /users/1/balance?from=2026-05-01&to=2026-05-07
+```
+
+**Response** `200` — sorted by `day` ascending
+```json
+[
+  { "day": "2026-05-05", "kcal_burned": 450, "kcal_consumed": 0 },
+  { "day": "2026-05-06", "kcal_burned": 0, "kcal_consumed": 1820 },
+  { "day": "2026-05-07", "kcal_burned": 600, "kcal_consumed": 2100 }
+]
+```

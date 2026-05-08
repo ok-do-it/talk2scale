@@ -1,0 +1,219 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import request from 'supertest';
+import { buildApp, db } from '../test/app.js';
+
+const app = buildApp();
+
+let userId: number;
+let elementId: number;
+let unitId: number;
+
+const BURN_ONLY_DAY = '2025-12-15';
+const UPSERT_DAY = '2025-12-16';
+const MEAL_ONLY_DAY = '2025-12-17';
+const COMBINED_DAY = '2025-12-18';
+const OUT_OF_RANGE_DAY = '2026-06-01';
+
+const createdMealIds: number[] = [];
+
+beforeAll(async () => {
+	const user = await db
+		.selectFrom('users')
+		.select('id')
+		.limit(1)
+		.executeTakeFirstOrThrow();
+	userId = user.id;
+
+	const element = await db
+		.selectFrom('element')
+		.select('id')
+		.where('type', '=', 'whole_food')
+		.limit(1)
+		.executeTakeFirstOrThrow();
+	elementId = element.id;
+
+	const unit = await db
+		.selectFrom('measure')
+		.select('id')
+		.where('element_id', 'is', null)
+		.limit(1)
+		.executeTakeFirstOrThrow();
+	unitId = unit.id;
+
+	await db.deleteFrom('calories_burned').where('user_id', '=', userId).execute();
+});
+
+afterAll(async () => {
+	await db.deleteFrom('calories_burned').where('user_id', '=', userId).execute();
+	if (createdMealIds.length > 0) {
+		await db.deleteFrom('meal').where('id', 'in', createdMealIds).execute();
+	}
+	await db.destroy();
+});
+
+async function seedMeal(day: string): Promise<number> {
+	const res = await request(app)
+		.post('/meals')
+		.send({
+			user_id: userId,
+			logged_at: `${day}T12:00:00Z`,
+			food_logs: [
+				{
+					element_id: elementId,
+					raw_name: 'test food',
+					amount: 100,
+					measure_id: unitId,
+				},
+			],
+		});
+	expect(res.status).toBe(201);
+	createdMealIds.push(res.body.id);
+	return res.body.id;
+}
+
+describe('POST /users/:userId/calories-burned', () => {
+	it('creates a row and returns it', async () => {
+		const res = await request(app)
+			.post(`/users/${userId}/calories-burned`)
+			.send({ day: BURN_ONLY_DAY, kcal: 450 });
+		expect(res.status).toBe(200);
+		expect(res.body).toMatchObject({
+			user_id: userId,
+			day: BURN_ONLY_DAY,
+			kcal: 450,
+		});
+	});
+
+	it('updates instead of duplicating on same (user, day)', async () => {
+		const first = await request(app)
+			.post(`/users/${userId}/calories-burned`)
+			.send({ day: UPSERT_DAY, kcal: 300 });
+		expect(first.status).toBe(200);
+
+		const second = await request(app)
+			.post(`/users/${userId}/calories-burned`)
+			.send({ day: UPSERT_DAY, kcal: 500 });
+		expect(second.status).toBe(200);
+		expect(second.body.kcal).toBe(500);
+
+		const rows = await db
+			.selectFrom('calories_burned')
+			.selectAll()
+			.where('user_id', '=', userId)
+			.where('day', '=', UPSERT_DAY)
+			.execute();
+		expect(rows).toHaveLength(1);
+		expect(rows[0].kcal).toBe(500);
+	});
+
+	it('returns 400 for bad day format', async () => {
+		const res = await request(app)
+			.post(`/users/${userId}/calories-burned`)
+			.send({ day: '2025/12/15', kcal: 100 });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for negative kcal', async () => {
+		const res = await request(app)
+			.post(`/users/${userId}/calories-burned`)
+			.send({ day: BURN_ONLY_DAY, kcal: -1 });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for nonexistent user', async () => {
+		const res = await request(app)
+			.post('/users/999999999/calories-burned')
+			.send({ day: BURN_ONLY_DAY, kcal: 100 });
+		expect(res.status).toBe(400);
+		expect(res.body.error).toBe('user not found');
+	});
+
+	it('returns 400 for non-numeric userId', async () => {
+		const res = await request(app)
+			.post('/users/abc/calories-burned')
+			.send({ day: BURN_ONLY_DAY, kcal: 100 });
+		expect(res.status).toBe(400);
+	});
+});
+
+describe('GET /users/:userId/balance', () => {
+	it('returns days with only kcal_burned set when no meals on that day', async () => {
+		const res = await request(app).get(
+			`/users/${userId}/balance?from=${BURN_ONLY_DAY}&to=${BURN_ONLY_DAY}`,
+		);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual([
+			{ day: BURN_ONLY_DAY, kcal_burned: 450, kcal_consumed: 0 },
+		]);
+	});
+
+	it('returns days with only kcal_consumed set when no burned record', async () => {
+		await seedMeal(MEAL_ONLY_DAY);
+
+		const res = await request(app).get(
+			`/users/${userId}/balance?from=${MEAL_ONLY_DAY}&to=${MEAL_ONLY_DAY}`,
+		);
+		expect(res.status).toBe(200);
+		expect(res.body).toHaveLength(1);
+		expect(res.body[0]).toMatchObject({
+			day: MEAL_ONLY_DAY,
+			kcal_burned: 0,
+		});
+		expect(res.body[0].kcal_consumed).toBeGreaterThan(0);
+	});
+
+	it('combines burned + consumed for the same day', async () => {
+		await seedMeal(COMBINED_DAY);
+		await request(app)
+			.post(`/users/${userId}/calories-burned`)
+			.send({ day: COMBINED_DAY, kcal: 600 });
+
+		const res = await request(app).get(
+			`/users/${userId}/balance?from=${COMBINED_DAY}&to=${COMBINED_DAY}`,
+		);
+		expect(res.status).toBe(200);
+		expect(res.body).toHaveLength(1);
+		expect(res.body[0]).toMatchObject({
+			day: COMBINED_DAY,
+			kcal_burned: 600,
+		});
+		expect(res.body[0].kcal_consumed).toBeGreaterThan(0);
+	});
+
+	it('filters by from / to', async () => {
+		const res = await request(app).get(
+			`/users/${userId}/balance?from=${BURN_ONLY_DAY}&to=${COMBINED_DAY}`,
+		);
+		expect(res.status).toBe(200);
+		const days = res.body.map((e: { day: string }) => e.day);
+		expect(days).toContain(BURN_ONLY_DAY);
+		expect(days).toContain(COMBINED_DAY);
+		expect(days).not.toContain(OUT_OF_RANGE_DAY);
+	});
+
+	it('returns sorted by day asc', async () => {
+		const res = await request(app).get(`/users/${userId}/balance`);
+		expect(res.status).toBe(200);
+		const days = res.body.map((e: { day: string }) => e.day);
+		const sorted = [...days].sort();
+		expect(days).toEqual(sorted);
+	});
+
+	it('returns empty array for unknown user', async () => {
+		const res = await request(app).get('/users/999999999/balance');
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual([]);
+	});
+
+	it('returns 400 for bad date format', async () => {
+		const res = await request(app).get(
+			`/users/${userId}/balance?from=2025/12/15`,
+		);
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for non-numeric userId', async () => {
+		const res = await request(app).get('/users/abc/balance');
+		expect(res.status).toBe(400);
+	});
+});

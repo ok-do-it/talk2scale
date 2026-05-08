@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import type { Database } from './types.js';
 
 const INT8_OID = 20;
+const DATE_OID = 1082;
 
 pgTypes.setTypeParser(INT8_OID, (value) => {
 	const parsed = Number(value);
@@ -12,6 +13,9 @@ pgTypes.setTypeParser(INT8_OID, (value) => {
 	}
 	return parsed;
 });
+
+// Keep DATE columns as YYYY-MM-DD strings to avoid timezone-induced day shifts.
+pgTypes.setTypeParser(DATE_OID, (value) => value);
 
 const pool = new Pool({
 	host: env.postgresHost,

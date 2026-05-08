@@ -283,6 +283,55 @@ export function createMealService(foodTreeService: FoodTreeService) {
 			return computeNutrientsForLogs(foodLogs, foodTreeService);
 		},
 
+		// Per-day kcal totals for a user, keyed by UTC date (YYYY-MM-DD).
+		// Days with no logged food are absent from the map.
+		async getUserDailyKcal(
+			userId: number,
+			from?: Date,
+			to?: Date,
+		): Promise<Map<string, number>> {
+			const rows = await db
+				.selectFrom('food_log')
+				.innerJoin('meal', 'meal.id', 'food_log.meal_id')
+				.select([
+					'food_log.id as id',
+					'food_log.meal_id as meal_id',
+					'food_log.element_id as element_id',
+					'food_log.raw_name as raw_name',
+					'food_log.amount as amount',
+					'food_log.measure_id as measure_id',
+					'meal.logged_at as logged_at',
+				])
+				.where('meal.user_id', '=', userId)
+				.$if(from !== undefined, (q) =>
+					q.where('meal.logged_at', '>=', from as Date),
+				)
+				.$if(to !== undefined, (q) =>
+					q.where('meal.logged_at', '<=', to as Date),
+				)
+				.execute();
+
+			const logsByDay = new Map<string, Selectable<FoodLog>[]>();
+			for (const row of rows) {
+				const day = new Date(row.logged_at).toISOString().slice(0, 10);
+				const list = logsByDay.get(day) ?? [];
+				const { logged_at: _omit, ...log } = row;
+				list.push(log as Selectable<FoodLog>);
+				logsByDay.set(day, list);
+			}
+
+			const result = new Map<string, number>();
+			for (const [day, logs] of logsByDay) {
+				const groups = await computeNutrientsForLogs(logs, foodTreeService);
+				const basic = groups.find((g) => g.name === 'Basic');
+				const energy = basic?.nutrients.find(
+					(n) => n.id === null && n.calculated === true,
+				);
+				if (energy && energy.amount > 0) result.set(day, energy.amount);
+			}
+			return result;
+		},
+
 		async getUserRangeNutrients(
 			userId: number,
 			from?: Date,
