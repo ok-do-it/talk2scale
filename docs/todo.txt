@@ -38,21 +38,7 @@ clicking on the chart snapshot open screen:
 Backend:
 - research how to use whispr local model vs hosted how better is quality
   maybe new search endpoint accepting audio and return elements
-- add user's measure 
-- add burned calories, param - user,date,kcal number, if exist - update
-  ? can get from garmin?
 
-
-
-
-DB:
-add table: user's burned calories: user_id fk, date, kcal. use (user_id+date as PK)
-
-
-to user add jsonb field - daily targets: 
-{energy: amount, nutrient_amounts: [{id, grams}]}
-
-automatically remember the date when user started measuring
 
 
 
