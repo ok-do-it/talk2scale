@@ -16,6 +16,8 @@ const OUT_OF_RANGE_DAY = '2026-06-01';
 
 const createdMealIds: number[] = [];
 
+let nutrientId: number;
+
 beforeAll(async () => {
 	const user = await db
 		.selectFrom('users')
@@ -32,6 +34,14 @@ beforeAll(async () => {
 		.executeTakeFirstOrThrow();
 	elementId = element.id;
 
+	const nutrient = await db
+		.selectFrom('element')
+		.select('id')
+		.where('type', '=', 'nutrient')
+		.limit(1)
+		.executeTakeFirstOrThrow();
+	nutrientId = nutrient.id;
+
 	const unit = await db
 		.selectFrom('measure')
 		.select('id')
@@ -40,11 +50,27 @@ beforeAll(async () => {
 		.executeTakeFirstOrThrow();
 	unitId = unit.id;
 
-	await db.deleteFrom('calories_burned').where('user_id', '=', userId).execute();
+	await db
+		.deleteFrom('calories_burned')
+		.where('user_id', '=', userId)
+		.execute();
+	await db
+		.updateTable('users')
+		.set({ daily_targets: null })
+		.where('id', '=', userId)
+		.execute();
 });
 
 afterAll(async () => {
-	await db.deleteFrom('calories_burned').where('user_id', '=', userId).execute();
+	await db
+		.deleteFrom('calories_burned')
+		.where('user_id', '=', userId)
+		.execute();
+	await db
+		.updateTable('users')
+		.set({ daily_targets: null })
+		.where('id', '=', userId)
+		.execute();
 	if (createdMealIds.length > 0) {
 		await db.deleteFrom('meal').where('id', 'in', createdMealIds).execute();
 	}
@@ -214,6 +240,96 @@ describe('GET /users/:userId/balance', () => {
 
 	it('returns 400 for non-numeric userId', async () => {
 		const res = await request(app).get('/users/abc/balance');
+		expect(res.status).toBe(400);
+	});
+});
+
+describe('GET /users/:userId/daily-targets', () => {
+	it('returns null when targets are not set', async () => {
+		const res = await request(app).get(`/users/${userId}/daily-targets`);
+		expect(res.status).toBe(200);
+		expect(res.body).toBeNull();
+	});
+
+	it('returns 404 for nonexistent user', async () => {
+		const res = await request(app).get('/users/999999999/daily-targets');
+		expect(res.status).toBe(404);
+		expect(res.body.error).toBe('user not found');
+	});
+
+	it('returns 400 for non-numeric userId', async () => {
+		const res = await request(app).get('/users/abc/daily-targets');
+		expect(res.status).toBe(400);
+	});
+});
+
+describe('PUT /users/:userId/daily-targets', () => {
+	it('saves and returns daily targets', async () => {
+		const targets = {
+			kcal: 2000,
+			nutrient_amounts: [{ id: nutrientId, grams: 0.065 }],
+		};
+		const res = await request(app)
+			.put(`/users/${userId}/daily-targets`)
+			.send(targets);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual(targets);
+	});
+
+	it('GET returns previously saved targets', async () => {
+		const res = await request(app).get(`/users/${userId}/daily-targets`);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({
+			kcal: 2000,
+			nutrient_amounts: [{ id: nutrientId, grams: 0.065 }],
+		});
+	});
+
+	it('overwrites targets on subsequent PUT', async () => {
+		const updated = { kcal: 2500, nutrient_amounts: [] };
+		const res = await request(app)
+			.put(`/users/${userId}/daily-targets`)
+			.send(updated);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual(updated);
+
+		const get = await request(app).get(`/users/${userId}/daily-targets`);
+		expect(get.body).toEqual(updated);
+	});
+
+	it('returns 400 when kcal is missing', async () => {
+		const res = await request(app)
+			.put(`/users/${userId}/daily-targets`)
+			.send({ nutrient_amounts: [] });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for negative grams', async () => {
+		const res = await request(app)
+			.put(`/users/${userId}/daily-targets`)
+			.send({ kcal: 2000, nutrient_amounts: [{ id: nutrientId, grams: -1 }] });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for non-integer nutrient id', async () => {
+		const res = await request(app)
+			.put(`/users/${userId}/daily-targets`)
+			.send({ kcal: 2000, nutrient_amounts: [{ id: 1.5, grams: 10 }] });
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 404 for nonexistent user', async () => {
+		const res = await request(app)
+			.put('/users/999999999/daily-targets')
+			.send({ kcal: 2000, nutrient_amounts: [] });
+		expect(res.status).toBe(404);
+		expect(res.body.error).toBe('user not found');
+	});
+
+	it('returns 400 for non-numeric userId', async () => {
+		const res = await request(app)
+			.put('/users/abc/daily-targets')
+			.send({ kcal: 2000, nutrient_amounts: [] });
 		expect(res.status).toBe(400);
 	});
 });

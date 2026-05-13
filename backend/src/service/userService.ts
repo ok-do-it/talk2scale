@@ -13,6 +13,9 @@ export type DailyCaloriesEntry = {
 	kcal_consumed: number;
 };
 
+export type NutrientAmount = { id: number; grams: number };
+export type DailyTargets = { kcal: number; nutrient_amounts: NutrientAmount[] };
+
 export type UserService = {
 	upsertCaloriesBurned: (
 		userId: number,
@@ -24,6 +27,13 @@ export type UserService = {
 		from?: string,
 		to?: string,
 	) => Promise<DailyCaloriesEntry[]>;
+	getDailyTargets: (
+		userId: number,
+	) => Promise<DailyTargets | null | 'user_not_found'>;
+	setDailyTargets: (
+		userId: number,
+		targets: DailyTargets,
+	) => Promise<DailyTargets | 'user_not_found'>;
 };
 
 function toDate(day: string): Date {
@@ -53,6 +63,27 @@ export function createUserService(mealService: MealService): UserService {
 				.returning(['user_id', 'day', 'kcal'])
 				.executeTakeFirstOrThrow();
 			return row as CaloriesBurnedRow;
+		},
+
+		async getDailyTargets(userId) {
+			const row = await db
+				.selectFrom('users')
+				.select('daily_targets')
+				.where('id', '=', userId)
+				.executeTakeFirst();
+			if (!row) return 'user_not_found';
+			return (row.daily_targets as DailyTargets) ?? null;
+		},
+
+		async setDailyTargets(userId, targets) {
+			const row = await db
+				.updateTable('users')
+				.set({ daily_targets: JSON.stringify(targets) })
+				.where('id', '=', userId)
+				.returning('daily_targets')
+				.executeTakeFirst();
+			if (!row) return 'user_not_found';
+			return row.daily_targets as DailyTargets;
 		},
 
 		async getBalance(userId, from, to) {

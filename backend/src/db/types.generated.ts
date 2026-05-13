@@ -68,10 +68,20 @@ export interface Measure {
   user_id: number | null;
 }
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export interface Users {
+  daily_targets: JsonValue | null;
   email: string;
   id: Generated<number>;
   name: string;
+  tracking_started_on: string | null;
 }
 
 export interface DB {

@@ -24,10 +24,18 @@ CREATE TYPE element_type AS ENUM ('nutrient', 'whole_food', 'recipe', 'branded_f
 CREATE TYPE data_source AS ENUM ('user', 'usda', 'admin');
 
 -- users: basic user account information.
+-- - daily_targets stores per-user nutritional goals as JSONB.
+--   shape: { "kcal": <number>, "nutrient_amounts": [{ "id": <element_id>, "grams": <number> }, ...] }
+--   shape is validated in the application layer, not via CHECK.
+-- - tracking_started_on is the date the user first logged data. Set by the app on
+--   first meal/food_log/calories_burned write and used as the lower bound for
+--   "all time" date-range queries instead of scanning from epoch.
 CREATE TABLE users (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE
+  email TEXT NOT NULL UNIQUE,
+  daily_targets JSONB NULL,
+  tracking_started_on DATE NULL
 );
 
 -- element: canonical entity for anything with nutritional value/composition.

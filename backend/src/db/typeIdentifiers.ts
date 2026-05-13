@@ -22,6 +22,8 @@ export const COLUMN = {
 		id: 'id',
 		name: 'name',
 		email: 'email',
+		daily_targets: 'daily_targets',
+		tracking_started_on: 'tracking_started_on',
 	},
 	element: {
 		id: 'id',

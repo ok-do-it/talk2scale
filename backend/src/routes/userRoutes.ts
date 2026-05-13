@@ -17,6 +17,16 @@ const balanceQuerySchema = z.object({
 	to: z.string().regex(dayPattern).optional(),
 });
 
+const dailyTargetsBodySchema = z.object({
+	kcal: z.number().int().nonnegative(),
+	nutrient_amounts: z.array(
+		z.object({
+			id: z.number().int().positive(),
+			grams: z.number().positive(),
+		}),
+	),
+});
+
 function validate<T>(schema: z.ZodType<T>) {
 	return (req: Request, res: Response, next: NextFunction): void => {
 		const result = schema.safeParse(req.body);
@@ -74,6 +84,39 @@ export function createUserRoutes(userService: UserService): express.Router {
 		);
 		res.json(result);
 	});
+
+	router.get('/users/:userId/daily-targets', async (req, res) => {
+		const userId = userIdSchema.safeParse(req.params.userId);
+		if (!userId.success) {
+			res.status(400).json({ error: 'invalid user id' });
+			return;
+		}
+		const result = await userService.getDailyTargets(userId.data);
+		if (result === 'user_not_found') {
+			res.status(404).json({ error: 'user not found' });
+			return;
+		}
+		res.json(result);
+	});
+
+	router.put(
+		'/users/:userId/daily-targets',
+		validate(dailyTargetsBodySchema),
+		async (req, res) => {
+			const userId = userIdSchema.safeParse(req.params.userId);
+			if (!userId.success) {
+				res.status(400).json({ error: 'invalid user id' });
+				return;
+			}
+			const body = req.body as z.infer<typeof dailyTargetsBodySchema>;
+			const result = await userService.setDailyTargets(userId.data, body);
+			if (result === 'user_not_found') {
+				res.status(404).json({ error: 'user not found' });
+				return;
+			}
+			res.json(result);
+		},
+	);
 
 	return router;
 }

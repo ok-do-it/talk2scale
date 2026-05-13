@@ -382,3 +382,47 @@ GET /users/1/balance?from=2026-05-01&to=2026-05-07
   { "day": "2026-05-07", "kcal_burned": 600, "kcal_consumed": 2100 }
 ]
 ```
+
+---
+
+### `GET /users/:userId/daily-targets`
+
+Returns the user's daily nutritional targets, or `null` if not yet set.
+
+```
+GET /users/1/daily-targets
+```
+
+**Response** `200`
+```json
+{ "kcal": 2000, "nutrient_amounts": [{ "id": 42, "grams": 0.065 }] }
+```
+
+Returns `null` (with status `200`) when no targets have been saved.
+
+**Errors**
+- `404` — user not found
+
+---
+
+### `PUT /users/:userId/daily-targets`
+
+Set (full replace) the user's daily nutritional targets. `kcal` is a non-negative integer. Each `nutrient_amounts` entry references a nutrient `element.id`.
+
+```
+PUT /users/1/daily-targets
+```
+
+**Request body**
+```json
+{ "kcal": 2000, "nutrient_amounts": [{ "id": 42, "grams": 0.065 }] }
+```
+
+**Response** `200`
+```json
+{ "kcal": 2000, "nutrient_amounts": [{ "id": 42, "grams": 0.065 }] }
+```
+
+**Errors**
+- `400` — invalid body (missing kcal, negative grams, non-integer nutrient id)
+- `404` — user not found
