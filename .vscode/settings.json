@@ -14,5 +14,6 @@
             "username": "talk2scale",
             "password": "talk2scale_dev_password"
         }
-    ]
+    ],
+    "java.configuration.updateBuildConfiguration": "automatic"
 }

@@ -26,6 +26,7 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -34,7 +35,8 @@
     },
     "plugins": [
       ["react-native-ble-plx", { "isBackgroundEnabled": false }],
-      "@react-native-voice/voice"
+      "@react-native-voice/voice",
+      "./plugins/withAndroidVoiceFix.js"
     ]
   }
 }

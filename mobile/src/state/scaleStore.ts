@@ -1,0 +1,237 @@
+import { create } from 'zustand';
+
+import { ConnectionState } from '../constants/ble';
+import { bleScaleTransport } from '../transport/BleScaleTransport';
+import { MockScaleTransport } from '../transport/MockScaleTransport';
+import type { ScaleTransportListener } from '../transport/ScaleTransport';
+import { clearStoredMac, getStoredMac, storeMac } from '../services/storage';
+import type { LogEntry, MealEntry, WeightReading } from './types';
+
+const STABLE_WINDOW = 3;
+
+const mockTransport = new MockScaleTransport();
+
+type ScaleState = {
+  weightReading: WeightReading | null;
+  lastWeight: number;
+  connectionState: number;
+  logEntries: LogEntry[];
+  mealEntries: MealEntry[];
+  mockEnabled: boolean;
+  realConnectionRequested: boolean;
+  initialized: boolean;
+};
+
+type ScaleActions = {
+  initialize: () => Promise<void>;
+  teardown: () => void;
+  isConnected: () => boolean;
+  isConnectionInProgress: () => boolean;
+  prepareForRealConnection: () => void;
+  connectToRealDevice: (deviceId: string, autoConnect: boolean) => Promise<void>;
+  disconnect: () => void;
+  cancelConnection: () => void;
+  forgetStoredDevice: () => Promise<void>;
+  addLogEntry: (foodName: string, weightGrams: number) => void;
+  renameLogEntry: (index: number, foodName: string) => boolean;
+  clearLogEntries: () => void;
+  submitBreakfastMeal: () => boolean;
+  sendTare: () => void;
+  sendCalibrate: (refMassGrams: number) => void;
+  setMockEnabled: (enabled: boolean) => void;
+  addMockWeight: () => void;
+  publishWeight: (weight: number, forceStable: boolean) => void;
+};
+
+let recentWeights: number[] = [];
+let recentWeightCount = 0;
+let transportsWired = false;
+
+function isStable(weight: number): boolean {
+  recentWeights[recentWeightCount % STABLE_WINDOW] = weight;
+  recentWeightCount++;
+  if (recentWeightCount < STABLE_WINDOW) return false;
+  const baseline = recentWeights[0];
+  for (let i = 1; i < STABLE_WINDOW; i++) {
+    if (recentWeights[i] !== baseline) return false;
+  }
+  return true;
+}
+
+const transportListener: ScaleTransportListener = {
+  onConnectionStateChanged: (state) => {
+    useScaleStore.setState({ connectionState: state });
+    const connected = state === ConnectionState.CONNECTED;
+    if (connected) {
+      useScaleStore.setState({ mockEnabled: false });
+    }
+  },
+  onWeightData: (weight) => {
+    const { connectionState, mockEnabled } = useScaleStore.getState();
+    const connected = connectionState === ConnectionState.CONNECTED;
+    if (connected) {
+      useScaleStore.getState().publishWeight(weight, false);
+    } else if (mockEnabled) {
+      useScaleStore.getState().publishWeight(weight, true);
+    }
+  },
+};
+
+function wireTransports(): void {
+  if (transportsWired) return;
+  transportsWired = true;
+  bleScaleTransport.setListener(transportListener);
+  mockTransport.setListener(transportListener);
+  mockTransport.start();
+}
+
+export const useScaleStore = create<ScaleState & ScaleActions>((set, get) => ({
+  weightReading: null,
+  lastWeight: 0,
+  connectionState: ConnectionState.DISCONNECTED,
+  logEntries: [],
+  mealEntries: [],
+  mockEnabled: true,
+  realConnectionRequested: false,
+  initialized: false,
+
+  initialize: async () => {
+    if (get().initialized) return;
+    wireTransports();
+    const mac = await getStoredMac();
+    if (mac) {
+      try {
+        get().prepareForRealConnection();
+        await get().connectToRealDevice(mac, true);
+      } catch {
+        set({ mockEnabled: true, realConnectionRequested: false });
+        mockTransport.start();
+      }
+    }
+    set({ initialized: true });
+  },
+
+  teardown: () => {
+    bleScaleTransport.destroy();
+    mockTransport.close();
+    transportsWired = false;
+    set({ initialized: false });
+  },
+
+  isConnected: () => get().connectionState === ConnectionState.CONNECTED,
+
+  isConnectionInProgress: () =>
+    get().realConnectionRequested && !get().isConnected(),
+
+  prepareForRealConnection: () => {
+    set({ realConnectionRequested: true, mockEnabled: false });
+  },
+
+  connectToRealDevice: async (deviceId, autoConnect) => {
+    get().prepareForRealConnection();
+    await bleScaleTransport.connectToDevice(deviceId, autoConnect);
+    await storeMac(deviceId);
+  },
+
+  disconnect: () => {
+    bleScaleTransport.close();
+    set({ realConnectionRequested: false, mockEnabled: true });
+    if (!get().isConnected()) {
+      mockTransport.start();
+    }
+  },
+
+  cancelConnection: () => {
+    bleScaleTransport.close();
+    set({ realConnectionRequested: false });
+  },
+
+  forgetStoredDevice: async () => {
+    await clearStoredMac();
+  },
+
+  addLogEntry: (foodName, weightGrams) => {
+    const calories = Math.floor(Math.random() * 300) + 50;
+    const entry: LogEntry = { foodName, weightGrams, calories };
+    set((s) => ({ logEntries: [entry, ...s.logEntries] }));
+  },
+
+  renameLogEntry: (index, foodName) => {
+    const current = get().logEntries;
+    if (index < 0 || index >= current.length) return false;
+    const existing = current[index];
+    const updated = [...current];
+    updated[index] = {
+      foodName,
+      weightGrams: existing.weightGrams,
+      calories: existing.calories,
+    };
+    set({ logEntries: updated });
+    return true;
+  },
+
+  clearLogEntries: () => set({ logEntries: [] }),
+
+  submitBreakfastMeal: () => {
+    const logs = get().logEntries;
+    if (logs.length === 0) return false;
+    const totalCalories = logs.reduce((sum, e) => sum + e.calories, 0);
+    const now = new Date().toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    const submitted: MealEntry = {
+      name: 'Breakfast',
+      time: now,
+      calories: totalCalories,
+    };
+    set((s) => ({
+      mealEntries: [submitted, ...s.mealEntries],
+      logEntries: [],
+    }));
+    return true;
+  },
+
+  sendTare: () => {
+    if (get().isConnected()) {
+      bleScaleTransport.sendTare();
+    } else {
+      mockTransport.sendTare();
+    }
+  },
+
+  sendCalibrate: (refMassGrams) => {
+    if (get().isConnected()) {
+      bleScaleTransport.sendCalibrate(refMassGrams);
+    }
+  },
+
+  setMockEnabled: (enabled) => {
+    const current = get().mockEnabled;
+    if (current === enabled) return;
+    if (enabled) {
+      set({ mockEnabled: true, realConnectionRequested: false });
+      if (get().isConnected()) {
+        bleScaleTransport.close();
+      } else {
+        mockTransport.start();
+      }
+    } else {
+      set({ mockEnabled: false });
+    }
+  },
+
+  addMockWeight: () => {
+    if (!get().isConnected() && get().mockEnabled) {
+      mockTransport.addRandomWeight();
+    }
+  },
+
+  publishWeight: (weight, forceStable) => {
+    const stable = forceStable || isStable(weight);
+    set({
+      lastWeight: weight,
+      weightReading: { weight, stable },
+    });
+  },
+}));

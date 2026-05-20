@@ -1,0 +1,8 @@
+[[connections]]
+id = "t2s"
+name = "talk2scale"
+host = "localhost"
+port = 5432
+database = "talk2scale"
+username = "talk2scale"
+password = "talk2scale_dev_password"
