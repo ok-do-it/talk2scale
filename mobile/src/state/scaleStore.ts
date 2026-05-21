@@ -58,20 +58,31 @@ function isStable(weight: number): boolean {
   return true;
 }
 
-const transportListener: ScaleTransportListener = {
+const bleTransportListener: ScaleTransportListener = {
   onConnectionStateChanged: (state) => {
-    useScaleStore.setState({ connectionState: state });
     const connected = state === ConnectionState.CONNECTED;
+    useScaleStore.setState({
+      connectionState: state,
+      ...(connected ? { mockEnabled: false } : {}),
+    });
+  },
+  onWeightData: (weight) => {
+    const connected =
+      useScaleStore.getState().connectionState === ConnectionState.CONNECTED;
     if (connected) {
-      useScaleStore.setState({ mockEnabled: false });
+      useScaleStore.getState().publishWeight(weight, false);
     }
+  },
+};
+
+const mockTransportListener: ScaleTransportListener = {
+  onConnectionStateChanged: () => {
+    // Connection state tracks real BLE only (see ScaleViewModel.java).
   },
   onWeightData: (weight) => {
     const { connectionState, mockEnabled } = useScaleStore.getState();
     const connected = connectionState === ConnectionState.CONNECTED;
-    if (connected) {
-      useScaleStore.getState().publishWeight(weight, false);
-    } else if (mockEnabled) {
+    if (!connected && mockEnabled) {
       useScaleStore.getState().publishWeight(weight, true);
     }
   },
@@ -80,8 +91,8 @@ const transportListener: ScaleTransportListener = {
 function wireTransports(): void {
   if (transportsWired) return;
   transportsWired = true;
-  bleScaleTransport.setListener(transportListener);
-  mockTransport.setListener(transportListener);
+  bleScaleTransport.setListener(bleTransportListener);
+  mockTransport.setListener(mockTransportListener);
   mockTransport.start();
 }
 
