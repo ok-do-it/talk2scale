@@ -1,7 +1,7 @@
-import { decode as base64Decode, encode as base64Encode } from 'react-native-base64';
+import base64 from 'react-native-base64';
 
-function base64ToBytes(base64: string): Uint8Array {
-  const bin = base64Decode(base64);
+function base64ToBytes(value: string): Uint8Array {
+  const bin = base64.decode(value);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) {
     bytes[i] = bin.charCodeAt(i);
@@ -17,7 +17,7 @@ export function decodeWeightFromBase64(base64: string): number | null {
 }
 
 export function encodeTarePayload(): string {
-  return base64Encode(String.fromCharCode(0x01));
+  return base64.encode(String.fromCharCode(0x01));
 }
 
 export function encodeCalibratePayload(refMassGrams: number): string {
@@ -28,5 +28,5 @@ export function encodeCalibratePayload(refMassGrams: number): string {
   ];
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
-  return base64Encode(binary);
+  return base64.encode(binary);
 }

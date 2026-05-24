@@ -19,6 +19,8 @@ export type ScannedDevice = {
   name: string | null;
 };
 
+const SCALE_DEVICE_NAME = 'TalkToScale';
+
 export class BleScaleTransport implements ScaleTransport {
   private readonly manager = new BleManager();
   private listener: ScaleTransportListener | null = null;
@@ -48,15 +50,36 @@ export class BleScaleTransport implements ScaleTransport {
     return this.scanning;
   }
 
-  startScan(onDeviceFound?: () => void): void {
+  startScan(onDeviceFound?: () => void, onScanError?: (message: string) => void): void {
     if (this.scanning) return;
     this.scanning = true;
     this.discovered.clear();
     this.manager.startDeviceScan(
-      [SERVICE_UUID],
+      null,
       { allowDuplicates: false },
       (error, device) => {
-        if (error || !device) return;
+        if (error) {
+          console.warn('BLE scan failed', error);
+          onScanError?.(error.message || 'Bluetooth scan failed');
+          this.stopScan();
+          return;
+        }
+        if (!device) return;
+
+        console.log('BLE scan result', {
+          id: device.id,
+          name: device.name,
+          localName: device.localName,
+          serviceUUIDs: device.serviceUUIDs,
+        });
+
+        const serviceUUIDs = device.serviceUUIDs ?? [];
+        const isScale =
+          serviceUUIDs.some((uuid) => uuid.toLowerCase() === SERVICE_UUID) ||
+          device.name === SCALE_DEVICE_NAME ||
+          device.localName === SCALE_DEVICE_NAME;
+        if (!isScale) return;
+
         if (!this.discovered.has(device.id)) {
           this.discovered.set(device.id, {
             id: device.id,

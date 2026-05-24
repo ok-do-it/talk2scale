@@ -43,7 +43,11 @@ export function ConnectionScreen({ navigation, route }: Props) {
   const didAutoReturn = useRef(false);
 
   const refreshDevices = useCallback(() => {
-    setDevices(bleScaleTransport.getDiscoveredDevices());
+    const discoveredDevices = bleScaleTransport.getDiscoveredDevices();
+    setDevices(discoveredDevices);
+    if (discoveredDevices.length > 0) {
+      setStatus('Select scale', false);
+    }
   }, []);
 
   const setStatus = (text: string, showSpinner: boolean) => {
@@ -71,7 +75,9 @@ export function ConnectionScreen({ navigation, route }: Props) {
 
     setStatus('Searching for scale…', true);
     bleScaleTransport.clearDiscovered();
-    bleScaleTransport.startScan(refreshDevices);
+    bleScaleTransport.startScan(refreshDevices, (message) => {
+      setStatus(message, false);
+    });
   }, [connectToRealDevice, refreshDevices]);
 
   const startConnectionFlow = useCallback(() => {
@@ -157,7 +163,7 @@ export function ConnectionScreen({ navigation, route }: Props) {
       <Text style={styles.status}>{statusText}</Text>
       {connecting && <ActivityIndicator size="large" style={styles.spinner} />}
 
-      {!connected && !inProgress && devices.length > 0 && (
+      {!connected && devices.length > 0 && (
         <FlatList
           data={devices}
           keyExtractor={(d) => d.id}
