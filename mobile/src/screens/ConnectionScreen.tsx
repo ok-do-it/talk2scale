@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -151,7 +152,7 @@ export function ConnectionScreen({ navigation, route }: Props) {
   const inProgress = isConnectionInProgress();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Ionicons name="bluetooth" size={64} color="#1976D2" style={styles.icon} />
       <Text style={styles.status}>{statusText}</Text>
       {connecting && <ActivityIndicator size="large" style={styles.spinner} />}
@@ -201,7 +202,7 @@ export function ConnectionScreen({ navigation, route }: Props) {
           <Text>{inProgress ? 'Cancel' : 'Back'}</Text>
         </Pressable>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     alignItems: 'center',
-    paddingTop: 48,
+    paddingTop: 16,
     paddingHorizontal: 24,
   },
   icon: { marginBottom: 24 },

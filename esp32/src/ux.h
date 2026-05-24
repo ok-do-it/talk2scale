@@ -10,7 +10,7 @@ constexpr uint32_t kTareCooldownMs = 300;
 
 // Pair button — long press clears stored bond (see docs/hardware/README.md)
 constexpr uint8_t kPairBtnPin = 17;
-constexpr uint32_t kLongPressMs = 3000;
+constexpr uint32_t kLongPressMs = 1000;
 
 // Onboard LED — blink while pairing, solid when connected
 constexpr uint8_t kLedPin = 2;

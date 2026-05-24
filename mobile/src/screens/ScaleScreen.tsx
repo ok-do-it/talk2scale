@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -189,7 +190,7 @@ export function ScaleScreen({ navigation }: Props) {
     hasFood && !listening && (isEditing || lastWeight > 0);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.topBar}>
         <View style={styles.spacer} />
         <Pressable
@@ -289,7 +290,7 @@ export function ScaleScreen({ navigation }: Props) {
       </View>
 
       <CalibrationOverlay visible={showCalib} onClose={() => setShowCalib(false)} />
-    </View>
+    </SafeAreaView>
   );
 }
 

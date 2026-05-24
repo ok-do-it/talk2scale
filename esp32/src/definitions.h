@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // Set to 0 to compile out all LOG / LOG_PRINT calls (no Serial output from them).
-#define DEBUG_SERIAL 0
+#define DEBUG_SERIAL 1
 
 #if DEBUG_SERIAL
 #define LOG(...) Serial.println(__VA_ARGS__)
