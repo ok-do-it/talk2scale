@@ -109,13 +109,11 @@ export function createUserService(mealService: MealService): UserService {
 			}
 			for (const day of consumed.keys()) days.add(day);
 
-			return [...days]
-				.sort()
-				.map((day) => ({
-					day,
-					kcal_burned: burnedMap.get(day) ?? 0,
-					kcal_consumed: consumed.get(day) ?? 0,
-				}));
+			return [...days].sort().map((day) => ({
+				day,
+				kcal_burned: burnedMap.get(day) ?? 0,
+				kcal_consumed: consumed.get(day) ?? 0,
+			}));
 		},
 	};
 }

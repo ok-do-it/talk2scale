@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "dev.talk2scale"
+      "bundleIdentifier": "dev.talk2scale",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Talk to Scale records short clips to recognize food names by voice."
+      }
     },
     "android": {
       "package": "dev.talk2scale",
@@ -23,6 +26,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "usesCleartextTraffic": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.BLUETOOTH_CONNECT",
@@ -34,9 +38,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["react-native-ble-plx", { "isBackgroundEnabled": false }],
-      "@react-native-voice/voice",
-      "./plugins/withAndroidVoiceFix.js"
+      ["react-native-ble-plx", { "isBackgroundEnabled": false }]
     ]
   }
 }

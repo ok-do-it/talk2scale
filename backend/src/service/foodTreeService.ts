@@ -56,7 +56,11 @@ export type FoodNameRow = {
 };
 
 export type FoodTreeService = {
-	listElements: (type?: ElementType, filter?: string, userId?: string) => Promise<ElementRow[]>;
+	listElements: (
+		type?: ElementType,
+		filter?: string,
+		userId?: string,
+	) => Promise<ElementRow[]>;
 	treeByElement: (elementId: number) => Promise<TreeNode | null>;
 	nutrientsByElement: (
 		elementId: number,
@@ -156,7 +160,11 @@ function computeEnergyKcal(
 
 export function createFoodTreeService(): FoodTreeService {
 	return {
-		listElements: async (type?: ElementType, filter?: string, userId?: string) => {
+		listElements: async (
+			type?: ElementType,
+			filter?: string,
+			userId?: string,
+		) => {
 			let query = db
 				.selectFrom('element')
 				.select(['id', 'type', 'name', 'source', 'external_id']);
@@ -170,8 +178,9 @@ export function createFoodTreeService(): FoodTreeService {
 			}
 
 			if (userId !== undefined) {
-				query = query.where('source', '=', 'user').
-				where('external_id', '=', userId);
+				query = query
+					.where('source', '=', 'user')
+					.where('external_id', '=', userId);
 			}
 
 			return query.orderBy('name', 'asc').execute();
@@ -374,13 +383,15 @@ export function createFoodTreeService(): FoodTreeService {
 				.where('user_id', 'is', null)
 				.execute();
 
-			const byElement = elementId !== undefined
-				? await base.where('element_id', '=', elementId).execute()
-				: [];
+			const byElement =
+				elementId !== undefined
+					? await base.where('element_id', '=', elementId).execute()
+					: [];
 
-			const byUser = userId !== undefined
-				? await base.where('user_id', '=', userId).execute()
-				: [];
+			const byUser =
+				userId !== undefined
+					? await base.where('user_id', '=', userId).execute()
+					: [];
 
 			const seen = new Set<number>();
 			const result: MeasureRow[] = [];
@@ -394,7 +405,12 @@ export function createFoodTreeService(): FoodTreeService {
 			return result;
 		},
 
-		addElementMeasure: async (elementId: number, userId: number, name: string, grams: number) => {
+		addElementMeasure: async (
+			elementId: number,
+			userId: number,
+			name: string,
+			grams: number,
+		) => {
 			const element = await db
 				.selectFrom('element')
 				.select('id')
@@ -418,7 +434,12 @@ export function createFoodTreeService(): FoodTreeService {
 
 		listNutrientGroups: () => getNutrientGroupsResolved(),
 
-		addElementName: async (elementId: number, userId: number, name: string, embedding?: number[]) => {
+		addElementName: async (
+			elementId: number,
+			userId: number,
+			name: string,
+			embedding?: number[],
+		) => {
 			const element = await db
 				.selectFrom('element')
 				.select('id')
@@ -437,7 +458,12 @@ export function createFoodTreeService(): FoodTreeService {
 
 			return db
 				.insertInto('food_name')
-				.values({ element_id: elementId, user_id: userId, name, embedding: embeddingValue })
+				.values({
+					element_id: elementId,
+					user_id: userId,
+					name,
+					embedding: embeddingValue,
+				})
 				.returning(['id', 'element_id', 'user_id', 'name'])
 				.executeTakeFirstOrThrow() as Promise<FoodNameRow>;
 		},

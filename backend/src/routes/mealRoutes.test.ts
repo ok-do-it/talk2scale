@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp, db } from '../test/app.js';
 
 const app = buildApp();
@@ -68,7 +68,11 @@ async function createMeal() {
 	const res = await request(app).post('/meals').send(mealPayload());
 	expect(res.status).toBe(201);
 	createdMealIds.push(res.body.id);
-	return res.body as { id: number; user_id: number; food_logs: { id: number }[] };
+	return res.body as {
+		id: number;
+		user_id: number;
+		food_logs: { id: number }[];
+	};
 }
 
 describe('POST /meals', () => {
@@ -85,9 +89,7 @@ describe('POST /meals', () => {
 	});
 
 	it('returns 400 when food_logs is missing', async () => {
-		const res = await request(app)
-			.post('/meals')
-			.send({ user_id: userId });
+		const res = await request(app).post('/meals').send({ user_id: userId });
 		expect(res.status).toBe(400);
 	});
 
@@ -101,7 +103,16 @@ describe('POST /meals', () => {
 	it('returns 400 when user_id is missing', async () => {
 		const res = await request(app)
 			.post('/meals')
-			.send({ food_logs: [{ element_id: elementId, raw_name: 'x', amount: 1, measure_id: unitId }] });
+			.send({
+				food_logs: [
+					{
+						element_id: elementId,
+						raw_name: 'x',
+						amount: 1,
+						measure_id: unitId,
+					},
+				],
+			});
 		expect(res.status).toBe(400);
 	});
 });
@@ -141,9 +152,7 @@ describe('PATCH /meals/:id/name', () => {
 
 	it('returns 400 when name is missing', async () => {
 		const meal = await createMeal();
-		const res = await request(app)
-			.patch(`/meals/${meal.id}/name`)
-			.send({});
+		const res = await request(app).patch(`/meals/${meal.id}/name`).send({});
 		expect(res.status).toBe(400);
 	});
 
@@ -166,14 +175,12 @@ describe('PATCH /meals/:id/name', () => {
 describe('POST /meals/:id/food-logs', () => {
 	it('adds a food log to an existing meal', async () => {
 		const meal = await createMeal();
-		const res = await request(app)
-			.post(`/meals/${meal.id}/food-logs`)
-			.send({
-				element_id: elementId,
-				raw_name: 'extra food',
-				amount: 50,
-				measure_id: unitId,
-			});
+		const res = await request(app).post(`/meals/${meal.id}/food-logs`).send({
+			element_id: elementId,
+			raw_name: 'extra food',
+			amount: 50,
+			measure_id: unitId,
+		});
 		expect(res.status).toBe(201);
 		expect(res.body).toMatchObject({
 			id: expect.any(Number),
@@ -183,14 +190,12 @@ describe('POST /meals/:id/food-logs', () => {
 	});
 
 	it('returns 404 for nonexistent meal', async () => {
-		const res = await request(app)
-			.post('/meals/999999999/food-logs')
-			.send({
-				element_id: elementId,
-				raw_name: 'x',
-				amount: 1,
-				measure_id: unitId,
-			});
+		const res = await request(app).post('/meals/999999999/food-logs').send({
+			element_id: elementId,
+			raw_name: 'x',
+			amount: 1,
+			measure_id: unitId,
+		});
 		expect(res.status).toBe(404);
 	});
 

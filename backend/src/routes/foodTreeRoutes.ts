@@ -40,7 +40,8 @@ export function createFoodTreeRoutes(
 			return;
 		}
 
-		const userId = req.query.user_id !== undefined ? String(req.query.user_id) : undefined;
+		const userId =
+			req.query.user_id !== undefined ? String(req.query.user_id) : undefined;
 		const elements = await foodTreeService.listElements(
 			type.data,
 			req.query.filter as string | undefined,
@@ -99,13 +100,20 @@ export function createFoodTreeRoutes(
 		}
 		const body = addNameBodySchema.safeParse(req.body);
 		if (!body.success) {
-			res.status(400).json({ error: 'invalid body', details: body.error.flatten() });
+			res
+				.status(400)
+				.json({ error: 'invalid body', details: body.error.flatten() });
 			return;
 		}
 		const embedding = embeddingService
 			? await embeddingService.embedName(body.data.name)
 			: undefined;
-		const result = await foodTreeService.addElementName(id.data, body.data.user_id, body.data.name, embedding);
+		const result = await foodTreeService.addElementName(
+			id.data,
+			body.data.user_id,
+			body.data.name,
+			embedding,
+		);
 		if (result === 'element_not_found') {
 			res.status(404).json({ error: `element ${id.data} not found` });
 			return;
@@ -125,10 +133,17 @@ export function createFoodTreeRoutes(
 		}
 		const body = addMeasureBodySchema.safeParse(req.body);
 		if (!body.success) {
-			res.status(400).json({ error: 'invalid body', details: body.error.flatten() });
+			res
+				.status(400)
+				.json({ error: 'invalid body', details: body.error.flatten() });
 			return;
 		}
-		const result = await foodTreeService.addElementMeasure(id.data, body.data.user_id, body.data.name, body.data.grams);
+		const result = await foodTreeService.addElementMeasure(
+			id.data,
+			body.data.user_id,
+			body.data.name,
+			body.data.grams,
+		);
 		if (result === 'element_not_found') {
 			res.status(404).json({ error: `element ${id.data} not found` });
 			return;
@@ -142,16 +157,12 @@ export function createFoodTreeRoutes(
 
 	router.get('/measures{/:elementId}', async (req, res) => {
 		const params = req.params as Record<string, string | undefined>;
-		const elementId = elementIdSchema
-			.optional()
-			.safeParse(params.elementId);
+		const elementId = elementIdSchema.optional().safeParse(params.elementId);
 		if (!elementId.success) {
 			res.status(400).json({ error: 'invalid elementId parameter' });
 			return;
 		}
-		const userId = userIdSchema
-			.optional()
-			.safeParse(req.query.user_id);
+		const userId = userIdSchema.optional().safeParse(req.query.user_id);
 		if (!userId.success) {
 			res.status(400).json({ error: 'invalid user_id parameter' });
 			return;

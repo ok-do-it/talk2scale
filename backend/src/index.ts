@@ -10,11 +10,13 @@ import { createFoodTreeRoutes } from './routes/foodTreeRoutes.js';
 import { createMealRoutes } from './routes/mealRoutes.js';
 import { createSearchRoutes } from './routes/searchRoutes.js';
 import { createUserRoutes } from './routes/userRoutes.js';
+import { createVoiceRoutes } from './routes/voiceRoutes.js';
 import { createEmbeddingService } from './service/embeddingService.js';
 import { createFoodTreeService } from './service/foodTreeService.js';
 import { createMealService } from './service/mealService.js';
 import { createSearchService } from './service/searchService.js';
 import { createUserService } from './service/userService.js';
+import { createVoiceService } from './service/voiceService.js';
 
 const app = express();
 
@@ -36,6 +38,9 @@ app.use(createMealRoutes(mealService));
 
 const userService = createUserService(mealService);
 app.use(createUserRoutes(userService));
+
+const voiceService = await createVoiceService();
+app.use(createVoiceRoutes(voiceService, embeddingService));
 
 app.listen({ port: env.port }, () => {
 	logger.info({ port: env.port }, 'Server ready');

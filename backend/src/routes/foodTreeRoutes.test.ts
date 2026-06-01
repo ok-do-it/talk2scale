@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp, db } from '../test/app.js';
 
 const app = buildApp();
@@ -48,7 +48,12 @@ beforeAll(async () => {
 
 	const recipe = await db
 		.insertInto('element')
-		.values({ type: 'recipe', source: 'user', name: '__test_user_recipe__', external_id: testUserId })
+		.values({
+			type: 'recipe',
+			source: 'user',
+			name: '__test_user_recipe__',
+			external_id: testUserId,
+		})
 		.returning('id')
 		.executeTakeFirstOrThrow();
 	testUserRecipeId = recipe.id;
@@ -56,10 +61,16 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	if (createdFoodNameIds.length > 0) {
-		await db.deleteFrom('food_name').where('id', 'in', createdFoodNameIds).execute();
+		await db
+			.deleteFrom('food_name')
+			.where('id', 'in', createdFoodNameIds)
+			.execute();
 	}
 	if (createdMeasureIds.length > 0) {
-		await db.deleteFrom('measure').where('id', 'in', createdMeasureIds).execute();
+		await db
+			.deleteFrom('measure')
+			.where('id', 'in', createdMeasureIds)
+			.execute();
 	}
 	await db.deleteFrom('element').where('id', '=', testUserRecipeId).execute();
 	await db.destroy();
@@ -76,9 +87,9 @@ describe('GET /elements', () => {
 	it('filters by type=nutrient', async () => {
 		const res = await request(app).get('/elements?type=nutrient');
 		expect(res.status).toBe(200);
-		expect(
-			res.body.every((e: { type: string }) => e.type === 'nutrient'),
-		).toBe(true);
+		expect(res.body.every((e: { type: string }) => e.type === 'nutrient')).toBe(
+			true,
+		);
 	});
 
 	it('filters by name with ?filter=', async () => {
@@ -108,11 +119,15 @@ describe('GET /elements', () => {
 	});
 
 	it('can combine user_id with type=recipe', async () => {
-		const res = await request(app).get(`/elements?user_id=${testUserId}&type=recipe`);
+		const res = await request(app).get(
+			`/elements?user_id=${testUserId}&type=recipe`,
+		);
 		expect(res.status).toBe(200);
 		const ids = res.body.map((e: { id: number }) => e.id);
 		expect(ids).toContain(testUserRecipeId);
-		expect(res.body.every((e: { type: string }) => e.type === 'recipe')).toBe(true);
+		expect(res.body.every((e: { type: string }) => e.type === 'recipe')).toBe(
+			true,
+		);
 	});
 });
 

@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av';
 import { PermissionsAndroid, Platform, type Permission } from 'react-native';
 
 export async function requestBluetoothPermissions(): Promise<boolean> {
@@ -20,9 +21,12 @@ export async function requestBluetoothPermissions(): Promise<boolean> {
 }
 
 export async function requestRecordAudioPermission(): Promise<boolean> {
-  if (Platform.OS !== 'android') return true;
-  const result = await PermissionsAndroid.request(
-    PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-  );
-  return result === PermissionsAndroid.RESULTS.GRANTED;
+  if (Platform.OS === 'android') {
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+    );
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  }
+  const { granted } = await Audio.requestPermissionsAsync();
+  return granted;
 }

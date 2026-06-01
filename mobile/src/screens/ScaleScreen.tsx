@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { CalibrationOverlay } from '../components/CalibrationOverlay';
 import { WeightDisplay } from '../components/WeightDisplay';
 import type { RootStackParamList } from '../navigation/types';
-import { requestRecordAudioPermission } from '../services/permissions';
 import { speechRecognition } from '../services/speech';
 import { useScaleStore } from '../state/scaleStore';
 import type { LogEntry } from '../state/types';
@@ -83,6 +84,15 @@ export function ScaleScreen({ navigation }: Props) {
     [renameLogEntry],
   );
 
+  const showRepeatToast = useCallback(() => {
+    const message = 'Food not found. Please hold the mic and repeat.';
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+      return;
+    }
+    Alert.alert(message);
+  }, []);
+
   useEffect(() => {
     speechRecognition.setCallbacks({
       onListeningStateChanged: setListening,
@@ -100,29 +110,23 @@ export function ScaleScreen({ navigation }: Props) {
         }
       },
       onNoMatchOrTimeout: () => {
-        Alert.alert('Could not recognise speech - try again');
+        showRepeatToast();
       },
       onUnavailable: () => {
-        Alert.alert('Speech recognition not available on this device');
+        showRepeatToast();
       },
     });
     return () => {
       void speechRecognition.release();
     };
-  }, [applyLogEntry, applyRename]);
+  }, [applyLogEntry, applyRename, showRepeatToast]);
 
-  const onMicTap = async () => {
-    if (listening) {
-      await speechRecognition.cancelListening();
-      setFoodText('');
-      return;
-    }
-    const granted = await requestRecordAudioPermission();
-    if (!granted) {
-      Alert.alert('Microphone permission denied');
-      return;
-    }
+  const onMicPressIn = async () => {
     await speechRecognition.startListening();
+  };
+
+  const onMicPressOut = async () => {
+    await speechRecognition.stopListening();
   };
 
   const onApply = () => {
@@ -258,9 +262,15 @@ export function ScaleScreen({ navigation }: Props) {
         )}
       </View>
 
-      <Pressable style={styles.micBtn} onPress={() => void onMicTap()}>
+      <Pressable
+        style={[styles.micBtn, listening && styles.micBtnRecording]}
+        onPressIn={() => void onMicPressIn()}
+        onPressOut={() => void onMicPressOut()}
+      >
         <Ionicons name="mic" size={20} color="#fff" />
-        <Text style={styles.micText}>{listening ? 'CANCEL' : 'Voice Input'}</Text>
+        <Text style={styles.micText}>
+          {listening ? 'Release to send' : 'Hold to speak'}
+        </Text>
       </Pressable>
 
       <View style={styles.tableHeader}>
@@ -342,6 +352,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 4,
   },
+  micBtnRecording: { backgroundColor: '#C62828' },
   micText: { color: '#fff', fontWeight: '600' },
   tableHeader: {
     flexDirection: 'row',

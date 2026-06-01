@@ -1,95 +1,112 @@
-import Voice, {
-  type SpeechErrorEvent,
-  type SpeechResultsEvent,
-} from '@react-native-voice/voice';
+import {
+	AudioClipRecorder,
+	MAX_RECORDING_MS,
+	ensureAudioRecordingReady,
+} from './voiceRecording';
+import { transcribeFoodAudio } from './voiceApi';
 
 export type SpeechCallbacks = {
-  onListeningStateChanged: (listening: boolean) => void;
-  onPartialText: (text: string) => void;
-  onFinalText: (text: string) => void;
-  onNoMatchOrTimeout: () => void;
-  onUnavailable: () => void;
+	onListeningStateChanged: (listening: boolean) => void;
+	onPartialText: (text: string) => void;
+	onFinalText: (text: string) => void;
+	onNoMatchOrTimeout: () => void;
+	onUnavailable: () => void;
 };
 
 export class SpeechRecognition {
-  private callbacks: SpeechCallbacks | null = null;
-  private listening = false;
-  private wired = false;
+	private callbacks: SpeechCallbacks | null = null;
+	private listening = false;
+	private recorder = new AudioClipRecorder();
+	private finishing = false;
+	private starting = false;
+	private stopRequested = false;
 
-  setCallbacks(callbacks: SpeechCallbacks | null): void {
-    this.callbacks = callbacks;
-    if (callbacks && !this.wired) {
-      this.wireEvents();
-    }
-  }
+	setCallbacks(callbacks: SpeechCallbacks | null): void {
+		this.callbacks = callbacks;
+	}
 
-  isListening(): boolean {
-    return this.listening;
-  }
+	isListening(): boolean {
+		return this.listening;
+	}
 
-  async startListening(): Promise<void> {
-    try {
-      await Voice.destroy();
-      this.listening = false;
-      await Voice.start('en-US');
-      this.setListening(true);
-    } catch {
-      this.callbacks?.onUnavailable();
-    }
-  }
+	async startListening(): Promise<void> {
+		if (this.listening || this.finishing || this.starting) return;
+		this.starting = true;
+		this.stopRequested = false;
+		try {
+			const granted = await ensureAudioRecordingReady();
+			if (!granted) {
+				this.callbacks?.onUnavailable();
+				return;
+			}
+			await this.recorder.start();
+			this.setListening(true);
+			this.recorder.scheduleAutoStop(MAX_RECORDING_MS, () => {
+				void this.finishListening();
+			});
+			if (this.stopRequested) {
+				void this.finishListening();
+			}
+		} catch {
+			this.callbacks?.onUnavailable();
+		} finally {
+			this.starting = false;
+		}
+	}
 
-  async cancelListening(): Promise<void> {
-    try {
-      await Voice.cancel();
-    } catch {
-      // ignore
-    }
-    await this.destroyRecognizer();
-    this.setListening(false);
-  }
+	async stopListening(): Promise<void> {
+		if (this.finishing) return;
+		if (this.starting && !this.listening) {
+			this.stopRequested = true;
+			return;
+		}
+		await this.finishListening();
+	}
 
-  async release(): Promise<void> {
-    await this.destroyRecognizer();
-    this.listening = false;
-  }
+	async cancelListening(): Promise<void> {
+		if (this.finishing) return;
+		await this.recorder.cancel();
+		this.setListening(false);
+		this.stopRequested = false;
+	}
 
-  private wireEvents(): void {
-    this.wired = true;
-    Voice.onSpeechStart = () => this.setListening(true);
-    Voice.onSpeechEnd = () => this.setListening(false);
-    Voice.onSpeechPartialResults = (e: SpeechResultsEvent) => {
-      const text = e.value?.[0];
-      if (text) this.callbacks?.onPartialText(text);
-    };
-    Voice.onSpeechResults = (e: SpeechResultsEvent) => {
-      this.setListening(false);
-      const text = e.value?.[0];
-      if (text) this.callbacks?.onFinalText(text);
-      void this.destroyRecognizer();
-    };
-    Voice.onSpeechError = (e: SpeechErrorEvent) => {
-      this.setListening(false);
-      const code = e.error?.code;
-      if (code === '7' || code === '6') {
-        this.callbacks?.onNoMatchOrTimeout();
-      }
-      void this.destroyRecognizer();
-    };
-  }
+	async release(): Promise<void> {
+		await this.recorder.cancel();
+		this.listening = false;
+		this.finishing = false;
+		this.starting = false;
+		this.stopRequested = false;
+	}
 
-  private setListening(isListening: boolean): void {
-    if (this.listening === isListening) return;
-    this.listening = isListening;
-    this.callbacks?.onListeningStateChanged(isListening);
-  }
+	private async finishListening(): Promise<void> {
+		if (!this.listening || this.finishing) return;
+		this.finishing = true;
+		try {
+			const uri = await this.recorder.stop();
+			if (!uri) {
+				this.callbacks?.onNoMatchOrTimeout();
+				return;
+			}
+			const food = await transcribeFoodAudio(uri);
+			if (food.elementName) {
+				this.callbacks?.onFinalText(food.elementName);
+			} else {
+				this.callbacks?.onNoMatchOrTimeout();
+			}
+		} catch {
+			this.callbacks?.onNoMatchOrTimeout();
+		} finally {
+			this.finishing = false;
+			this.stopRequested = false;
+			this.setListening(false);
+		}
+	}
 
-  private async destroyRecognizer(): Promise<void> {
-    try {
-      await Voice.destroy();
-    } catch {
-      // ignore
-    }
-  }
+	private setListening(isListening: boolean): void {
+		if (this.listening === isListening) return;
+		this.listening = isListening;
+		this.callbacks?.onListeningStateChanged(isListening);
+	}
 }
 
 export const speechRecognition = new SpeechRecognition();
