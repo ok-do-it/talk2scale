@@ -1,24 +1,23 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import os from 'node:os';
 import {
 	type AutomaticSpeechRecognitionOutput,
 	type AutomaticSpeechRecognitionPipeline,
 	type PretrainedModelOptions,
 	pipeline,
 } from '@huggingface/transformers';
-import { WaveFile } from 'wavefile';
 import { logger } from '../config/logger.js';
 
 const require = createRequire(import.meta.url);
 const ffmpegStaticPath = require('ffmpeg-static') as string | null;
+const { WaveFile } = require('wavefile') as typeof import('wavefile');
 
 const MODEL_ID = 'onnx-community/whisper-large-v3-turbo';
 const WHISPER_SAMPLE_RATE = 16_000;
 
 type AudioFormat = 'wav' | 'aac';
 
-type WaveFileWithSamples = WaveFile & {
+type WaveFileWithSamples = InstanceType<typeof WaveFile> & {
 	getSamples(
 		interleaved?: boolean,
 		outputObject?: typeof Float32Array,
@@ -26,13 +25,9 @@ type WaveFileWithSamples = WaveFile & {
 };
 
 function pickBackend(): Pick<PretrainedModelOptions, 'device'> {
-	if (process.platform === 'darwin' && os.arch() === 'arm64') {
-		return { device: 'webgpu' };
-	}
 	if (
-		process.env.CUDA_VISIBLE_DEVICES !== undefined ||
-		process.env.USE_CUDA === '1'
-	) {
+		(process.env.CUDA_VISIBLE_DEVICES !== undefined &&
+			process.env.CUDA_VISIBLE_DEVICES !== '')) {
 		return { device: 'cuda' };
 	}
 	return { device: 'cpu' };
