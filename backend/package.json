@@ -18,6 +18,7 @@
 		"generate-types": "tsx src/scripts/db/generate-db-types.ts",
 		"query": "tsx src/scripts/db/query.ts",
 		"embed-food-names": "tsx src/scripts/db/embed-food-names.ts",
+		"voice-test": "tsx src/scripts/voice-test.ts",
 		"copy-vendor-js": "tsx src/scripts/copy-vendor-js.ts",
 		"test": "vitest run",
 		"test:watch": "vitest"

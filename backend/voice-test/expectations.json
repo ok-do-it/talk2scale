@@ -1,0 +1,37 @@
+[
+	{
+		"filename": "banana.m4a",
+		"expected_text": "banana",
+		"expected_food_item_id": 633
+	},
+	{
+		"filename": "banan.m4a",
+		"expected_text": "banana",
+		"expected_food_item_id": 633
+	},
+	{
+		"filename": "Boiledegg.m4a",
+		"expected_text": "boiled egg",
+		"expected_food_item_id": 610
+	},
+	{
+		"filename": "Checkedbreastboiled.m4a",
+		"expected_text": "chicken breast boiled",
+		"expected_food_item_id": 514
+	},
+	{
+		"filename": "Parmesancheese.m4a",
+		"expected_text": "parmesan cheese",
+		"expected_food_item_id": 483
+	},
+	{
+		"filename": "Radicchio.m4a",
+		"expected_text": "radicchio",
+		"expected_food_item_id": 885
+	},
+	{
+		"filename": "Sourcreme.m4a",
+		"expected_text": "sour cream",
+		"expected_food_item_id": 715
+	}
+]

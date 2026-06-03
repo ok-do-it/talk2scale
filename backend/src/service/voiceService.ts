@@ -26,8 +26,9 @@ type WaveFileWithSamples = InstanceType<typeof WaveFile> & {
 
 function pickBackend(): Pick<PretrainedModelOptions, 'device'> {
 	if (
-		(process.env.CUDA_VISIBLE_DEVICES !== undefined &&
-			process.env.CUDA_VISIBLE_DEVICES !== '')) {
+		process.env.CUDA_VISIBLE_DEVICES !== undefined &&
+		process.env.CUDA_VISIBLE_DEVICES !== ''
+	) {
 		return { device: 'cuda' };
 	}
 	return { device: 'cpu' };
@@ -179,7 +180,10 @@ export async function createVoiceService(): Promise<VoiceService> {
 
 	const foodNameToText = async (audio: Buffer): Promise<string> => {
 		const waveform = await audioBufferToMonoFloat32(audio);
-		const result = await transcriber(waveform);
+		const result = await transcriber(waveform, {
+			language: 'english',
+			task: 'transcribe',
+		});
 		return normalizeTranscript(result);
 	};
 
