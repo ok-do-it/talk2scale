@@ -1,17 +1,22 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
 	assertDatabaseConnection,
 	closeDatabaseConnection,
-} from '../db/client.js';
-import type { FoodNameSearchHit } from '../service/embeddingService.js';
-import { createEmbeddingService } from '../service/embeddingService.js';
-import { createVoiceService } from '../service/voiceService.js';
+} from '../../db/client.js';
+import type { FoodNameSearchHit } from '../../service/embeddingService.js';
+import { createEmbeddingService } from '../../service/embeddingService.js';
+import { createVoiceService } from '../../service/voiceService.js';
+import {
+	applyStrictExit,
+	buildSummary,
+	checkFoodMatch,
+	intTestDir,
+	normalizeText,
+	parseStrictFlag,
+} from './common.js';
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const backendDir = path.resolve(scriptDir, '..', '..');
-const voiceTestDir = path.join(backendDir, 'voice-test');
+const voiceTestDir = path.join(intTestDir, 'voice');
 const expectationsPath = path.join(voiceTestDir, 'expectations.json');
 
 type VoiceTestExpectation = {
@@ -34,7 +39,6 @@ type VoiceTestCaseResult = {
 		text: string;
 	};
 	lookup: {
-		winner: FoodNameSearchHit | null;
 		hits: FoodNameSearchHit[];
 	};
 	expectations: ExpectationCheck | null;
@@ -44,23 +48,9 @@ type VoiceTestCaseResult = {
 type VoiceTestReport = {
 	strict: boolean;
 	voiceTestDir: string;
-	summary: {
-		total: number;
-		passed: number;
-		failed: number;
-		errors: number;
-		missingExpectations: string[];
-	};
+	summary: ReturnType<typeof buildSummary>;
 	results: VoiceTestCaseResult[];
 };
-
-function parseArgs(): { strict: boolean } {
-	return { strict: process.argv.includes('--strict') };
-}
-
-function normalizeText(value: string): string {
-	return value.trim().toLowerCase();
-}
 
 async function discoverM4aFiles(): Promise<string[]> {
 	const entries = await readdir(voiceTestDir, { withFileTypes: true });
@@ -85,7 +75,7 @@ async function loadExpectations(): Promise<Map<string, VoiceTestExpectation>> {
 function checkExpectations(
 	expectation: VoiceTestExpectation | undefined,
 	text: string,
-	winner: FoodNameSearchHit | null,
+	food: FoodNameSearchHit | undefined,
 ): ExpectationCheck | null {
 	if (!expectation) {
 		return null;
@@ -93,7 +83,7 @@ function checkExpectations(
 
 	const textMatch =
 		normalizeText(text) === normalizeText(expectation.expected_text);
-	const foodMatch = winner?.elementId === expectation.expected_food_item_id;
+	const foodMatch = checkFoodMatch(expectation.expected_food_item_id, food);
 
 	return {
 		expected_text: expectation.expected_text,
@@ -105,7 +95,7 @@ function checkExpectations(
 }
 
 async function main(): Promise<void> {
-	const { strict } = parseArgs();
+	const strict = parseStrictFlag();
 	const [filenames, expectations] = await Promise.all([
 		discoverM4aFiles(),
 		loadExpectations(),
@@ -131,14 +121,14 @@ async function main(): Promise<void> {
 			const audioPath = path.join(voiceTestDir, filename);
 			const audio = await readFile(audioPath);
 			const text = await voiceService.foodNameToText(audio);
-			const lookup = await embeddingService.searchFoodName(text);
+			const hits = await embeddingService.searchFoodName(text);
 			const expectation = expectations.get(filename);
 
 			results.push({
 				filename,
 				transcribe: { text },
-				lookup,
-				expectations: checkExpectations(expectation, text, lookup.winner),
+				lookup: { hits },
+				expectations: checkExpectations(expectation, text, hits[0]),
 				error: null,
 			});
 		} catch (err) {
@@ -146,44 +136,24 @@ async function main(): Promise<void> {
 			results.push({
 				filename,
 				transcribe: { text: '' },
-				lookup: { winner: null, hits: [] },
+				lookup: { hits: [] },
 				expectations: null,
 				error: message,
 			});
 		}
 	}
 
-	const passed = results.filter(
-		(result) =>
-			result.error === null &&
-			(result.expectations === null || result.expectations.passed),
-	).length;
-	const failed = results.filter(
-		(result) =>
-			result.error === null &&
-			result.expectations !== null &&
-			!result.expectations.passed,
-	).length;
-	const errors = results.filter((result) => result.error !== null).length;
+	const summary = buildSummary(results, missingExpectations);
 
 	const report: VoiceTestReport = {
 		strict,
 		voiceTestDir,
-		summary: {
-			total: results.length,
-			passed,
-			failed,
-			errors,
-			missingExpectations,
-		},
+		summary,
 		results,
 	};
 
 	console.log(JSON.stringify(report, null, 2));
-
-	if (strict && (failed > 0 || errors > 0 || missingExpectations.length > 0)) {
-		process.exitCode = 1;
-	}
+	applyStrictExit(strict, summary);
 }
 
 try {

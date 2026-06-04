@@ -14,24 +14,12 @@ const SEARCH_TOP_K = 10;
 // Over-fetch raw food_name rows so collapsing by element still yields enough hits.
 const SEARCH_RAW_FETCH = SEARCH_TOP_K * 3;
 
-// TODO: calibrate against a labeled query set.
-// Cosine distances on multilingual-e5-base are typically 0..0.6 for related text.
-const WINNER_ABS_MAX = 0.2;
-const WINNER_RATIO_MAX = 0.75;
-const WINNER_COLLAPSE_DEPTH = 3;
-
 export type FoodNameSearchHit = {
 	foodNameId: number;
 	elementId: number;
 	elementName: string;
 	name: string;
 	distance: number;
-	aliasCount: number;
-};
-
-export type FoodNameSearchResponse = {
-	winner: FoodNameSearchHit | null;
-	hits: FoodNameSearchHit[];
 };
 
 export type EmbeddingService = {
@@ -39,27 +27,11 @@ export type EmbeddingService = {
 	embedBatch(texts: string[]): Promise<number[][]>;
 	embedName(name: string): Promise<number[]>;
 	embedAll(opts?: { batchSize?: number }): Promise<{ updated: number }>;
-	searchFoodName(query: string): Promise<FoodNameSearchResponse>;
+	searchFoodName(query: string): Promise<FoodNameSearchHit[]>;
 };
 
 function toPgVector(vec: number[]): string {
 	return `[${vec.join(',')}]`;
-}
-
-function pickWinner(hits: FoodNameSearchHit[]): FoodNameSearchHit | null {
-	if (hits.length === 0) return null;
-	const top = hits[0];
-	if (top.distance > WINNER_ABS_MAX) return null;
-	if (hits.length === 1) return top;
-
-	const runnerUp = hits[1];
-	const ratio = top.distance / Math.max(runnerUp.distance, 1e-6);
-	if (ratio <= WINNER_RATIO_MAX) return top;
-
-	// Strong winner if multiple aliases of the top element crowd the raw top-N.
-	if (top.aliasCount >= 2) return top;
-
-	return null;
 }
 
 async function runExtractor(
@@ -137,7 +109,7 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 
 	const searchFoodName = async (
 		query: string,
-	): Promise<FoodNameSearchResponse> => {
+	): Promise<FoodNameSearchHit[]> => {
 		const vec = await embed(`${QUERY_PREFIX}${query}`);
 		const vecText = toPgVector(vec);
 
@@ -160,16 +132,6 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 			LIMIT ${SEARCH_RAW_FETCH}
 		`.execute(db);
 
-		// Count alias occurrences within the raw top-N before collapsing,
-		// so the winner heuristic can still see "many aliases of the same element".
-		const aliasCounts = new Map<number, number>();
-		for (const row of result.rows.slice(0, WINNER_COLLAPSE_DEPTH)) {
-			aliasCounts.set(
-				row.element_id,
-				(aliasCounts.get(row.element_id) ?? 0) + 1,
-			);
-		}
-
 		const seen = new Set<number>();
 		const hits: FoodNameSearchHit[] = [];
 		for (const row of result.rows) {
@@ -181,12 +143,11 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 				elementName: row.element_name,
 				name: row.name,
 				distance: Number(row.distance),
-				aliasCount: aliasCounts.get(row.element_id) ?? 0,
 			});
 			if (hits.length >= SEARCH_TOP_K) break;
 		}
 
-		return { winner: pickWinner(hits), hits };
+		return hits;
 	};
 
 	const embedName = (name: string): Promise<number[]> =>

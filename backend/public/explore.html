@@ -607,14 +607,14 @@
                   throw new Error(`Vector search failed with ${response.status}`);
                 }
                 const payload = await response.json();
-                const hits = Array.isArray(payload?.hits) ? payload.hits : [];
-                const winnerFoodNameId = payload?.winner?.foodNameId ?? null;
+                const hits = Array.isArray(payload) ? payload : [];
+                const topFoodNameId = hits[0]?.foodNameId ?? null;
                 nextElements = hits.map((hit) => ({
                   id: hit.elementId,
                   name: hit.elementName,
                   type: undefined,
                   distance: typeof hit.distance === "number" ? hit.distance : null,
-                  isWinner: winnerFoodNameId === hit.foodNameId
+                  isWinner: topFoodNameId === hit.foodNameId
                 }));
               } else {
                 const params = new URLSearchParams();

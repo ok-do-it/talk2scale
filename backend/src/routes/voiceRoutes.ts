@@ -35,16 +35,15 @@ export function createVoiceRoutes(
 			}
 
 			const result = await embeddingService.searchFoodName(text);
-			if (!result.winner) {
-				res
-					.status(404)
-					.json({ error: 'food_not_found', text, hits: result.hits });
+			const [food] = result;
+			if (!food) {
+				res.status(404).json({ error: 'food_not_found', text, hits: result });
 				return;
 			}
 
 			const response: VoiceFoodResponse = {
 				text,
-				food: result.winner,
+				food,
 			};
 			res.json(response);
 		} catch (err) {

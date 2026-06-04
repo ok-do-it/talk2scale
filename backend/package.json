@@ -18,7 +18,9 @@
 		"generate-types": "tsx src/scripts/db/generate-db-types.ts",
 		"query": "tsx src/scripts/db/query.ts",
 		"embed-food-names": "tsx src/scripts/db/embed-food-names.ts",
-		"voice-test": "tsx src/scripts/voice-test.ts",
+		"int-test:voice": "tsx src/scripts/int-test/voice.ts",
+		"int-test:search": "tsx src/scripts/int-test/search.ts",
+		"int-test": "npm run int-test:voice && npm run int-test:search",
 		"copy-vendor-js": "tsx src/scripts/copy-vendor-js.ts",
 		"test": "vitest run",
 		"test:watch": "vitest"

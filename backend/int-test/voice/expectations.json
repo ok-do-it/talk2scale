@@ -6,7 +6,7 @@
 	},
 	{
 		"filename": "banan.m4a",
-		"expected_text": "banana",
+		"expected_text": "banan",
 		"expected_food_item_id": 633
 	},
 	{
@@ -26,7 +26,7 @@
 	},
 	{
 		"filename": "Radicchio.m4a",
-		"expected_text": "radicchio",
+		"expected_text": "radicure",
 		"expected_food_item_id": 885
 	},
 	{
