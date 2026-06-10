@@ -27,7 +27,7 @@ Each module will live in its own top-level directory once bootstrapped (e.g. `ba
 A lightweight browser UI for exploring the Element table.
 Start the backend and open `http://localhost:8888/explore.html`.
 
-## Run backend + Android emulator
+## Run backend + mobile app
 
 Use this flow to test audio food search while adding meal log items in the scale app.
 
@@ -37,8 +37,6 @@ Use this flow to test audio food search while adding meal log items in the scale
 cp .env.example .env
 cp mobile/.env.example mobile/.env
 ```
-
-For the Android emulator, the mobile API URL should be `http://10.0.2.2:8888`.
 
 2. Start Postgres:
 
@@ -64,12 +62,11 @@ npm run dev
 
 Wait for the backend to report that the database, embedding model, voice model, and server are ready.
 
-5. Start the Android emulator, then run the app:
+5. Set up and run the mobile app:
 
-```bash
-cd mobile
-npm run android
-```
+- [Mobile app setup](docs/mobile-app/setup.md)
+- [Run on Android emulator](docs/mobile-app/run-emulator.md)
+- [Run on WiFi Android phone](docs/mobile-app/run-phone.md)
 
 6. In the app, open the scale screen. Without real BLE hardware, use mock scale mode: tap the large weight display to add a mock weight.
 

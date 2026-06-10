@@ -9,6 +9,21 @@
             "cwd": "${workspaceFolder}/backend",
             "console": "integratedTerminal",
             "preLaunchTask": "kill backend"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Mobile Android",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "android"],
+            "cwd": "${workspaceFolder}/mobile",
+            "console": "integratedTerminal",
+            "env": {
+                "ANDROID_HOME": "${env:HOME}/Library/Android/sdk",
+                "ANDROID_SDK_ROOT": "${env:HOME}/Library/Android/sdk",
+                "JAVA_HOME": "${env:HOME}/Library/Java/JavaVirtualMachines/temurin-21.0.10/Contents/Home",
+                "PATH": "${env:HOME}/Library/Java/JavaVirtualMachines/temurin-21.0.10/Contents/Home/bin:${env:HOME}/Library/Android/sdk/platform-tools:${env:HOME}/Library/Android/sdk/emulator:${env:PATH}"
+            }
         }
     ]
 }

@@ -1,77 +1,100 @@
-# Mobile app — dev environment setup
+# Mobile App Setup
 
-React Native (Expo, custom dev build). Target: Android (iOS possible later).
+The mobile app is a React Native app using Expo and a custom dev client. Expo Go is not enough because the app uses native modules such as BLE.
+
+Use this page for one-time setup. For running the app, see:
+
+- [Run on Android emulator](run-emulator.md)
+- [Run on WiFi Android phone](run-phone.md)
 
 ## Prerequisites
 
-| Tool | Install | Notes |
-|------|---------|-------|
-| Node.js 18+ | `brew install node` or [nodejs.org](https://nodejs.org) | LTS recommended |
-| Watchman | `brew install watchman` | File watcher for Metro bundler |
-| JDK 17 | `brew install --cask zulu@17` | Required by Android Gradle |
-| Android Studio | [developer.android.com/studio](https://developer.android.com/studio) | Needed for Android SDK, platform tools, and emulator (optional) |
+| Tool | Notes |
+|------|-------|
+| Node.js 20+ | React Native 0.81 requires Node `>=20.19.4`. |
+| Watchman | Recommended for Metro file watching on macOS. |
+| JDK 21 | Worked locally with Gradle/Expo. JDK 25 failed Gradle plugin resolution. |
+| Android Studio | Provides Android SDK, platform tools, emulator, and build tools. |
 
-### Android SDK setup
-
-After installing Android Studio, open it once and let it download:
-
-- Android SDK Platform 34
-- Android SDK Build-Tools 34.x
-- Android SDK Platform-Tools
-
-Then add to `~/.zshrc` (or equivalent):
+On macOS, install the common tools with:
 
 ```bash
-export ANDROID_HOME=$HOME/Library/Android/sdk
-export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator
+brew install node watchman
 ```
 
-Reload the shell: `source ~/.zshrc`
+Install Android Studio from [developer.android.com/studio](https://developer.android.com/studio), then open it once and install an Android SDK, platform tools, build tools, and at least one Android virtual device if you plan to use the emulator.
 
-### Expo & EAS CLIs
+## Android Environment
+
+If Android SDK tools and Java are not already exported in your shell, add this to `~/.zshrc` or equivalent:
 
 ```bash
-npm install -g expo-cli eas-cli
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export JAVA_HOME="$HOME/Library/Java/JavaVirtualMachines/temurin-21.0.10/Contents/Home"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
 ```
 
-## Project setup
+Reload the shell:
 
-From the repo root:
+```bash
+source ~/.zshrc
+```
+
+Check the tools:
+
+```bash
+java -version
+adb devices
+emulator -list-avds
+```
+
+If `adb` or `emulator` are not on `PATH`, use their macOS SDK paths directly:
+
+```bash
+"$HOME/Library/Android/sdk/platform-tools/adb" devices
+"$HOME/Library/Android/sdk/emulator/emulator" -list-avds
+```
+
+## Project Setup
+
+Create local env files from the repo root:
+
+```bash
+cp .env.example .env
+cp mobile/.env.example mobile/.env
+```
+
+Install mobile dependencies:
 
 ```bash
 cd mobile
-npm install
+npm ci
 ```
 
-This installs all JS dependencies including:
+Use `npm install` only when intentionally updating `package-lock.json`.
 
-- `expo` — framework and dev tooling
-- `expo-dev-client` — custom dev client (needed because Expo Go can't run BLE)
-- `react-native-ble-plx` — BLE communication with the scale
-- `@react-native-voice/voice` — on-device speech recognition
+## Backend Dependency
 
-## Build & run
-
-Connect an Android device via USB (with USB debugging enabled) or start an emulator, then:
+The mobile app expects the backend to be running for voice transcription and food search. From the repo root:
 
 ```bash
-npx expo run:android
+cd db
+docker compose up -d
+
+cd ../backend
+npm run dev
 ```
 
-First run generates the `android/` folder (prebuild) and compiles native code — takes a few minutes. Subsequent builds are incremental and much faster.
+Wait for the backend to report database, embedding model, voice model, and server readiness.
 
-After the dev client is installed, start the JS bundler with:
+## Metro Troubleshooting
+
+If Metro reports missing `ansi-regex`, `pretty-format`, or SHA-1 errors for files under `node_modules`, restart it with cache clearing:
 
 ```bash
-npx expo start --dev-client
+cd mobile
+npx expo start --dev-client --clear
 ```
 
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| `ANDROID_HOME` not set | Add the export lines above to `~/.zshrc` and reload |
-| `adb: command not found` | Ensure `$ANDROID_HOME/platform-tools` is on PATH |
-| Build fails on JDK version | Verify `java -version` shows 17; uninstall other JDKs or set `JAVA_HOME` |
-| Device not detected | Enable USB debugging in Android developer options; try `adb devices` |
-| Metro bundler port conflict | Kill other Metro instances or use `npx expo start --port 8082` |
+The repo includes `mobile/metro.config.js` and small dev-only shims for these React Native dev-server dependencies so Android bundling works reliably with the current Expo/RN dependency set.
