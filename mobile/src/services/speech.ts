@@ -87,6 +87,7 @@ export class SpeechRecognition {
 				this.callbacks?.onNoMatchOrTimeout();
 				return;
 			}
+			this.setListening(false);
 			const food = await transcribeFoodAudio(uri);
 			if (food.elementName) {
 				this.callbacks?.onFinalText(food.elementName);

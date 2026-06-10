@@ -27,6 +27,56 @@ Each module will live in its own top-level directory once bootstrapped (e.g. `ba
 A lightweight browser UI for exploring the Element table.
 Start the backend and open `http://localhost:8888/explore.html`.
 
+## Run backend + Android emulator
+
+Use this flow to test audio food search while adding meal log items in the scale app.
+
+1. Create local env files once:
+
+```bash
+cp .env.example .env
+cp mobile/.env.example mobile/.env
+```
+
+For the Android emulator, the mobile API URL should be `http://10.0.2.2:8888`.
+
+2. Start Postgres:
+
+```bash
+cd db
+docker compose up -d
+```
+
+3. Seed the backend data and embeddings if needed:
+
+```bash
+cd backend
+npm run clean-reseed
+npm run embed-food-names
+```
+
+4. Start the backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+Wait for the backend to report that the database, embedding model, voice model, and server are ready.
+
+5. Start the Android emulator, then run the app:
+
+```bash
+cd mobile
+npm run android
+```
+
+6. In the app, open the scale screen. Without real BLE hardware, use mock scale mode: tap the large weight display to add a mock weight.
+
+7. Hold **Hold to speak**, say a food name, then release. The app sends the recording to `/voice/transcribe`, searches for the matched food, and adds it to the current meal log with the current weight.
+
+8. Repeat for more items, then tap **Submit**. Meal submission is currently stored in mobile local state; audio search uses the backend.
+
 ## User flow (end-to-end)
 
 ```
