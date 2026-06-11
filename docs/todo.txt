@@ -40,6 +40,16 @@ Backend:
   maybe new search endpoint accepting audio and return elements
 
 
+Transcribe issue:
+Then if Whisper transcribes your audio as yaytso or something close, search should resolve it to egg.
+
+The caveat: current Whisper is forced to language: 'english', so if you say Russian яйцо, it may not output Cyrillic. It might output yaytso, yaitso, yatzo, or something else. The best fix is to record yourself saying it, see what Whisper returns, and add that exact phonetic spelling as a custom name.
+
+I would not add "you" as an alias for egg, even though that is what the bad test produced. That would make normal accidental “you” transcriptions resolve to egg. A pronunciation alias like yaytso is much safer.
+
+One more thing: custom names store user_id, but current search does not filter by user, so aliases are effectively global right now. If this becomes a real feature, we should make voice/search user-scoped before relying on personal pronunciations.
+
+
 
 
 

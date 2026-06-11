@@ -20,7 +20,12 @@ export function parseStrictFlag(): boolean {
 }
 
 export function normalizeText(value: string): string {
-	return value.trim().toLowerCase();
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/\p{P}+/gu, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 export function checkFoodMatch(
