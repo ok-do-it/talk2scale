@@ -1,0 +1,437 @@
+[
+	{
+		"fdc_id": 323604,
+		"name": "Egg, whole, raw, frozen, pasteurized",
+		"reason": "Raw frozen egg item unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 323697,
+		"name": "Egg, white, raw, frozen, pasteurized",
+		"reason": "Raw frozen egg item unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 323793,
+		"name": "Egg, white, dried",
+		"reason": "Dried egg item is an ingredient or processing artifact unlikely to be chosen as eaten directly."
+	},
+	{
+		"fdc_id": 325992,
+		"name": "Sausage, turkey, breakfast links, mild, raw",
+		"reason": "Raw poultry sausage unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 329490,
+		"name": "Egg, whole, dried",
+		"reason": "Dried egg item is an ingredient or processing artifact unlikely to be chosen as eaten directly."
+	},
+	{
+		"fdc_id": 329596,
+		"name": "Egg, yolk, raw, frozen, pasteurized",
+		"reason": "Raw frozen egg item unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 329716,
+		"name": "Egg, yolk, dried",
+		"reason": "Dried egg item is an ingredient or processing artifact unlikely to be chosen as eaten directly."
+	},
+	{
+		"fdc_id": 333374,
+		"name": "Fish, haddock, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 333476,
+		"name": "Fish, pollock, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 334849,
+		"name": "Beef, loin, top loin steak, boneless, lip-on, separable lean only, trimmed to 1/8\" fat, choice, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 334897,
+		"name": "Beef, loin, tenderloin roast, separable lean only, boneless, trimmed to 0\" fat, select, cooked, roasted",
+		"reason": "Separable-lean lab cut is too analytical to be a normal food search result."
+	},
+	{
+		"fdc_id": 334898,
+		"name": "Beef, round, eye of round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 334963,
+		"name": "Beef, round, top round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 335061,
+		"name": "Beef, short loin, t-bone steak, bone-in, separable lean only, trimmed to 1/8\" fat, choice, cooked, grilled",
+		"reason": "Separable-lean lab cut is too analytical to be a normal food search result."
+	},
+	{
+		"fdc_id": 335109,
+		"name": "Beef, short loin, porterhouse steak, separable lean only, trimmed to 1/8\" fat, select, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 335245,
+		"name": "Beans, Dry, Dark Red Kidney (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335306,
+		"name": "Beans, Dry, Pink (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335419,
+		"name": "Beans, Dry, Navy (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335422,
+		"name": "Beans, Dry, Light Red Kidney (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335425,
+		"name": "Beans, Dry, Brown (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335428,
+		"name": "Beans, Dry, Flor de Mayo (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335433,
+		"name": "Beans, Dry, Carioca (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335442,
+		"name": "Beans, Dry, Tan (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335695,
+		"name": "Beans, Dry, Pinto (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335774,
+		"name": "Beans, Dry, Small Red (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335777,
+		"name": "Beans, Dry, Medium Red (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335782,
+		"name": "Beans, Dry, Cranberry (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335785,
+		"name": "Beans, Dry, Light Tan (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335912,
+		"name": "Beans, Dry, Black (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335927,
+		"name": "Beans, Dry, Small White (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 335930,
+		"name": "Beans, Dry, Red (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 336067,
+		"name": "Beans, Dry, Great Northern (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 746758,
+		"name": "Beef, loin, tenderloin roast, separable lean only, boneless, trimmed to 0\" fat, select, cooked, roasted",
+		"reason": "Separable-lean lab cut is too analytical to be a normal food search result."
+	},
+	{
+		"fdc_id": 746759,
+		"name": "Beef, loin, top loin steak, boneless, lip-on, separable lean only, trimmed to 1/8\" fat, choice, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 746760,
+		"name": "Beef, round, eye of round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 746761,
+		"name": "Beef, round, top round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 746762,
+		"name": "Beef, short loin, porterhouse steak, separable lean only, trimmed to 1/8\" fat, select, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 746763,
+		"name": "Beef, short loin, t-bone steak, bone-in, separable lean only, trimmed to 1/8\" fat, choice, cooked, grilled",
+		"reason": "Separable-lean lab cut is too analytical to be a normal food search result."
+	},
+	{
+		"fdc_id": 746783,
+		"name": "Sausage, turkey, breakfast links, mild, raw",
+		"reason": "Raw poultry sausage unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 747430,
+		"name": "Beans, Dry, Medium Red (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747431,
+		"name": "Beans, Dry, Red (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747432,
+		"name": "Beans, Dry, Flor de Mayo (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747433,
+		"name": "Beans, Dry, Brown (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747434,
+		"name": "Beans, Dry, Tan (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747435,
+		"name": "Beans, Dry, Light Tan (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747436,
+		"name": "Beans, Dry, Carioca (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747437,
+		"name": "Beans, Dry, Cranberry (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747438,
+		"name": "Beans, Dry, Light Red Kidney (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747439,
+		"name": "Beans, Dry, Pink (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747440,
+		"name": "Beans, Dry, Dark Red Kidney (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747441,
+		"name": "Beans, Dry, Navy (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747442,
+		"name": "Beans, Dry, Small White (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747443,
+		"name": "Beans, Dry, Small Red (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747444,
+		"name": "Beans, Dry, Black (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747445,
+		"name": "Beans, Dry, Pinto (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 747446,
+		"name": "Beans, Dry, Great Northern (0% moisture)",
+		"reason": "0% moisture analytical row is not a normal consumed food selection."
+	},
+	{
+		"fdc_id": 2514743,
+		"name": "Beef, ground, 90% lean meat / 10% fat, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2514744,
+		"name": "Beef, ground, 80% lean meat / 20% fat, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2514745,
+		"name": "Pork, ground, raw",
+		"reason": "Raw pork unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2514746,
+		"name": "Chicken, ground, with additives, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2514747,
+		"name": "Turkey, ground, 93% lean/ 7% fat, raw",
+		"reason": "Raw turkey unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646168,
+		"name": "Pork, loin, boneless, raw",
+		"reason": "Raw pork unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646169,
+		"name": "Pork, loin, tenderloin, boneless, raw",
+		"reason": "Raw pork unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646170,
+		"name": "Chicken, breast, boneless, skinless, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646171,
+		"name": "Chicken, thigh, boneless, skinless, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646172,
+		"name": "Beef, ribeye, steak, boneless, choice, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646173,
+		"name": "Beef, round, top round, boneless, choice, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646174,
+		"name": "Beef, chuck, roast, boneless, choice, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2646175,
+		"name": "Beef, flank, steak, boneless, choice, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2684440,
+		"name": "Fish, salmon, sockeye, wild caught, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2684441,
+		"name": "Fish, salmon, Atlantic, farm raised, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2684442,
+		"name": "Fish, tilapia, farm raised, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2684443,
+		"name": "Crustaceans, shrimp, farm raised, raw",
+		"reason": "Raw shellfish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2684444,
+		"name": "Fish, cod, Atlantic, wild caught, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2684445,
+		"name": "Fish, catfish, farm raised, raw",
+		"reason": "Raw fish unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727566,
+		"name": "Chicken, drumstick, meat and skin, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727567,
+		"name": "Chicken, thigh, meat and skin, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727568,
+		"name": "Chicken, wing, meat and skin, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727569,
+		"name": "Chicken, breast, meat and skin, raw",
+		"reason": "Raw chicken unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727570,
+		"name": "Lamb, ground, raw",
+		"reason": "Raw meat unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727571,
+		"name": "Bison, ground, raw",
+		"reason": "Raw meat unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727572,
+		"name": "Beef, short loin (NY strip steak), raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727573,
+		"name": "Beef, tenderloin steak, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727574,
+		"name": "Beef, top sirloin steak, raw",
+		"reason": "Raw beef unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727575,
+		"name": "Pork, chop, center cut, raw",
+		"reason": "Raw pork unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2727576,
+		"name": "Pork, belly, with skin, raw",
+		"reason": "Raw pork unlikely to be intentionally selected as eaten in this state."
+	},
+	{
+		"fdc_id": 2747676,
+		"name": "Watermelon, seedless, rind only, raw",
+		"reason": "Rind-only item is not a normal consumed food selection."
+	}
+]

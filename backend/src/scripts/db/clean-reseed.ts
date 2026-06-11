@@ -2,6 +2,7 @@ import { createReadStream, constants as fsConstants } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parse } from 'csv-parse';
+import { sql } from 'kysely';
 import { logger } from '../../config/logger.js';
 import { closeDatabaseConnection, db } from '../../db/client.js';
 import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
@@ -34,6 +35,10 @@ const STATIC_USERS_JSON = path.resolve(
 const STATIC_MEASURES_JSON = path.resolve(
 	process.cwd(),
 	'../db/dataset/static-measures.json',
+);
+const SUPPRESSED_FOUNDATION_FOOD_NAMES_JSON = path.resolve(
+	process.cwd(),
+	'../db/dataset/suppressed-foundation-food-names.json',
 );
 
 function toNumber(value: number | string): number {
@@ -130,6 +135,11 @@ type StaticMeasureInsert = {
 	name: string;
 	grams: number;
 };
+type SuppressedFoundationFoodName = {
+	fdc_id: number;
+	name: string;
+	reason: string;
+};
 
 function parseUsersJson(raw: unknown): StaticUserRow[] {
 	if (!Array.isArray(raw)) {
@@ -178,6 +188,62 @@ function parseStaticMeasuresJson(raw: unknown): StaticMeasureInsert[] {
 		}
 		out.push({ element_id: null, name: name.trim(), grams });
 	}
+	return out;
+}
+
+function parseSuppressedFoundationFoodNamesJson(
+	raw: unknown,
+): SuppressedFoundationFoodName[] {
+	if (!Array.isArray(raw)) {
+		throw new Error(
+			'suppressed-foundation-food-names.json must be a JSON array',
+		);
+	}
+
+	const out: SuppressedFoundationFoodName[] = [];
+	const seenKeys = new Set<string>();
+	for (let i = 0; i < raw.length; i++) {
+		const row = raw[i];
+		if (row === null || typeof row !== 'object') {
+			throw new Error(
+				`suppressed-foundation-food-names.json[${i}] must be an object`,
+			);
+		}
+
+		const fdcId = (row as { fdc_id?: unknown }).fdc_id;
+		const name = (row as { name?: unknown }).name;
+		const reason = (row as { reason?: unknown }).reason;
+		if (typeof fdcId !== 'number' || !Number.isInteger(fdcId) || fdcId <= 0) {
+			throw new Error(
+				`suppressed-foundation-food-names.json[${i}].fdc_id must be a positive integer`,
+			);
+		}
+		if (typeof name !== 'string' || name.trim() === '') {
+			throw new Error(
+				`suppressed-foundation-food-names.json[${i}].name must be a non-empty string`,
+			);
+		}
+		if (typeof reason !== 'string' || reason.trim() === '') {
+			throw new Error(
+				`suppressed-foundation-food-names.json[${i}].reason must be a non-empty string`,
+			);
+		}
+
+		const key = `${fdcId}\0${name}`;
+		if (seenKeys.has(key)) {
+			throw new Error(
+				`suppressed-foundation-food-names.json[${i}] duplicates fdc_id/name`,
+			);
+		}
+		seenKeys.add(key);
+
+		out.push({
+			fdc_id: fdcId,
+			name,
+			reason: reason.trim(),
+		});
+	}
+
 	return out;
 }
 
@@ -584,6 +650,46 @@ async function importBaseAliases(
 	);
 }
 
+async function deleteSuppressedFoundationFoodNames(): Promise<void> {
+	const raw = JSON.parse(
+		await readFile(SUPPRESSED_FOUNDATION_FOOD_NAMES_JSON, 'utf8'),
+	) as unknown;
+	const suppressedNames = parseSuppressedFoundationFoodNamesJson(raw);
+
+	if (suppressedNames.length === 0) {
+		logger.info('No foundation food names configured for suppression');
+		return;
+	}
+
+	const valueRows = suppressedNames.map(
+		(row) => sql`(${String(row.fdc_id)}, ${row.name})`,
+	);
+
+	const result = await sql<{ deleted: number }>`
+		WITH suppressed(fdc_id, name) AS (
+			VALUES ${sql.join(valueRows)}
+		),
+		deleted AS (
+			DELETE FROM ${sql.ref(TABLE.food_name)} AS fn
+			USING ${sql.ref(TABLE.element)} AS e, suppressed s
+			WHERE fn.element_id = e.id
+			  AND e.source = 'usda'
+			  AND e.external_id = s.fdc_id
+			  AND fn.name = s.name
+			RETURNING 1
+		)
+		SELECT COUNT(*)::int AS deleted FROM deleted
+	`.execute(db);
+
+	logger.info(
+		{
+			configuredFoodNames: suppressedNames.length,
+			deletedFoodNames: result.rows[0]?.deleted ?? 0,
+		},
+		'Suppressed unlikely foundation food names',
+	);
+}
+
 async function importFoundationUnits(
 	datasetDir: string,
 	foodElementByFdcId: Map<number, number>,
@@ -668,6 +774,7 @@ async function main(): Promise<void> {
 	const requiredFiles = [
 		STATIC_USERS_JSON,
 		STATIC_MEASURES_JSON,
+		SUPPRESSED_FOUNDATION_FOOD_NAMES_JSON,
 		path.join(datasetDir, 'nutrient.csv'),
 		path.join(datasetDir, 'food.csv'),
 		path.join(datasetDir, 'food_nutrient.csv'),
@@ -694,6 +801,7 @@ async function main(): Promise<void> {
 	);
 
 	await importBaseAliases(datasetDir, foodElementByFdcId);
+	await deleteSuppressedFoundationFoodNames();
 	await importFoundationUnits(datasetDir, foodElementByFdcId);
 
 	await dedupeWholeFoods();
