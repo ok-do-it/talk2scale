@@ -43,6 +43,20 @@ export function createUserRoutes(userService: UserService): express.Router {
 	const router = express.Router();
 	router.use(express.json());
 
+	router.get('/users/:userId', async (req, res) => {
+		const userId = userIdSchema.safeParse(req.params.userId);
+		if (!userId.success) {
+			res.status(400).json({ error: 'invalid user id' });
+			return;
+		}
+		const user = await userService.getUser(userId.data);
+		if (!user) {
+			res.status(404).json({ error: 'user not found' });
+			return;
+		}
+		res.json(user);
+	});
+
 	router.post(
 		'/users/:userId/calories-burned',
 		validate(caloriesBurnedBodySchema),

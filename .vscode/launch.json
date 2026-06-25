@@ -1,4 +1,5 @@
 {
+    "version": "0.2.0",
     "configurations": [
         {
             "type": "node",
@@ -11,13 +12,11 @@
             "preLaunchTask": "kill backend"
         },
         {
-            "type": "node",
+            "type": "node-terminal",
             "request": "launch",
-            "name": "Mobile Android",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": ["run", "android"],
+            "name": "Mobile Android Emulator",
+            "command": "npm run android",
             "cwd": "${workspaceFolder}/mobile",
-            "console": "integratedTerminal",
             "env": {
                 "ANDROID_HOME": "${env:HOME}/Library/Android/sdk",
                 "ANDROID_SDK_ROOT": "${env:HOME}/Library/Android/sdk",

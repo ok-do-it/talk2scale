@@ -97,6 +97,36 @@ async function seedMeal(day: string): Promise<number> {
 	return res.body.id;
 }
 
+describe('GET /users/:userId', () => {
+	it('returns user profile', async () => {
+		const dbUser = await db
+			.selectFrom('users')
+			.select(['id', 'email', 'name', 'tracking_started_on'])
+			.where('id', '=', userId)
+			.executeTakeFirstOrThrow();
+
+		const res = await request(app).get(`/users/${userId}`);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({
+			id: dbUser.id,
+			email: dbUser.email,
+			name: dbUser.name,
+			tracking_started_on: dbUser.tracking_started_on,
+		});
+	});
+
+	it('returns 404 for nonexistent user', async () => {
+		const res = await request(app).get('/users/999999999');
+		expect(res.status).toBe(404);
+		expect(res.body.error).toBe('user not found');
+	});
+
+	it('returns 400 for non-numeric userId', async () => {
+		const res = await request(app).get('/users/abc');
+		expect(res.status).toBe(400);
+	});
+});
+
 describe('POST /users/:userId/calories-burned', () => {
 	it('creates a row and returns it', async () => {
 		const res = await request(app)

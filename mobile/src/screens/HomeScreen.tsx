@@ -13,7 +13,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { RootStackParamList } from '../navigation/types';
-import { getUserId, setUserId } from '../services/storage';
+import { DEFAULT_USER_ID, getUserId, setUserId } from '../services/storage';
+import { fetchUser } from '../services/userApi';
 import { useScaleStore } from '../state/scaleStore';
 import type { MealEntry } from '../state/types';
 
@@ -21,13 +22,30 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export function HomeScreen({ navigation }: Props) {
   const mealEntries = useScaleStore((s) => s.mealEntries);
-  const [userId, setUserIdState] = useState(0);
+  const [userId, setUserIdState] = useState(DEFAULT_USER_ID);
+  const [userName, setUserName] = useState<string | null>(null);
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [userIdInput, setUserIdInput] = useState('');
 
-  useEffect(() => {
-    void getUserId().then((id) => setUserIdState(id));
+  const loadUserProfile = useCallback(async (id: number) => {
+    if (id <= 0) {
+      setUserName(null);
+      return;
+    }
+    try {
+      const user = await fetchUser(id);
+      setUserName(user.name);
+    } catch {
+      setUserName(null);
+    }
   }, []);
+
+  useEffect(() => {
+    void getUserId().then((id) => {
+      setUserIdState(id);
+      void loadUserProfile(id);
+    });
+  }, [loadUserProfile]);
 
   const openUserDialog = () => {
     setUserIdInput(userId > 0 ? String(userId) : '');
@@ -44,6 +62,7 @@ export function HomeScreen({ navigation }: Props) {
     if (!Number.isNaN(id)) {
       await setUserId(id);
       setUserIdState(id);
+      await loadUserProfile(id);
     }
     setShowUserDialog(false);
   };
@@ -67,7 +86,9 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable style={styles.iconBtn} onPress={openUserDialog}>
           <Ionicons name="person-circle-outline" size={32} color="#333" />
         </Pressable>
-        <Text style={styles.userLabel}>{userId > 0 ? `#${userId}` : '#0'}</Text>
+        <Text style={styles.userLabel}>
+          {userName ?? `#${userId}`}
+        </Text>
         <View style={styles.spacer} />
         <Pressable
           style={styles.iconBtn}

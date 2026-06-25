@@ -16,7 +16,15 @@ export type DailyCaloriesEntry = {
 export type NutrientAmount = { id: number; grams: number };
 export type DailyTargets = { kcal: number; nutrient_amounts: NutrientAmount[] };
 
+export type User = {
+	id: number;
+	email: string;
+	name: string;
+	tracking_started_on: string | null;
+};
+
 export type UserService = {
+	getUser: (userId: number) => Promise<User | null>;
 	upsertCaloriesBurned: (
 		userId: number,
 		day: string,
@@ -46,6 +54,15 @@ function endOfDay(day: string): Date {
 
 export function createUserService(mealService: MealService): UserService {
 	return {
+		async getUser(userId) {
+			const row = await db
+				.selectFrom('users')
+				.select(['id', 'email', 'name', 'tracking_started_on'])
+				.where('id', '=', userId)
+				.executeTakeFirst();
+			return row ?? null;
+		},
+
 		async upsertCaloriesBurned(userId, day, kcal) {
 			const user = await db
 				.selectFrom('users')

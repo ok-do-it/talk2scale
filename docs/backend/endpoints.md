@@ -346,6 +346,30 @@ Create a new user recipe. Automatically adds a `whole batch` measure (total of a
 
 ## User
 
+### `GET /users/:userId`
+
+Returns the user's profile.
+
+```
+GET /users/1
+```
+
+**Response** `200`
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "name": "Jane Doe",
+  "tracking_started_on": "2026-05-01"
+}
+```
+
+**Errors**
+- `400` — invalid user id
+- `404` — user not found
+
+---
+
 ### `POST /users/:userId/calories-burned`
 
 Record calories burned by the user on a given day. Upserts on `(user_id, day)` — posting twice for the same day overwrites.
