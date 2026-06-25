@@ -4,7 +4,7 @@ if im making salad every day, it's slightly different content.
 - use pre saved recepie and adhere to it
 - don't save recepie, just make new meal every time - but what if I shared the salad?
 
-Android app:
+Mobile app:
 
 ## Make main screen: 
 - top left - user icon, click - open user settings screen

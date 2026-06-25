@@ -1,147 +1,67 @@
-# Connection overlay
+# Connection screen
 
-Full-screen overlay that manages BLE connection lifecycle. Controlled by
-`ConnectionOverlayController`; visibility is driven by explicit calls
-(`showOverlay()` / `hideOverlay()` on `ScaleViewModel`) — the overlay never
-auto-closes.
+The active connection UI is the React Native screen in `mobile/src/screens/ConnectionScreen.tsx`. It replaces the retired full-screen native overlay and owns the user-facing BLE connection lifecycle.
 
-See [design.md](design.md) for the broader BLE stack, permissions, and
-threading model.
+See [`design.md`](design.md) for the broader BLE transport, command, and notification model.
 
-## Layout
+## Screen behavior
 
-```
-┌──────────────────────────┐
-│                          │
-│      (Bluetooth icon)    │
-│                          │
-│   Searching for scale…   │  ← status text
-│      ◌  (spinner)        │
-│                          │
-│      [ CONNECT ]         │
-│      [ DISCONNECT ]      │
-│   [ FORGET ALL DEVICES ] │
-│      [ CLOSE ]           │
-│                          │
-└──────────────────────────┘
-```
+`ConnectionScreen` can be opened manually or with `autoStartConnect` from navigation params.
 
-**Layout file:** [`view_connection_overlay.xml`](../../android/app/src/main/res/layout/view_connection_overlay.xml)
+- If already connected, it shows **Connected** and lets the user disconnect or forget the stored device.
+- If a stored device id exists, it attempts a reconnect with `autoConnect=true`.
+- If no stored device exists, it scans for nearby scale devices and shows discovered matches in a list.
+- Leaving the screen while a connection is in progress cancels the scan or pending connection attempt.
 
 ## Status text
 
 | Condition | Text |
 |-----------|------|
-| CDM search active (no stored MAC) | "Searching for scale…" |
-| Reconnecting to stored MAC | "Reconnecting…" |
+| Scan active | "Searching for scale..." |
+| Stored device reconnect | "Reconnecting..." |
+| Device list available | "Select scale" |
 | Connected | "Connected" |
 | Permission denied | "Bluetooth permission denied" |
+| Failed connection attempt | "Connection failed" |
 
-The progress spinner is visible only during "Searching…" and "Reconnecting…".
+The progress spinner is visible during scan, reconnect, and direct connection attempts.
 
 ## Button states
 
-| State | Connect | Disconnect | Forget All | Close |
-|-------|---------|------------|------------|-------|
-| Disconnected, idle | enabled | disabled | enabled | enabled |
-| Searching / Connecting / Reconnecting | disabled | disabled | disabled | enabled (cancels) |
-| Connected | disabled | enabled | enabled | enabled |
-
-### Button actions
-
-- **Connect** — calls `startConnectionFlow()`: requests `BLUETOOTH_CONNECT`
-  permission if needed, then either reconnects via stored MAC or starts a CDM
-  association.
-- **Disconnect** — closes the GATT connection, re-enables mock transport, and
-  hides the overlay.
-- **Forget All Devices** — removes the stored MAC from `SharedPreferences`.
-  Does not disconnect an active connection.
-- **Close** — hides the overlay. If a connection attempt is in progress, it is
-  cancelled first (`bleTransport.close()`, `realConnectionRequested` reset).
-
-## Behavior
-
-### Opening the overlay
-
-`MainActivity` binds the top Bluetooth `ImageButton` to
-`connectionOverlay.show()`, which decides:
-
-- **Already connected** — shows the overlay with "Connected" status so the
-  user can disconnect or forget.
-- **Not connected** — calls `startConnectionFlow()` to begin pairing /
-  reconnecting and shows the overlay with the appropriate searching or
-  reconnecting status.
-
-### Closing the overlay
-
-The overlay is **never** closed by a LiveData observer. The user must
-explicitly tap **Close** or **Disconnect**. This prevents the overlay from
-vanishing unexpectedly during transient state changes.
+| State | Connect | Disconnect | Forget All | Back / Cancel |
+|-------|---------|------------|------------|---------------|
+| Disconnected, idle | enabled | disabled | enabled | Back |
+| Searching / Connecting / Reconnecting | disabled | disabled | disabled | Cancel |
+| Connected | disabled | enabled | enabled | Back |
 
 ## Connection flow
 
+```text
+ConnectionScreen opens
+  |
+  |-- connected?
+  |     `-- yes -> show Connected
+  |
+  `-- user starts connection
+        |
+        |-- Bluetooth permission granted?
+        |     `-- no -> show permission denied
+        |
+        |-- stored device id exists?
+        |     `-- yes -> reconnect with autoConnect=true
+        |
+        `-- no -> scan for scale devices
+              -> user selects a device
+              -> connect, discover services, subscribe to notifications
+              -> store device id
 ```
-connectionOverlay.show()
-  │
-  ├─ Already connected?
-  │   └─ YES → show overlay with "Connected" status, done
-  │
-  └─ NO → startConnectionFlow()
-       │
-       ├─ BLUETOOTH_CONNECT permission granted?
-       │   └─ NO → request via ActivityResultLauncher
-       │           ├─ granted → beginConnection()
-       │           └─ denied  → show "Bluetooth permission denied"
-       │
-       └─ beginConnection()
-           │
-           ├─ Stored MAC exists?
-           │   ├─ YES → "Reconnecting…"
-           │   │         BluetoothAdapter.getRemoteDevice(mac)
-           │   │         connectGatt(ctx, autoConnect=true, gattCallback)
-           │   │
-           │   └─ NO  → "Searching for scale…"
-           │            CompanionDeviceManager.associate()
-           │            → system bottom-sheet → user taps device
-           │            → ActivityResultLauncher callback
-           │            → connectGatt, store MAC
-           │
-           └─ onConnectionStateChange(STATE_CONNECTED)
-               → discoverServices → subscribe to notifications
-               → status updates to "Connected"
-               → user closes overlay manually
-```
-
-### First connection (CompanionDeviceManager)
-
-1. Build an `AssociationRequest` with a `BluetoothLeDeviceFilter` whose
-   `ScanFilter` matches the service UUID. `setSingleDevice(true)` auto-selects
-   when exactly one device matches.
-2. `CompanionDeviceManager.Callback.onDeviceFound` wraps the `IntentSender` in
-   an `IntentSenderRequest` launched via `ActivityResultLauncher`.
-3. The result callback extracts the `BluetoothDevice` from
-   `CompanionDeviceManager.EXTRA_DEVICE`, calls `connectGatt()`, and stores
-   the MAC in `SharedPreferences`.
-
-### Reconnection (stored MAC)
-
-On `show()` when not connected and a MAC is stored,
-`BluetoothAdapter.getRemoteDevice(mac).connectGatt(ctx, true, gattCallback)`
-is called. `autoConnect=true` tells Android to passively wait for the
-peripheral and connect when seen — low power, no active scan.
-
-### Disconnect / power cycle
-
-When the BLE connection drops (scale powered off, out of range), the
-`connectionState` LiveData updates to `STATE_DISCONNECTED`. The overlay does
-**not** reappear automatically — the user re-opens it via the top Bluetooth
-button.
 
 ## Source files
 
 | File | Role |
 |------|------|
-| [`ConnectionOverlayController.java`](../../android/app/src/main/java/dev/talk2scale/ConnectionOverlayController.java) | View binding, button handlers, CDM association, MAC storage |
-| [`ScaleViewModel.java`](../../android/app/src/main/java/dev/talk2scale/ScaleViewModel.java) | `showOverlay()` / `hideOverlay()`, `disconnect()`, `cancelConnection()`, `isConnectionInProgress()` |
-| [`view_connection_overlay.xml`](../../android/app/src/main/res/layout/view_connection_overlay.xml) | Layout (icon, status, spinner, 4 buttons) |
-| [`MainActivity.java`](../../android/app/src/main/java/dev/talk2scale/MainActivity.java) | Wires top Bluetooth button to `connectionOverlay.show()` |
+| `mobile/src/screens/ConnectionScreen.tsx` | User interface, button handlers, scan result list |
+| `mobile/src/transport/BleScaleTransport.ts` | BLE scanning, connection, service discovery, notifications, writes |
+| `mobile/src/state/scaleStore.ts` | Connection state, stored-device actions, mock mode switching |
+| `mobile/src/services/permissions.ts` | Bluetooth permission request |
+| `mobile/src/services/storage.ts` | Stored device id persistence |
