@@ -41,6 +41,18 @@ const SUPPRESSED_FOUNDATION_FOOD_NAMES_JSON = path.resolve(
 	'../db/dataset/suppressed-foundation-food-names.json',
 );
 
+const DEFAULT_USER_DAILY_TARGETS = [
+	{
+		email: 'roma@gmail.com',
+		kcal: 2000,
+		nutrients: [
+			{ externalId: 1003, grams: 130 }, // Protein
+			{ externalId: 1004, grams: 67 }, // Total lipid (fat)
+			{ externalId: 1079, grams: 38 }, // Fiber, total dietary
+		],
+	},
+] as const;
+
 function toNumber(value: number | string): number {
 	return typeof value === 'number' ? value : Number(value);
 }
@@ -269,6 +281,42 @@ async function importStaticSeed(): Promise<void> {
 	logger.info(
 		{ usersInserted: users.length, measuresInserted: measures.length },
 		'Static JSON seed loaded',
+	);
+}
+
+async function populateDefaultDailyTargets(
+	nutrientElementByUsdaId: Map<number, number>,
+): Promise<void> {
+	for (const row of DEFAULT_USER_DAILY_TARGETS) {
+		const nutrientAmounts = row.nutrients.map((nutrient) => {
+			const id = nutrientElementByUsdaId.get(nutrient.externalId);
+			if (id == null) {
+				throw new Error(
+					`Missing USDA nutrient external_id ${nutrient.externalId} for ${row.email} daily targets`,
+				);
+			}
+			return { id, grams: nutrient.grams };
+		});
+
+		const result = await db
+			.updateTable(TABLE.users)
+			.set({
+				daily_targets: JSON.stringify({
+					kcal: row.kcal,
+					nutrient_amounts: nutrientAmounts,
+				}),
+			})
+			.where(COLUMN.users.email, '=', row.email)
+			.executeTakeFirst();
+
+		if (Number(result.numUpdatedRows) !== 1) {
+			throw new Error(`Expected to update one user for email ${row.email}`);
+		}
+	}
+
+	logger.info(
+		{ usersUpdated: DEFAULT_USER_DAILY_TARGETS.length },
+		'Default daily targets populated',
 	);
 }
 
@@ -791,6 +839,7 @@ async function main(): Promise<void> {
 
 	const { nutrientElementByUsdaId, nutrientMultiplierByUsdaId } =
 		await importNutrients(datasetDir);
+	await populateDefaultDailyTargets(nutrientElementByUsdaId);
 	const foodElementByFdcId = await importFoods(datasetDir);
 
 	await importLinks(
