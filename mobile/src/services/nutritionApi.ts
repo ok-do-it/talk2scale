@@ -19,6 +19,24 @@ export type DailyTargets = {
   nutrient_amounts: Array<{ id: number; grams: number }>;
 };
 
+export type ApiFoodLog = {
+  id: number;
+  meal_id: number;
+  element_id: number | null;
+  raw_name: string;
+  amount: number;
+  measure_id: number;
+};
+
+export type ApiMeal = {
+  id: number;
+  user_id: number;
+  name: string | null;
+  logged_at: string;
+  kcal: number;
+  food_logs: ApiFoodLog[];
+};
+
 export type ElementSummary = {
   id: number;
   type: 'nutrient' | 'whole_food' | 'recipe' | 'branded_food';
@@ -60,6 +78,21 @@ export async function fetchUserMealNutrients(
     buildApiUrl(`/users/${userId}/meals/nutrients?${params.toString()}`),
   );
   return readJsonOrThrow<NutrientGroup[]>(res);
+}
+
+export async function fetchUserMeals(
+  userId: number,
+  from: Date,
+  to: Date,
+): Promise<ApiMeal[]> {
+  const params = new URLSearchParams({
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+  const res = await fetch(
+    buildApiUrl(`/users/${userId}/meals?${params.toString()}`),
+  );
+  return readJsonOrThrow<ApiMeal[]>(res);
 }
 
 export async function fetchNutrientElements(): Promise<ElementSummary[]> {

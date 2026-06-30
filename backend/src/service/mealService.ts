@@ -42,6 +42,10 @@ export type MealWithLogs = Selectable<Meal> & {
 	food_logs: Selectable<FoodLog>[];
 };
 
+export type MealWithLogsAndKcal = MealWithLogs & {
+	kcal: number;
+};
+
 export type RecipeWithDetails = Selectable<Element> & {
 	links: Selectable<Link>[];
 	measures: Selectable<Measure>[];
@@ -102,6 +106,14 @@ function sumNutrientGroups(
 			displayOrder: g.displayOrder,
 			nutrients: [...g.nutrients.values()],
 		}));
+}
+
+function extractKcal(groups: NutrientGroupPayload[]): number {
+	const basic = groups.find((g) => g.name === 'Basic');
+	const energy = basic?.nutrients.find(
+		(n) => n.id === null && n.calculated === true,
+	);
+	return energy?.amount ?? 0;
 }
 
 async function computeNutrientsForLogs(
@@ -192,7 +204,7 @@ export function createMealService(foodTreeService: FoodTreeService) {
 			userId: number,
 			from?: Date,
 			to?: Date,
-		): Promise<MealWithLogs[]> {
+		): Promise<MealWithLogsAndKcal[]> {
 			let query = db
 				.selectFrom('meal')
 				.selectAll()
@@ -218,10 +230,20 @@ export function createMealService(foodTreeService: FoodTreeService) {
 				logsByMealId.set(log.meal_id, list);
 			}
 
-			return meals.map((meal) => ({
-				...meal,
-				food_logs: logsByMealId.get(meal.id) ?? [],
-			}));
+			return Promise.all(
+				meals.map(async (meal) => {
+					const food_logs = logsByMealId.get(meal.id) ?? [];
+					const groups = await computeNutrientsForLogs(
+						food_logs,
+						foodTreeService,
+					);
+					return {
+						...meal,
+						food_logs,
+						kcal: extractKcal(groups),
+					};
+				}),
+			);
 		},
 
 		async updateMealName(
@@ -323,11 +345,8 @@ export function createMealService(foodTreeService: FoodTreeService) {
 			const result = new Map<string, number>();
 			for (const [day, logs] of logsByDay) {
 				const groups = await computeNutrientsForLogs(logs, foodTreeService);
-				const basic = groups.find((g) => g.name === 'Basic');
-				const energy = basic?.nutrients.find(
-					(n) => n.id === null && n.calculated === true,
-				);
-				if (energy && energy.amount > 0) result.set(day, energy.amount);
+				const kcal = extractKcal(groups);
+				if (kcal > 0) result.set(day, kcal);
 			}
 			return result;
 		},

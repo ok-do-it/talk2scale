@@ -18,6 +18,8 @@ import {
   fetchDailyTargets,
   fetchNutrientElements,
   fetchUserMealNutrients,
+  fetchUserMeals,
+  type ApiMeal,
   type DailyTargets,
   type ElementSummary,
   type NutrientEntry,
@@ -25,8 +27,6 @@ import {
 } from '../services/nutritionApi';
 import { DEFAULT_USER_ID, getUserId, setUserId } from '../services/storage';
 import { fetchUser } from '../services/userApi';
-import { useScaleStore } from '../state/scaleStore';
-import type { MealEntry } from '../state/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -36,6 +36,13 @@ type SummaryRow = {
   amount: number;
   target: number | null;
   unit: 'kcal' | 'g';
+};
+
+type MealRow = {
+  id: number;
+  name: string;
+  time: string;
+  calories: number;
 };
 
 const SUMMARY_NUTRIENTS: Array<{
@@ -145,11 +152,25 @@ function getValueText(row: SummaryRow): string {
   return `${amount}/${formatAmount(row.target, row.unit)} ${row.unit}`;
 }
 
+function toMealRow(meal: ApiMeal): MealRow {
+  return {
+    id: meal.id,
+    name: meal.name ?? 'Meal',
+    time: new Date(meal.logged_at).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    }),
+    calories: Math.round(meal.kcal),
+  };
+}
+
 export function HomeScreen({ navigation }: Props) {
   const { height } = useWindowDimensions();
-  const mealEntries = useScaleStore((s) => s.mealEntries);
   const [userId, setUserIdState] = useState(DEFAULT_USER_ID);
   const [userName, setUserName] = useState<string | null>(null);
+  const [mealRows, setMealRows] = useState<MealRow[]>([]);
+  const [mealsLoading, setMealsLoading] = useState(true);
+  const [mealsError, setMealsError] = useState<string | null>(null);
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(() =>
     buildSummaryRows([], null),
   );
@@ -169,6 +190,28 @@ export function HomeScreen({ navigation }: Props) {
       setUserName(user.name);
     } catch {
       setUserName(null);
+    }
+  }, []);
+
+  const loadMeals = useCallback(async (id: number) => {
+    if (id <= 0) {
+      setMealRows([]);
+      setMealsLoading(false);
+      setMealsError(null);
+      return;
+    }
+
+    setMealsLoading(true);
+    setMealsError(null);
+    try {
+      const { from, to } = getTodayRange();
+      const meals = await fetchUserMeals(id, from, to);
+      setMealRows(meals.map(toMealRow));
+    } catch {
+      setMealRows([]);
+      setMealsError('Unable to load meals');
+    } finally {
+      setMealsLoading(false);
     }
   }, []);
 
@@ -202,16 +245,14 @@ export function HomeScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => {
-    void getUserId().then((id) => {
-      setUserIdState(id);
-      void loadUserProfile(id);
-      void loadSummary(id);
-    });
-  }, [loadSummary, loadUserProfile]);
+    void getUserId().then(setUserIdState);
+  }, []);
 
   useEffect(() => {
+    void loadUserProfile(userId);
+    void loadMeals(userId);
     void loadSummary(userId);
-  }, [loadSummary, mealEntries.length, userId]);
+  }, [loadMeals, loadSummary, loadUserProfile, userId]);
 
   const openUserDialog = () => {
     setUserIdInput(userId > 0 ? String(userId) : '');
@@ -228,13 +269,12 @@ export function HomeScreen({ navigation }: Props) {
     if (!Number.isNaN(id)) {
       await setUserId(id);
       setUserIdState(id);
-      await loadUserProfile(id);
     }
     setShowUserDialog(false);
   };
 
   const renderMeal = useCallback(
-    ({ item }: { item: MealEntry }) => (
+    ({ item }: { item: MealRow }) => (
       <View style={styles.mealRow}>
         <Text style={styles.mealName} numberOfLines={1}>
           {item.name}
@@ -307,11 +347,15 @@ export function HomeScreen({ navigation }: Props) {
       </View>
 
       <FlatList
-        data={mealEntries}
-        keyExtractor={(_, i) => String(i)}
+        data={mealRows}
+        keyExtractor={(item) => String(item.id)}
         renderItem={renderMeal}
         style={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>No meals yet</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {mealsLoading ? 'Loading meals...' : mealsError ?? 'No meals yet'}
+          </Text>
+        }
       />
 
       <View style={styles.footer}>

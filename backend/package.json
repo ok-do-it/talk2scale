@@ -17,6 +17,7 @@
 		"clean-db": "tsx src/scripts/db/clean-db.ts",
 		"generate-types": "tsx src/scripts/db/generate-db-types.ts",
 		"query": "tsx src/scripts/db/query.ts",
+		"insert-test-meals": "tsx src/scripts/db/insert-test-meals.ts",
 		"embed-food-names": "tsx src/scripts/db/embed-food-names.ts",
 		"int-test:voice": "tsx src/scripts/int-test/voice.ts",
 		"int-test:search": "tsx src/scripts/int-test/search.ts",

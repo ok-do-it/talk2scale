@@ -243,9 +243,17 @@ describe('GET /meals/:id/nutrients', () => {
 
 describe('GET /users/:userId/meals', () => {
 	it('returns meals for a user', async () => {
+		const meal = await createMeal();
 		const res = await request(app).get(`/users/${userId}/meals`);
 		expect(res.status).toBe(200);
 		expect(Array.isArray(res.body)).toBe(true);
+		const found = res.body.find(
+			(row: { id: number; kcal?: unknown }) => row.id === meal.id,
+		);
+		expect(found).toMatchObject({
+			id: meal.id,
+			kcal: expect.any(Number),
+		});
 	});
 
 	it('accepts date range params', async () => {

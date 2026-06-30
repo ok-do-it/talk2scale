@@ -291,7 +291,29 @@ GET /users/1/meals
 GET /users/1/meals?from=2026-05-04T00:00:00Z&to=2026-05-04T23:59:59Z
 ```
 
-**Response** `200` — array of meals in `POST /meals` shape, ordered by `logged_at` desc
+**Response** `200` — array of meals in `POST /meals` shape, ordered by `logged_at` desc, with an additional computed `kcal` total per meal
+
+```json
+[
+  {
+    "id": 7,
+    "user_id": 1,
+    "name": "Breakfast",
+    "logged_at": "2026-05-04T08:30:00.000Z",
+    "kcal": 312.5,
+    "food_logs": [
+      {
+        "id": 12,
+        "meal_id": 7,
+        "element_id": 42,
+        "raw_name": "oatmeal",
+        "amount": 1,
+        "measure_id": 5
+      }
+    ]
+  }
+]
+```
 
 ---
 
