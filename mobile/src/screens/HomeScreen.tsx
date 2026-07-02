@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
+  type GestureResponderEvent,
   Modal,
   Pressable,
   StyleSheet,
@@ -9,12 +11,14 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { RootStackParamList } from '../navigation/types';
 import {
+  deleteMeal,
   fetchDailyTargets,
   fetchNutrientElements,
   fetchUserMealNutrients,
@@ -43,6 +47,12 @@ type MealRow = {
   name: string;
   time: string;
   calories: number;
+};
+
+type SwipeableMealRowProps = {
+  item: MealRow;
+  onPress: (mealId: number) => void;
+  onSwipeRight: (meal: MealRow) => void;
 };
 
 const SUMMARY_NUTRIENTS: Array<{
@@ -160,8 +170,51 @@ function toMealRow(meal: ApiMeal): MealRow {
       hour: 'numeric',
       minute: '2-digit',
     }),
-    calories: Math.round(meal.kcal),
+    calories: Math.round(meal.kcal ?? 0),
   };
+}
+
+function SwipeableMealRow({
+  item,
+  onPress,
+  onSwipeRight,
+}: SwipeableMealRowProps) {
+  const startXRef = useRef<number | null>(null);
+  const swipedRef = useRef(false);
+
+  const onTouchStart = (event: GestureResponderEvent) => {
+    startXRef.current = event.nativeEvent.pageX;
+    swipedRef.current = false;
+  };
+
+  const onTouchEnd = (event: GestureResponderEvent) => {
+    const startX = startXRef.current;
+    startXRef.current = null;
+    if (startX === null) return;
+    const deltaX = event.nativeEvent.pageX - startX;
+    if (deltaX > 60) {
+      swipedRef.current = true;
+      onSwipeRight(item);
+    }
+  };
+
+  return (
+    <Pressable
+      style={styles.mealRow}
+      onPress={() => {
+        if (swipedRef.current) return;
+        onPress(item.id);
+      }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <Text style={styles.mealName} numberOfLines={1}>
+        {item.name}
+      </Text>
+      <Text style={styles.mealTime}>{item.time}</Text>
+      <Text style={styles.mealCal}>{item.calories}</Text>
+    </Pressable>
+  );
 }
 
 export function HomeScreen({ navigation }: Props) {
@@ -244,6 +297,14 @@ export function HomeScreen({ navigation }: Props) {
     }
   }, []);
 
+  const refreshDashboard = useCallback(
+    (id: number) => {
+      void loadMeals(id);
+      void loadSummary(id);
+    },
+    [loadMeals, loadSummary],
+  );
+
   useEffect(() => {
     void getUserId().then(setUserIdState);
   }, []);
@@ -253,6 +314,12 @@ export function HomeScreen({ navigation }: Props) {
     void loadMeals(userId);
     void loadSummary(userId);
   }, [loadMeals, loadSummary, loadUserProfile, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshDashboard(userId);
+    }, [refreshDashboard, userId]),
+  );
 
   const openUserDialog = () => {
     setUserIdInput(userId > 0 ? String(userId) : '');
@@ -273,17 +340,45 @@ export function HomeScreen({ navigation }: Props) {
     setShowUserDialog(false);
   };
 
+  const openMealEditor = useCallback(
+    (mealId: number) => {
+      navigation.navigate('Scale', { mealId });
+    },
+    [navigation],
+  );
+
+  const confirmDeleteMeal = useCallback(
+    (meal: MealRow) => {
+      Alert.alert('Are you sure', `Delete ${meal.name}?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await deleteMeal(meal.id);
+                refreshDashboard(userId);
+              } catch {
+                Alert.alert('Unable to delete meal');
+              }
+            })();
+          },
+        },
+      ]);
+    },
+    [refreshDashboard, userId],
+  );
+
   const renderMeal = useCallback(
     ({ item }: { item: MealRow }) => (
-      <View style={styles.mealRow}>
-        <Text style={styles.mealName} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={styles.mealTime}>{item.time}</Text>
-        <Text style={styles.mealCal}>{item.calories}</Text>
-      </View>
+      <SwipeableMealRow
+        item={item}
+        onPress={openMealEditor}
+        onSwipeRight={confirmDeleteMeal}
+      />
     ),
-    [],
+    [confirmDeleteMeal, openMealEditor],
   );
 
   return (
@@ -361,7 +456,7 @@ export function HomeScreen({ navigation }: Props) {
       <View style={styles.footer}>
         <Pressable
           style={styles.mealBtn}
-          onPress={() => navigation.navigate('Scale')}
+          onPress={() => navigation.navigate('Scale', undefined)}
         >
           <Text style={styles.mealBtnText}>+ Meal</Text>
           <Ionicons name="scale-outline" size={20} color="#fff" />

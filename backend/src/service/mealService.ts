@@ -286,6 +286,14 @@ export function createMealService(foodTreeService: FoodTreeService) {
 			return (result.numDeletedRows ?? 0n) > 0n;
 		},
 
+		async removeMeal(mealId: number): Promise<boolean> {
+			const result = await db
+				.deleteFrom('meal')
+				.where('id', '=', mealId)
+				.executeTakeFirst();
+			return (result.numDeletedRows ?? 0n) > 0n;
+		},
+
 		async getMealNutrients(
 			mealId: number,
 		): Promise<NutrientGroupPayload[] | null> {

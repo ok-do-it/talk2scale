@@ -33,7 +33,7 @@ export type ApiMeal = {
   user_id: number;
   name: string | null;
   logged_at: string;
-  kcal: number;
+  kcal?: number;
   food_logs: ApiFoodLog[];
 };
 
@@ -41,6 +41,27 @@ export type ElementSummary = {
   id: number;
   type: 'nutrient' | 'whole_food' | 'recipe' | 'branded_food';
   name: string;
+};
+
+export type ApiMeasure = {
+  id: number;
+  element_id: number | null;
+  user_id: number | null;
+  name: string;
+  grams: number;
+};
+
+export type MealFoodLogInput = {
+  element_id: number | null;
+  raw_name: string;
+  amount: number;
+  measure_id: number;
+};
+
+export type NewMealInput = {
+  user_id: number;
+  logged_at?: string;
+  food_logs: MealFoodLogInput[];
 };
 
 async function readJsonOrThrow<T>(res: Response): Promise<T> {
@@ -80,6 +101,32 @@ export async function fetchUserMealNutrients(
   return readJsonOrThrow<NutrientGroup[]>(res);
 }
 
+export async function fetchElementNutrients(
+  elementId: number,
+  mass: number,
+): Promise<NutrientGroup[]> {
+  const params = new URLSearchParams({ mass: String(mass) });
+  const res = await fetch(
+    buildApiUrl(`/element/${elementId}/nutrients?${params.toString()}`),
+  );
+  return readJsonOrThrow<NutrientGroup[]>(res);
+}
+
+export async function fetchMeasures(
+  elementId?: number,
+  userId?: number,
+): Promise<ApiMeasure[]> {
+  const params = new URLSearchParams();
+  if (userId !== undefined && userId > 0) {
+    params.set('user_id', String(userId));
+  }
+  const path =
+    elementId === undefined ? '/measures' : `/measures/${elementId}`;
+  const suffix = params.size > 0 ? `?${params.toString()}` : '';
+  const res = await fetch(buildApiUrl(`${path}${suffix}`));
+  return readJsonOrThrow<ApiMeasure[]>(res);
+}
+
 export async function fetchUserMeals(
   userId: number,
   from: Date,
@@ -93,6 +140,62 @@ export async function fetchUserMeals(
     buildApiUrl(`/users/${userId}/meals?${params.toString()}`),
   );
   return readJsonOrThrow<ApiMeal[]>(res);
+}
+
+export async function fetchMeal(mealId: number): Promise<ApiMeal> {
+  const res = await fetch(buildApiUrl(`/meals/${mealId}`));
+  return readJsonOrThrow<ApiMeal>(res);
+}
+
+export async function createMeal(input: NewMealInput): Promise<ApiMeal> {
+  const res = await fetch(buildApiUrl('/meals'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return readJsonOrThrow<ApiMeal>(res);
+}
+
+export async function renameMeal(mealId: number, name: string): Promise<ApiMeal> {
+  const res = await fetch(buildApiUrl(`/meals/${mealId}/name`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return readJsonOrThrow<ApiMeal>(res);
+}
+
+export async function addMealFoodLog(
+  mealId: number,
+  input: MealFoodLogInput,
+): Promise<ApiFoodLog> {
+  const res = await fetch(buildApiUrl(`/meals/${mealId}/food-logs`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return readJsonOrThrow<ApiFoodLog>(res);
+}
+
+export async function deleteMealFoodLog(
+  mealId: number,
+  logId: number,
+): Promise<void> {
+  const res = await fetch(buildApiUrl(`/meals/${mealId}/food-logs/${logId}`), {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    await readJsonOrThrow<unknown>(res);
+  }
+}
+
+export async function deleteMeal(mealId: number): Promise<void> {
+  const res = await fetch(buildApiUrl(`/meals/${mealId}`), {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    await readJsonOrThrow<unknown>(res);
+  }
 }
 
 export async function fetchNutrientElements(): Promise<ElementSummary[]> {

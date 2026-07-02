@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
+  type GestureResponderEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -17,30 +18,166 @@ import { Ionicons } from '@expo/vector-icons';
 import { CalibrationOverlay } from '../components/CalibrationOverlay';
 import { WeightDisplay } from '../components/WeightDisplay';
 import type { RootStackParamList } from '../navigation/types';
+import {
+  addMealFoodLog,
+  createMeal,
+  deleteMealFoodLog,
+  fetchElementNutrients,
+  fetchMeal,
+  fetchMeasures,
+  renameMeal,
+  type ApiFoodLog,
+  type MealFoodLogInput,
+  type NutrientGroup,
+} from '../services/nutritionApi';
 import { speechRecognition } from '../services/speech';
+import { DEFAULT_USER_ID, getUserId } from '../services/storage';
 import { useScaleStore } from '../state/scaleStore';
-import type { LogEntry } from '../state/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Scale'>;
 
+type EditorLog = {
+  localId: string;
+  logId?: number;
+  replacementForLogId?: number;
+  elementId: number | null;
+  rawName: string;
+  amount: number;
+  measureId: number;
+  calories: number;
+};
+
+type SwipeableLogRowProps = {
+  item: EditorLog;
+  index: number;
+  selected: boolean;
+  onPress: (index: number) => void;
+  onSwipeRight: (log: EditorLog) => void;
+};
+
+const GRAM_MEASURE_ID = 1;
 const NO_SELECTION = -1;
 
-export function ScaleScreen({ navigation }: Props) {
+function resolveDefaultMealName(date: Date): string {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 11) return 'Breakfast';
+  if (hour >= 11 && hour < 16) return 'Lunch';
+  if (hour >= 16 && hour < 22) return 'Dinner';
+  return 'Late Night';
+}
+
+function toEditorLog(log: ApiFoodLog): EditorLog {
+  return {
+    localId: `log-${log.id}`,
+    logId: log.id,
+    elementId: log.element_id,
+    rawName: log.raw_name,
+    amount: log.amount,
+    measureId: log.measure_id,
+    calories: 0,
+  };
+}
+
+function toFoodLogInput(log: EditorLog): MealFoodLogInput {
+  return {
+    element_id: log.elementId,
+    raw_name: log.rawName,
+    amount: log.amount,
+    measure_id: log.measureId,
+  };
+}
+
+function extractKcal(groups: NutrientGroup[]): number {
+  for (const group of groups) {
+    for (const nutrient of group.nutrients) {
+      const name = nutrient.name.toLowerCase();
+      if (
+        nutrient.calculated === true ||
+        name.includes('energy') ||
+        name.includes('kcal') ||
+        name.includes('calorie')
+      ) {
+        return Math.round(nutrient.amount);
+      }
+    }
+  }
+  return 0;
+}
+
+async function calculateLogCalories(
+  log: Pick<EditorLog, 'elementId' | 'amount' | 'measureId'>,
+  userId: number,
+): Promise<number> {
+  if (log.elementId === null) return 0;
+  const measures = await fetchMeasures(log.elementId, userId);
+  const measure = measures.find((item) => item.id === log.measureId);
+  const grams = measure?.grams ?? 1;
+  const groups = await fetchElementNutrients(log.elementId, log.amount * grams);
+  return extractKcal(groups);
+}
+
+function SwipeableLogRow({
+  item,
+  index,
+  selected,
+  onPress,
+  onSwipeRight,
+}: SwipeableLogRowProps) {
+  const startXRef = useRef<number | null>(null);
+  const swipedRef = useRef(false);
+
+  const onTouchStart = (event: GestureResponderEvent) => {
+    startXRef.current = event.nativeEvent.pageX;
+    swipedRef.current = false;
+  };
+
+  const onTouchEnd = (event: GestureResponderEvent) => {
+    const startX = startXRef.current;
+    startXRef.current = null;
+    if (startX === null) return;
+    if (event.nativeEvent.pageX - startX > 60) {
+      swipedRef.current = true;
+      onSwipeRight(item);
+    }
+  };
+
+  return (
+    <Pressable
+      style={[styles.logRow, selected && styles.logRowSelected]}
+      onPress={() => {
+        if (swipedRef.current) return;
+        onPress(index);
+      }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <Text style={styles.logFood} numberOfLines={1}>
+        {item.rawName}
+      </Text>
+      <Text style={styles.logWeight}>{Math.round(item.amount)} g</Text>
+      <Text style={styles.logCal}>{item.calories}</Text>
+    </Pressable>
+  );
+}
+
+export function ScaleScreen({ navigation, route }: Props) {
+  const mealId = route.params?.mealId;
+  const isMealEdit = mealId !== undefined;
   const weightReading = useScaleStore((s) => s.weightReading);
   const lastWeight = useScaleStore((s) => s.lastWeight);
-  const logEntries = useScaleStore((s) => s.logEntries);
   const isConnected = useScaleStore((s) => s.isConnected);
-  const mockEnabled = useScaleStore((s) => s.mockEnabled);
-  const addLogEntry = useScaleStore((s) => s.addLogEntry);
-  const renameLogEntry = useScaleStore((s) => s.renameLogEntry);
-  const clearLogEntries = useScaleStore((s) => s.clearLogEntries);
-  const submitBreakfastMeal = useScaleStore((s) => s.submitBreakfastMeal);
   const sendTare = useScaleStore((s) => s.sendTare);
   const setMockEnabled = useScaleStore((s) => s.setMockEnabled);
   const addMockWeight = useScaleStore((s) => s.addMockWeight);
 
+  const [userId, setUserId] = useState(DEFAULT_USER_ID);
+  const [mealName, setMealName] = useState(() => resolveDefaultMealName(new Date()));
+  const [originalMealName, setOriginalMealName] = useState(mealName);
+  const [editorLogs, setEditorLogs] = useState<EditorLog[]>([]);
   const [foodText, setFoodText] = useState('');
   const [listening, setListening] = useState(false);
+  const [loadingMeal, setLoadingMeal] = useState(false);
+  const [savingMeal, setSavingMeal] = useState(false);
   const [showCalib, setShowCalib] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(NO_SELECTION);
   const selectedIndexRef = useRef(NO_SELECTION);
@@ -49,39 +186,138 @@ export function ScaleScreen({ navigation }: Props) {
   const weight = weightReading?.weight ?? 0;
   const stable = weightReading?.stable ?? false;
   const hasFood = foodText.trim().length > 0;
-  const isEditing = selectedIndex !== NO_SELECTION;
+  const isLogEditing = selectedIndex !== NO_SELECTION;
+
+  useEffect(() => {
+    void getUserId().then(setUserId);
+  }, []);
+
+  const updateLogCalories = useCallback(
+    (log: EditorLog) => {
+      if (log.elementId === null) return;
+      void calculateLogCalories(log, userId)
+        .then((calories) => {
+          setEditorLogs((logs) =>
+            logs.map((item) =>
+              item.localId === log.localId ? { ...item, calories } : item,
+            ),
+          );
+        })
+        .catch(() => {
+          // Keep unresolved calories at zero when nutrition data is unavailable.
+        });
+    },
+    [userId],
+  );
+
+  useEffect(() => {
+    setSelectedIndex(NO_SELECTION);
+    setFoodText('');
+    if (mealId === undefined) {
+      const defaultName = resolveDefaultMealName(new Date());
+      setMealName(defaultName);
+      setOriginalMealName(defaultName);
+      setEditorLogs([]);
+      setLoadingMeal(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingMeal(true);
+    void (async () => {
+      try {
+        const meal = await fetchMeal(mealId);
+        if (cancelled) return;
+        const name = meal.name ?? 'Meal';
+        const logs = await Promise.all(
+          meal.food_logs.map(async (log) => {
+            const editorLog = toEditorLog(log);
+            return {
+              ...editorLog,
+              calories: await calculateLogCalories(editorLog, userId).catch(
+                () => 0,
+              ),
+            };
+          }),
+        );
+        if (cancelled) return;
+        setMealName(name);
+        setOriginalMealName(name);
+        setEditorLogs(logs);
+      } catch {
+        if (!cancelled) {
+          Alert.alert('Unable to load meal');
+          navigation.goBack();
+        }
+      } finally {
+        if (!cancelled) setLoadingMeal(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mealId, navigation, userId]);
 
   const applyLogEntry = useCallback(
-    (food: string): boolean => {
+    (food: string, elementId?: number): boolean => {
       if (!food) {
         Alert.alert('Enter a food name first');
         return false;
       }
-      if (lastWeight === 0) {
+      if (lastWeight <= 0) {
         Alert.alert('No weight reading yet');
         return false;
       }
-      addLogEntry(food, lastWeight);
+      const entry: EditorLog = {
+        localId: `new-${Date.now()}-${Math.random()}`,
+        elementId: elementId ?? null,
+        rawName: food,
+        amount: lastWeight,
+        measureId: GRAM_MEASURE_ID,
+        calories: 0,
+      };
+      setEditorLogs((logs) => [entry, ...logs]);
+      updateLogCalories(entry);
       sendTare();
       setSelectedIndex(NO_SELECTION);
       return true;
     },
-    [addLogEntry, lastWeight, sendTare],
+    [lastWeight, sendTare, updateLogCalories],
   );
 
   const applyRename = useCallback(
-    (food: string, index: number): boolean => {
+    (food: string, index: number, elementId?: number): boolean => {
       if (!food) {
         Alert.alert('Enter a food name first');
         return false;
       }
-      const ok = renameLogEntry(index, food);
-      if (ok) {
+      let updated = false;
+      let updatedLog: EditorLog | null = null;
+      setEditorLogs((logs) => {
+        const existing = logs[index];
+        if (!existing) return logs;
+        const next = [...logs];
+        updatedLog = {
+          ...existing,
+          logId: undefined,
+          replacementForLogId:
+            existing.replacementForLogId ?? existing.logId,
+          elementId: elementId ?? existing.elementId,
+          rawName: food,
+          calories: 0,
+        };
+        next[index] = updatedLog;
+        updated = true;
+        return next;
+      });
+      if (updated) {
+        if (updatedLog !== null) updateLogCalories(updatedLog);
         setSelectedIndex(NO_SELECTION);
       }
-      return ok;
+      return updated;
     },
-    [renameLogEntry],
+    [updateLogCalories],
   );
 
   const showRepeatToast = useCallback(() => {
@@ -99,13 +335,13 @@ export function ScaleScreen({ navigation }: Props) {
       onPartialText: (text) => {
         setFoodText(text);
       },
-      onFinalText: (text) => {
+      onFinalText: (text, elementId) => {
         setFoodText(text);
         const food = text.trim();
         const idx = selectedIndexRef.current;
         if (idx !== NO_SELECTION) {
-          if (applyRename(food, idx)) setFoodText('');
-        } else if (applyLogEntry(food)) {
+          if (applyRename(food, idx, elementId)) setFoodText('');
+        } else if (applyLogEntry(food, elementId)) {
           setFoodText('');
         }
       },
@@ -131,39 +367,117 @@ export function ScaleScreen({ navigation }: Props) {
 
   const onApply = () => {
     const food = foodText.trim();
-    const applied = isEditing
+    const applied = isLogEditing
       ? applyRename(food, selectedIndex)
       : applyLogEntry(food);
     if (applied) setFoodText('');
   };
 
   const onClearFood = () => {
-    if (isEditing) {
+    if (isLogEditing) {
       setSelectedIndex(NO_SELECTION);
     }
     setFoodText('');
   };
 
-  const selectLogItem = (index: number) => {
-    const entry = logEntries[index];
-    if (!entry) return;
-    setSelectedIndex(index);
-    setFoodText(entry.foodName);
-  };
+  const selectLogItem = useCallback(
+    (index: number) => {
+      const entry = editorLogs[index];
+      if (!entry) return;
+      setSelectedIndex(index);
+      setFoodText(entry.rawName);
+    },
+    [editorLogs],
+  );
+
+  const removeLogLocally = useCallback((localId: string) => {
+    setEditorLogs((logs) => logs.filter((log) => log.localId !== localId));
+    setSelectedIndex(NO_SELECTION);
+  }, []);
+
+  const confirmDeleteLog = useCallback(
+    (log: EditorLog) => {
+      Alert.alert('Are you sure', `Delete ${log.rawName}?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const backendLogId = log.logId ?? log.replacementForLogId;
+              if (mealId !== undefined && backendLogId !== undefined) {
+                try {
+                  await deleteMealFoodLog(mealId, backendLogId);
+                } catch {
+                  Alert.alert('Unable to delete food log');
+                  return;
+                }
+              }
+              removeLogLocally(log.localId);
+            })();
+          },
+        },
+      ]);
+    },
+    [mealId, removeLogLocally],
+  );
 
   const handleSecondary = () => {
-    if (logEntries.length === 0) {
+    if (isMealEdit || editorLogs.length === 0) {
       navigation.goBack();
       return;
     }
     setSelectedIndex(NO_SELECTION);
-    clearLogEntries();
+    setEditorLogs([]);
   };
 
-  const handleSubmit = () => {
-    if (!submitBreakfastMeal()) return;
-    setSelectedIndex(NO_SELECTION);
-    navigation.goBack();
+  const handleSubmit = async () => {
+    if (savingMeal) return;
+    if (!isMealEdit && editorLogs.length === 0) {
+      Alert.alert('Add at least one food first');
+      return;
+    }
+    const trimmedName = mealName.trim();
+    if (!trimmedName) {
+      Alert.alert('Enter a meal name first');
+      return;
+    }
+
+    setSavingMeal(true);
+    try {
+      if (mealId === undefined) {
+        const meal = await createMeal({
+          user_id: userId,
+          logged_at: new Date().toISOString(),
+          food_logs: editorLogs.map(toFoodLogInput),
+        });
+        if (trimmedName !== (meal.name ?? '')) {
+          await renameMeal(meal.id, trimmedName);
+        }
+      } else {
+        if (trimmedName !== originalMealName) {
+          await renameMeal(mealId, trimmedName);
+        }
+
+        for (const log of editorLogs) {
+          if (log.replacementForLogId !== undefined) {
+            await deleteMealFoodLog(mealId, log.replacementForLogId);
+          }
+        }
+
+        for (const log of editorLogs) {
+          if (log.logId === undefined) {
+            await addMealFoodLog(mealId, toFoodLogInput(log));
+          }
+        }
+      }
+      setSelectedIndex(NO_SELECTION);
+      navigation.navigate('Home');
+    } catch {
+      Alert.alert('Unable to save meal');
+    } finally {
+      setSavingMeal(false);
+    }
   };
 
   const toggleMockDev = () => {
@@ -175,23 +489,20 @@ export function ScaleScreen({ navigation }: Props) {
   };
 
   const renderLogItem = useCallback(
-    ({ item, index }: { item: LogEntry; index: number }) => (
-      <Pressable
-        style={[styles.logRow, index === selectedIndex && styles.logRowSelected]}
-        onPress={() => selectLogItem(index)}
-      >
-        <Text style={styles.logFood} numberOfLines={1}>
-          {item.foodName}
-        </Text>
-        <Text style={styles.logWeight}>{item.weightGrams} g</Text>
-        <Text style={styles.logCal}>{item.calories}</Text>
-      </Pressable>
+    ({ item, index }: { item: EditorLog; index: number }) => (
+      <SwipeableLogRow
+        item={item}
+        index={index}
+        selected={index === selectedIndex}
+        onPress={selectLogItem}
+        onSwipeRight={confirmDeleteLog}
+      />
     ),
-    [selectedIndex, logEntries],
+    [confirmDeleteLog, selectLogItem, selectedIndex],
   );
 
   const applyEnabled =
-    hasFood && !listening && (isEditing || lastWeight > 0);
+    hasFood && !listening && (isLogEditing || lastWeight > 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -228,6 +539,19 @@ export function ScaleScreen({ navigation }: Props) {
         onLongPress={toggleMockDev}
       />
 
+      <View style={styles.mealNameWrap}>
+        <Text style={styles.mealNameLabel}>
+          {isMealEdit ? 'Edit meal' : 'New meal'}
+        </Text>
+        <TextInput
+          style={styles.mealNameInput}
+          value={mealName}
+          onChangeText={setMealName}
+          placeholder="Meal name"
+          editable={!loadingMeal && !savingMeal}
+        />
+      </View>
+
       <Pressable style={styles.tareBtn} onPress={sendTare}>
         <Text style={styles.tareText}>TARE</Text>
       </Pressable>
@@ -239,7 +563,7 @@ export function ScaleScreen({ navigation }: Props) {
           value={foodText}
           onChangeText={setFoodText}
           placeholder="Food name"
-          editable={!listening}
+          editable={!listening && !loadingMeal && !savingMeal}
         />
         {hasFood && !listening && (
           <>
@@ -280,22 +604,31 @@ export function ScaleScreen({ navigation }: Props) {
       </View>
 
       <FlatList
-        data={logEntries}
-        keyExtractor={(_, i) => String(i)}
+        data={editorLogs}
+        keyExtractor={(item) => item.localId}
         renderItem={renderLogItem}
         style={styles.logList}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {loadingMeal ? 'Loading meal...' : 'No food logs yet'}
+          </Text>
+        }
       />
 
       <View style={styles.footer}>
         <Pressable style={styles.footerBtn} onPress={handleSecondary}>
-          <Text>{logEntries.length > 0 ? 'Discard' : 'Back'}</Text>
+          <Text>{isMealEdit || editorLogs.length === 0 ? 'Back' : 'Discard'}</Text>
         </Pressable>
         <Pressable
-          style={[styles.footerBtn, logEntries.length === 0 && styles.footerBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={logEntries.length === 0}
+          style={[
+            styles.footerBtn,
+            (savingMeal || loadingMeal || (!isMealEdit && editorLogs.length === 0)) &&
+              styles.footerBtnDisabled,
+          ]}
+          onPress={() => void handleSubmit()}
+          disabled={savingMeal || loadingMeal || (!isMealEdit && editorLogs.length === 0)}
         >
-          <Text>Submit</Text>
+          <Text>{savingMeal ? 'Saving...' : 'Submit'}</Text>
         </Pressable>
       </View>
 
@@ -313,6 +646,22 @@ const styles = StyleSheet.create({
   },
   spacer: { flex: 1 },
   iconBtn: { padding: 8 },
+  mealNameWrap: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  mealNameLabel: {
+    color: '#666',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  mealNameInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    fontSize: 16,
+    padding: 10,
+  },
   tareBtn: {
     marginHorizontal: 16,
     marginBottom: 8,
@@ -376,6 +725,7 @@ const styles = StyleSheet.create({
   logFood: { flex: 3, fontSize: 15 },
   logWeight: { flex: 1, textAlign: 'right', fontSize: 15 },
   logCal: { flex: 1, textAlign: 'right', fontSize: 15 },
+  empty: { textAlign: 'center', color: '#888', marginTop: 24 },
   footer: {
     flexDirection: 'row',
     padding: 16,

@@ -227,6 +227,22 @@ describe('DELETE /meals/:id/food-logs/:logId', () => {
 	});
 });
 
+describe('DELETE /meals/:id', () => {
+	it('deletes a meal and returns 204', async () => {
+		const meal = await createMeal();
+		const res = await request(app).delete(`/meals/${meal.id}`);
+		expect(res.status).toBe(204);
+
+		const getRes = await request(app).get(`/meals/${meal.id}`);
+		expect(getRes.status).toBe(404);
+	});
+
+	it('returns 404 when meal does not exist', async () => {
+		const res = await request(app).delete('/meals/999999999');
+		expect(res.status).toBe(404);
+	});
+});
+
 describe('GET /meals/:id/nutrients', () => {
 	it('returns nutrient groups for a meal', async () => {
 		const meal = await createMeal();

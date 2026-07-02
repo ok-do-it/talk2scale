@@ -23,6 +23,15 @@ const app = express();
 app.use(pinoHttp({ logger }));
 app.use(express.static('public'));
 
+// API responses are user-specific and DB-backed; avoid stale 304s in mobile fetch.
+app.disable('etag');
+app.use((req, res, next) => {
+	if (!req.path.includes('.')) {
+		res.set('Cache-Control', 'no-store');
+	}
+	next();
+});
+
 await assertDatabaseConnection();
 logger.info('Database connection is ready');
 

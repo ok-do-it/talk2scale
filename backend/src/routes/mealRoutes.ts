@@ -129,6 +129,20 @@ export function createMealRoutes(mealService: MealService): express.Router {
 		res.status(204).end();
 	});
 
+	router.delete('/meals/:id', async (req, res) => {
+		const mealId = parseId(req.params.id);
+		if (mealId === null) {
+			res.status(400).json({ error: 'invalid meal id' });
+			return;
+		}
+		const deleted = await mealService.removeMeal(mealId);
+		if (!deleted) {
+			res.status(404).json({ error: `meal ${mealId} not found` });
+			return;
+		}
+		res.status(204).end();
+	});
+
 	router.get('/meals/:id/nutrients', async (req, res) => {
 		const mealId = parseId(req.params.id);
 		if (mealId === null) {

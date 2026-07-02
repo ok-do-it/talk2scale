@@ -8,7 +8,7 @@ import { transcribeFoodAudio } from './voiceApi';
 export type SpeechCallbacks = {
 	onListeningStateChanged: (listening: boolean) => void;
 	onPartialText: (text: string) => void;
-	onFinalText: (text: string) => void;
+	onFinalText: (text: string, elementId?: number) => void;
 	onNoMatchOrTimeout: () => void;
 	onUnavailable: () => void;
 };
@@ -90,7 +90,7 @@ export class SpeechRecognition {
 			this.setListening(false);
 			const food = await transcribeFoodAudio(uri);
 			if (food.elementName) {
-				this.callbacks?.onFinalText(food.elementName);
+				this.callbacks?.onFinalText(food.elementName, food.elementId);
 			} else {
 				this.callbacks?.onNoMatchOrTimeout();
 			}
