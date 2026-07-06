@@ -43,6 +43,14 @@ export type ElementSummary = {
   name: string;
 };
 
+export type FoodNameSearchHit = {
+  foodNameId: number;
+  elementId: number;
+  elementName: string;
+  name: string;
+  distance: number;
+};
+
 export type ApiMeasure = {
   id: number;
   element_id: number | null;
@@ -211,4 +219,18 @@ export async function searchElements(
   const res = await fetch(buildApiUrl(`/elements?${params.toString()}`));
   const elements = await readJsonOrThrow<ElementSummary[]>(res);
   return elements.slice(0, limit);
+}
+
+export async function searchFoodNames(
+  query: string,
+  limit = 10,
+): Promise<ElementSummary[]> {
+  const params = new URLSearchParams({ food_name: query });
+  const res = await fetch(buildApiUrl(`/search-food?${params.toString()}`));
+  const hits = await readJsonOrThrow<FoodNameSearchHit[]>(res);
+  return hits.slice(0, limit).map((hit) => ({
+    id: hit.elementId,
+    type: 'whole_food',
+    name: hit.elementName,
+  }));
 }

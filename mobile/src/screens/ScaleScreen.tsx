@@ -26,7 +26,7 @@ import {
   fetchMeal,
   fetchMeasures,
   renameMeal,
-  searchElements,
+  searchFoodNames,
   type ApiFoodLog,
   type ElementSummary,
   type MealFoodLogInput,
@@ -227,7 +227,7 @@ export function ScaleScreen({ navigation, route }: Props) {
     async (filter: string, isCancelled: () => boolean = () => false) => {
       setFoodSearchLoading(true);
       try {
-        const elements = await searchElements(filter, FOOD_SEARCH_LIMIT);
+        const elements = await searchFoodNames(filter, FOOD_SEARCH_LIMIT);
         if (!isCancelled()) setFoodSearchResults(elements);
       } catch {
         if (!isCancelled()) setFoodSearchResults([]);
