@@ -202,3 +202,13 @@ export async function fetchNutrientElements(): Promise<ElementSummary[]> {
   const res = await fetch(buildApiUrl('/elements?type=nutrient'));
   return readJsonOrThrow<ElementSummary[]>(res);
 }
+
+export async function searchElements(
+  filter: string,
+  limit = 10,
+): Promise<ElementSummary[]> {
+  const params = new URLSearchParams({ filter });
+  const res = await fetch(buildApiUrl(`/elements?${params.toString()}`));
+  const elements = await readJsonOrThrow<ElementSummary[]>(res);
+  return elements.slice(0, limit);
+}

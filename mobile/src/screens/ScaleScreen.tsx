@@ -26,7 +26,9 @@ import {
   fetchMeal,
   fetchMeasures,
   renameMeal,
+  searchElements,
   type ApiFoodLog,
+  type ElementSummary,
   type MealFoodLogInput,
   type NutrientGroup,
 } from '../services/nutritionApi';
@@ -57,6 +59,8 @@ type SwipeableLogRowProps = {
 
 const GRAM_MEASURE_ID = 1;
 const NO_SELECTION = -1;
+const FOOD_SEARCH_DEBOUNCE_MS = 300;
+const FOOD_SEARCH_LIMIT = 10;
 
 function resolveDefaultMealName(date: Date): string {
   const hour = date.getHours();
@@ -180,6 +184,8 @@ export function ScaleScreen({ navigation, route }: Props) {
   const [savingMeal, setSavingMeal] = useState(false);
   const [showCalib, setShowCalib] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(NO_SELECTION);
+  const [foodSearchResults, setFoodSearchResults] = useState<ElementSummary[]>([]);
+  const [foodSearchLoading, setFoodSearchLoading] = useState(false);
   const selectedIndexRef = useRef(NO_SELECTION);
   selectedIndexRef.current = selectedIndex;
 
@@ -210,9 +216,18 @@ export function ScaleScreen({ navigation, route }: Props) {
     [userId],
   );
 
+  const updateFoodText = useCallback(
+    (text: string) => {
+      setFoodText(text);
+      setFoodSearchResults([]);
+    },
+    [],
+  );
+
   useEffect(() => {
     setSelectedIndex(NO_SELECTION);
     setFoodText('');
+    setFoodSearchResults([]);
     if (mealId === undefined) {
       const defaultName = resolveDefaultMealName(new Date());
       setMealName(defaultName);
@@ -259,8 +274,42 @@ export function ScaleScreen({ navigation, route }: Props) {
     };
   }, [mealId, navigation, userId]);
 
+  useEffect(() => {
+    const filter = foodText.trim();
+    if (
+      !filter ||
+      listening ||
+      loadingMeal ||
+      savingMeal
+    ) {
+      setFoodSearchResults([]);
+      setFoodSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setFoodSearchLoading(true);
+    const timer = setTimeout(() => {
+      void searchElements(filter, FOOD_SEARCH_LIMIT)
+        .then((elements) => {
+          if (!cancelled) setFoodSearchResults(elements);
+        })
+        .catch(() => {
+          if (!cancelled) setFoodSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setFoodSearchLoading(false);
+        });
+    }, FOOD_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [foodText, listening, loadingMeal, savingMeal]);
+
   const applyLogEntry = useCallback(
-    (food: string, elementId?: number): boolean => {
+    (food: string, elementId: number): boolean => {
       if (!food) {
         Alert.alert('Enter a food name first');
         return false;
@@ -271,7 +320,7 @@ export function ScaleScreen({ navigation, route }: Props) {
       }
       const entry: EditorLog = {
         localId: `new-${Date.now()}-${Math.random()}`,
-        elementId: elementId ?? null,
+        elementId,
         rawName: food,
         amount: lastWeight,
         measureId: GRAM_MEASURE_ID,
@@ -287,7 +336,7 @@ export function ScaleScreen({ navigation, route }: Props) {
   );
 
   const applyRename = useCallback(
-    (food: string, index: number, elementId?: number): boolean => {
+    (food: string, index: number, elementId: number): boolean => {
       if (!food) {
         Alert.alert('Enter a food name first');
         return false;
@@ -303,7 +352,7 @@ export function ScaleScreen({ navigation, route }: Props) {
           logId: undefined,
           replacementForLogId:
             existing.replacementForLogId ?? existing.logId,
-          elementId: elementId ?? existing.elementId,
+          elementId,
           rawName: food,
           calories: 0,
         };
@@ -320,6 +369,20 @@ export function ScaleScreen({ navigation, route }: Props) {
     [updateLogCalories],
   );
 
+  const applyFoodElement = useCallback(
+    (element: ElementSummary) => {
+      const applied = isLogEditing
+        ? applyRename(element.name, selectedIndex, element.id)
+        : applyLogEntry(element.name, element.id);
+      if (applied) {
+        setFoodText('');
+        setFoodSearchResults([]);
+        setFoodSearchLoading(false);
+      }
+    },
+    [applyLogEntry, applyRename, isLogEditing, selectedIndex],
+  );
+
   const showRepeatToast = useCallback(() => {
     const message = 'Food not found. Please hold the mic and repeat.';
     if (Platform.OS === 'android') {
@@ -333,16 +396,26 @@ export function ScaleScreen({ navigation, route }: Props) {
     speechRecognition.setCallbacks({
       onListeningStateChanged: setListening,
       onPartialText: (text) => {
-        setFoodText(text);
+        updateFoodText(text);
       },
       onFinalText: (text, elementId) => {
-        setFoodText(text);
+        updateFoodText(text);
         const food = text.trim();
+        if (elementId === undefined) {
+          showRepeatToast();
+          return;
+        }
         const idx = selectedIndexRef.current;
         if (idx !== NO_SELECTION) {
-          if (applyRename(food, idx, elementId)) setFoodText('');
+          if (applyRename(food, idx, elementId)) {
+            setFoodText('');
+            setFoodSearchResults([]);
+            setFoodSearchLoading(false);
+          }
         } else if (applyLogEntry(food, elementId)) {
           setFoodText('');
+          setFoodSearchResults([]);
+          setFoodSearchLoading(false);
         }
       },
       onNoMatchOrTimeout: () => {
@@ -355,7 +428,7 @@ export function ScaleScreen({ navigation, route }: Props) {
     return () => {
       void speechRecognition.release();
     };
-  }, [applyLogEntry, applyRename, showRepeatToast]);
+  }, [applyLogEntry, applyRename, showRepeatToast, updateFoodText]);
 
   const onMicPressIn = async () => {
     await speechRecognition.startListening();
@@ -365,19 +438,13 @@ export function ScaleScreen({ navigation, route }: Props) {
     await speechRecognition.stopListening();
   };
 
-  const onApply = () => {
-    const food = foodText.trim();
-    const applied = isLogEditing
-      ? applyRename(food, selectedIndex)
-      : applyLogEntry(food);
-    if (applied) setFoodText('');
-  };
-
   const onClearFood = () => {
     if (isLogEditing) {
       setSelectedIndex(NO_SELECTION);
     }
     setFoodText('');
+    setFoodSearchResults([]);
+    setFoodSearchLoading(false);
   };
 
   const selectLogItem = useCallback(
@@ -386,6 +453,8 @@ export function ScaleScreen({ navigation, route }: Props) {
       if (!entry) return;
       setSelectedIndex(index);
       setFoodText(entry.rawName);
+      setFoodSearchResults([]);
+      setFoodSearchLoading(false);
     },
     [editorLogs],
   );
@@ -428,6 +497,7 @@ export function ScaleScreen({ navigation, route }: Props) {
       return;
     }
     setSelectedIndex(NO_SELECTION);
+    setFoodSearchResults([]);
     setEditorLogs([]);
   };
 
@@ -501,8 +571,12 @@ export function ScaleScreen({ navigation, route }: Props) {
     [confirmDeleteLog, selectLogItem, selectedIndex],
   );
 
-  const applyEnabled =
-    hasFood && !listening && (isLogEditing || lastWeight > 0);
+  const showFoodDropdown =
+    hasFood &&
+    !listening &&
+    !loadingMeal &&
+    !savingMeal &&
+    (foodSearchLoading || foodSearchResults.length > 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -556,32 +630,45 @@ export function ScaleScreen({ navigation, route }: Props) {
         <Text style={styles.tareText}>TARE</Text>
       </Pressable>
 
-      <View style={styles.foodInputWrap}>
-        <Ionicons name="search" size={22} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.foodInput}
-          value={foodText}
-          onChangeText={setFoodText}
-          placeholder="Food name"
-          editable={!listening && !loadingMeal && !savingMeal}
-        />
-        {hasFood && !listening && (
-          <>
+      <View style={styles.foodSearchWrap}>
+        <View style={styles.foodInputWrap}>
+          <Ionicons name="search" size={22} color="#666" style={styles.searchIcon} />
+          <TextInput
+            style={styles.foodInput}
+            value={foodText}
+            onChangeText={updateFoodText}
+            placeholder="Food name"
+            editable={!listening && !loadingMeal && !savingMeal}
+          />
+          {hasFood && !listening && (
             <Pressable style={styles.inlineBtn} onPress={onClearFood}>
               <Ionicons name="close-circle" size={28} color="#666" />
             </Pressable>
-            <Pressable
-              style={[styles.inlineBtn, !applyEnabled && styles.inlineBtnDisabled]}
-              onPress={onApply}
-              disabled={!applyEnabled}
-            >
-              <Ionicons name="checkmark-circle" size={28} color="#2e7d32" />
-            </Pressable>
-          </>
-        )}
-        {listening && (
-          <View style={styles.listeningOverlay}>
-            <Text style={styles.listeningText}>Listening...</Text>
+          )}
+          {listening && (
+            <View style={styles.listeningOverlay}>
+              <Text style={styles.listeningText}>Listening...</Text>
+            </View>
+          )}
+        </View>
+        {showFoodDropdown && (
+          <View style={styles.foodDropdown}>
+            {foodSearchLoading ? (
+              <Text style={styles.foodDropdownStatus}>Searching...</Text>
+            ) : (
+              foodSearchResults.map((element) => (
+                <Pressable
+                  key={element.id}
+                  style={styles.foodOption}
+                  onPress={() => applyFoodElement(element)}
+                >
+                  <Text style={styles.foodOptionName} numberOfLines={1}>
+                    {element.name}
+                  </Text>
+                  <Text style={styles.foodOptionType}>{element.type}</Text>
+                </Pressable>
+              ))
+            )}
           </View>
         )}
       </View>
@@ -671,9 +758,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tareText: { fontWeight: '600' },
-  foodInputWrap: {
+  foodSearchWrap: {
     marginHorizontal: 16,
     marginBottom: 8,
+  },
+  foodInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 48,
@@ -681,7 +770,25 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 8 },
   foodInput: { flex: 1, fontSize: 16, minHeight: 48 },
   inlineBtn: { padding: 4 },
-  inlineBtnDisabled: { opacity: 0.4 },
+  foodDropdown: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  foodDropdownStatus: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#666',
+  },
+  foodOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eee',
+  },
+  foodOptionName: { fontSize: 15, color: '#222' },
+  foodOptionType: { marginTop: 2, fontSize: 12, color: '#777' },
   listeningOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.7)',
