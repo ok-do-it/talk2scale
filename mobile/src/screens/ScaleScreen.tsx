@@ -186,8 +186,7 @@ export function ScaleScreen({ navigation, route }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(NO_SELECTION);
   const [foodSearchResults, setFoodSearchResults] = useState<ElementSummary[]>([]);
   const [foodSearchLoading, setFoodSearchLoading] = useState(false);
-  const selectedIndexRef = useRef(NO_SELECTION);
-  selectedIndexRef.current = selectedIndex;
+  const immediateFoodSearchRef = useRef<string | null>(null);
 
   const weight = weightReading?.weight ?? 0;
   const stable = weightReading?.stable ?? false;
@@ -220,6 +219,21 @@ export function ScaleScreen({ navigation, route }: Props) {
     (text: string) => {
       setFoodText(text);
       setFoodSearchResults([]);
+    },
+    [],
+  );
+
+  const runFoodSearch = useCallback(
+    async (filter: string, isCancelled: () => boolean = () => false) => {
+      setFoodSearchLoading(true);
+      try {
+        const elements = await searchElements(filter, FOOD_SEARCH_LIMIT);
+        if (!isCancelled()) setFoodSearchResults(elements);
+      } catch {
+        if (!isCancelled()) setFoodSearchResults([]);
+      } finally {
+        if (!isCancelled()) setFoodSearchLoading(false);
+      }
     },
     [],
   );
@@ -287,26 +301,23 @@ export function ScaleScreen({ navigation, route }: Props) {
       return;
     }
 
+    const immediateFilter = immediateFoodSearchRef.current;
+    if (immediateFilter !== null) {
+      immediateFoodSearchRef.current = null;
+      if (immediateFilter === filter) return;
+    }
+
     let cancelled = false;
     setFoodSearchLoading(true);
     const timer = setTimeout(() => {
-      void searchElements(filter, FOOD_SEARCH_LIMIT)
-        .then((elements) => {
-          if (!cancelled) setFoodSearchResults(elements);
-        })
-        .catch(() => {
-          if (!cancelled) setFoodSearchResults([]);
-        })
-        .finally(() => {
-          if (!cancelled) setFoodSearchLoading(false);
-        });
+      void runFoodSearch(filter, () => cancelled);
     }, FOOD_SEARCH_DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [foodText, listening, loadingMeal, savingMeal]);
+  }, [foodText, listening, loadingMeal, runFoodSearch, savingMeal]);
 
   const applyLogEntry = useCallback(
     (food: string, elementId: number): boolean => {
@@ -398,25 +409,15 @@ export function ScaleScreen({ navigation, route }: Props) {
       onPartialText: (text) => {
         updateFoodText(text);
       },
-      onFinalText: (text, elementId) => {
-        updateFoodText(text);
+      onFinalText: (text) => {
         const food = text.trim();
-        if (elementId === undefined) {
+        updateFoodText(food);
+        if (!food) {
           showRepeatToast();
           return;
         }
-        const idx = selectedIndexRef.current;
-        if (idx !== NO_SELECTION) {
-          if (applyRename(food, idx, elementId)) {
-            setFoodText('');
-            setFoodSearchResults([]);
-            setFoodSearchLoading(false);
-          }
-        } else if (applyLogEntry(food, elementId)) {
-          setFoodText('');
-          setFoodSearchResults([]);
-          setFoodSearchLoading(false);
-        }
+        immediateFoodSearchRef.current = food;
+        void runFoodSearch(food);
       },
       onNoMatchOrTimeout: () => {
         showRepeatToast();
@@ -428,7 +429,7 @@ export function ScaleScreen({ navigation, route }: Props) {
     return () => {
       void speechRecognition.release();
     };
-  }, [applyLogEntry, applyRename, showRepeatToast, updateFoodText]);
+  }, [runFoodSearch, showRepeatToast, updateFoodText]);
 
   const onMicPressIn = async () => {
     await speechRecognition.startListening();

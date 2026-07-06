@@ -16,7 +16,12 @@ type TranscribeResponse = {
 	food: VoiceFood;
 };
 
-export async function transcribeFoodAudio(uri: string): Promise<VoiceFood> {
+type TranscribeErrorResponse = {
+	error?: string;
+	text?: string;
+};
+
+export async function transcribeFoodAudio(uri: string): Promise<string> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => {
 		controller.abort();
@@ -38,7 +43,8 @@ export async function transcribeFoodAudio(uri: string): Promise<VoiceFood> {
 		if (!res.ok) {
 			let detail = `HTTP ${res.status}`;
 			try {
-				const body = (await res.json()) as { error?: string };
+				const body = (await res.json()) as TranscribeErrorResponse;
+				if (body.text?.trim()) return body.text;
 				if (body.error) detail = body.error;
 			} catch {
 				// ignore
@@ -47,7 +53,7 @@ export async function transcribeFoodAudio(uri: string): Promise<VoiceFood> {
 		}
 
 		const data = (await res.json()) as TranscribeResponse;
-		return data.food;
+		return data.text;
 	} finally {
 		clearTimeout(timeout);
 	}
