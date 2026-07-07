@@ -44,6 +44,7 @@ type EditorLog = {
   replacementForLogId?: number;
   elementId: number | null;
   rawName: string;
+  displayName?: string;
   amount: number;
   measureId: number;
   calories: number;
@@ -61,6 +62,8 @@ const GRAM_MEASURE_ID = 1;
 const NO_SELECTION = -1;
 const FOOD_SEARCH_DEBOUNCE_MS = 300;
 const FOOD_SEARCH_LIMIT = 10;
+const VOICE_AUTO_SELECT_DELAY_MS = 3000;
+const VOICE_AUTO_SELECT_TICK_MS = 100;
 
 function resolveDefaultMealName(date: Date): string {
   const hour = date.getHours();
@@ -156,7 +159,7 @@ function SwipeableLogRow({
       onTouchEnd={onTouchEnd}
     >
       <Text style={styles.logFood} numberOfLines={1}>
-        {item.rawName}
+        {item.displayName ?? item.rawName}
       </Text>
       <Text style={styles.logWeight}>{Math.round(item.amount)} g</Text>
       <Text style={styles.logCal}>{item.calories}</Text>
@@ -186,7 +189,13 @@ export function ScaleScreen({ navigation, route }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(NO_SELECTION);
   const [foodSearchResults, setFoodSearchResults] = useState<ElementSummary[]>([]);
   const [foodSearchLoading, setFoodSearchLoading] = useState(false);
+  const [voiceAutoSelect, setVoiceAutoSelect] = useState<{
+    element: ElementSummary;
+    rawName: string;
+  } | null>(null);
+  const [voiceAutoSelectProgress, setVoiceAutoSelectProgress] = useState(0);
   const immediateFoodSearchRef = useRef<string | null>(null);
+  const voiceSearchRawNameRef = useRef<string | null>(null);
 
   const weight = weightReading?.weight ?? 0;
   const stable = weightReading?.stable ?? false;
@@ -215,12 +224,19 @@ export function ScaleScreen({ navigation, route }: Props) {
     [userId],
   );
 
+  const clearSearchSourceMetadata = useCallback(() => {
+    voiceSearchRawNameRef.current = null;
+    setVoiceAutoSelect(null);
+    setVoiceAutoSelectProgress(0);
+  }, []);
+
   const updateFoodText = useCallback(
     (text: string) => {
+      clearSearchSourceMetadata();
       setFoodText(text);
       setFoodSearchResults([]);
     },
-    [],
+    [clearSearchSourceMetadata],
   );
 
   const runFoodSearch = useCallback(
@@ -228,9 +244,26 @@ export function ScaleScreen({ navigation, route }: Props) {
       setFoodSearchLoading(true);
       try {
         const elements = await searchFoodNames(filter, FOOD_SEARCH_LIMIT);
-        if (!isCancelled()) setFoodSearchResults(elements);
+        if (!isCancelled()) {
+          setFoodSearchResults(elements);
+          const rawName = voiceSearchRawNameRef.current;
+          if (rawName === filter && elements.length > 0) {
+            setVoiceAutoSelect({
+              element: elements[0],
+              rawName,
+            });
+            setVoiceAutoSelectProgress(1);
+          } else {
+            setVoiceAutoSelect(null);
+            setVoiceAutoSelectProgress(0);
+          }
+        }
       } catch {
-        if (!isCancelled()) setFoodSearchResults([]);
+        if (!isCancelled()) {
+          setFoodSearchResults([]);
+          setVoiceAutoSelect(null);
+          setVoiceAutoSelectProgress(0);
+        }
       } finally {
         if (!isCancelled()) setFoodSearchLoading(false);
       }
@@ -240,6 +273,7 @@ export function ScaleScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     setSelectedIndex(NO_SELECTION);
+    clearSearchSourceMetadata();
     setFoodText('');
     setFoodSearchResults([]);
     if (mealId === undefined) {
@@ -286,7 +320,7 @@ export function ScaleScreen({ navigation, route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [mealId, navigation, userId]);
+  }, [clearSearchSourceMetadata, mealId, navigation, userId]);
 
   useEffect(() => {
     const filter = foodText.trim();
@@ -298,6 +332,8 @@ export function ScaleScreen({ navigation, route }: Props) {
     ) {
       setFoodSearchResults([]);
       setFoodSearchLoading(false);
+      setVoiceAutoSelect(null);
+      setVoiceAutoSelectProgress(0);
       return;
     }
 
@@ -320,8 +356,8 @@ export function ScaleScreen({ navigation, route }: Props) {
   }, [foodText, listening, loadingMeal, runFoodSearch, savingMeal]);
 
   const applyLogEntry = useCallback(
-    (food: string, elementId: number): boolean => {
-      if (!food) {
+    (rawName: string, element: ElementSummary): boolean => {
+      if (!rawName) {
         Alert.alert('Enter a food name first');
         return false;
       }
@@ -331,8 +367,9 @@ export function ScaleScreen({ navigation, route }: Props) {
       }
       const entry: EditorLog = {
         localId: `new-${Date.now()}-${Math.random()}`,
-        elementId,
-        rawName: food,
+        elementId: element.id,
+        rawName,
+        displayName: element.name,
         amount: lastWeight,
         measureId: GRAM_MEASURE_ID,
         calories: 0,
@@ -347,8 +384,12 @@ export function ScaleScreen({ navigation, route }: Props) {
   );
 
   const applyRename = useCallback(
-    (food: string, index: number, elementId: number): boolean => {
-      if (!food) {
+    (
+      rawName: string,
+      index: number,
+      element: ElementSummary,
+    ): boolean => {
+      if (!rawName) {
         Alert.alert('Enter a food name first');
         return false;
       }
@@ -363,8 +404,9 @@ export function ScaleScreen({ navigation, route }: Props) {
           logId: undefined,
           replacementForLogId:
             existing.replacementForLogId ?? existing.logId,
-          elementId,
-          rawName: food,
+          elementId: element.id,
+          rawName,
+          displayName: element.name,
           calories: 0,
         };
         next[index] = updatedLog;
@@ -381,18 +423,49 @@ export function ScaleScreen({ navigation, route }: Props) {
   );
 
   const applyFoodElement = useCallback(
-    (element: ElementSummary) => {
+    (element: ElementSummary, rawNameOverride?: string) => {
+      const rawName =
+        rawNameOverride ?? voiceSearchRawNameRef.current ?? foodText.trim();
       const applied = isLogEditing
-        ? applyRename(element.name, selectedIndex, element.id)
-        : applyLogEntry(element.name, element.id);
+        ? applyRename(rawName, selectedIndex, element)
+        : applyLogEntry(rawName, element);
       if (applied) {
+        clearSearchSourceMetadata();
         setFoodText('');
         setFoodSearchResults([]);
         setFoodSearchLoading(false);
       }
     },
-    [applyLogEntry, applyRename, isLogEditing, selectedIndex],
+    [
+      applyLogEntry,
+      applyRename,
+      clearSearchSourceMetadata,
+      foodText,
+      isLogEditing,
+      selectedIndex,
+    ],
   );
+
+  useEffect(() => {
+    if (voiceAutoSelect === null) return;
+
+    const startedAt = Date.now();
+    setVoiceAutoSelectProgress(1);
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      setVoiceAutoSelectProgress(
+        Math.max(0, 1 - elapsed / VOICE_AUTO_SELECT_DELAY_MS),
+      );
+    }, VOICE_AUTO_SELECT_TICK_MS);
+    const timer = setTimeout(() => {
+      applyFoodElement(voiceAutoSelect.element, voiceAutoSelect.rawName);
+    }, VOICE_AUTO_SELECT_DELAY_MS);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
+  }, [applyFoodElement, voiceAutoSelect]);
 
   const showRepeatToast = useCallback(() => {
     const message = 'Food not found. Please hold the mic and repeat.';
@@ -416,6 +489,7 @@ export function ScaleScreen({ navigation, route }: Props) {
           showRepeatToast();
           return;
         }
+        voiceSearchRawNameRef.current = food;
         immediateFoodSearchRef.current = food;
         void runFoodSearch(food);
       },
@@ -443,6 +517,7 @@ export function ScaleScreen({ navigation, route }: Props) {
     if (isLogEditing) {
       setSelectedIndex(NO_SELECTION);
     }
+    clearSearchSourceMetadata();
     setFoodText('');
     setFoodSearchResults([]);
     setFoodSearchLoading(false);
@@ -453,21 +528,23 @@ export function ScaleScreen({ navigation, route }: Props) {
       const entry = editorLogs[index];
       if (!entry) return;
       setSelectedIndex(index);
+      clearSearchSourceMetadata();
       setFoodText(entry.rawName);
       setFoodSearchResults([]);
       setFoodSearchLoading(false);
     },
-    [editorLogs],
+    [clearSearchSourceMetadata, editorLogs],
   );
 
   const removeLogLocally = useCallback((localId: string) => {
     setEditorLogs((logs) => logs.filter((log) => log.localId !== localId));
     setSelectedIndex(NO_SELECTION);
-  }, []);
+    clearSearchSourceMetadata();
+  }, [clearSearchSourceMetadata]);
 
   const confirmDeleteLog = useCallback(
     (log: EditorLog) => {
-      Alert.alert('Are you sure', `Delete ${log.rawName}?`, [
+      Alert.alert('Are you sure', `Delete ${log.displayName ?? log.rawName}?`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -498,6 +575,7 @@ export function ScaleScreen({ navigation, route }: Props) {
       return;
     }
     setSelectedIndex(NO_SELECTION);
+    clearSearchSourceMetadata();
     setFoodSearchResults([]);
     setEditorLogs([]);
   };
@@ -578,6 +656,8 @@ export function ScaleScreen({ navigation, route }: Props) {
     !loadingMeal &&
     !savingMeal &&
     (foodSearchLoading || foodSearchResults.length > 0);
+  const autoSelectProgressWidth =
+    `${Math.round(voiceAutoSelectProgress * 100)}%` as `${number}%`;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -657,18 +737,30 @@ export function ScaleScreen({ navigation, route }: Props) {
             {foodSearchLoading ? (
               <Text style={styles.foodDropdownStatus}>Searching...</Text>
             ) : (
-              foodSearchResults.map((element) => (
-                <Pressable
-                  key={element.id}
-                  style={styles.foodOption}
-                  onPress={() => applyFoodElement(element)}
-                >
-                  <Text style={styles.foodOptionName} numberOfLines={1}>
-                    {element.name}
-                  </Text>
-                  <Text style={styles.foodOptionType}>{element.type}</Text>
-                </Pressable>
-              ))
+              <>
+                {voiceAutoSelect !== null && (
+                  <View style={styles.autoSelectProgressTrack}>
+                    <View
+                      style={[
+                        styles.autoSelectProgressFill,
+                        { width: autoSelectProgressWidth },
+                      ]}
+                    />
+                  </View>
+                )}
+                {foodSearchResults.map((element) => (
+                  <Pressable
+                    key={element.id}
+                    style={styles.foodOption}
+                    onPress={() => applyFoodElement(element)}
+                  >
+                    <Text style={styles.foodOptionName} numberOfLines={1}>
+                      {element.name}
+                    </Text>
+                    <Text style={styles.foodOptionType}>{element.type}</Text>
+                  </Pressable>
+                ))}
+              </>
             )}
           </View>
         )}
@@ -781,6 +873,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: '#666',
+  },
+  autoSelectProgressTrack: {
+    height: 3,
+    backgroundColor: '#e0e0e0',
+  },
+  autoSelectProgressFill: {
+    height: 3,
+    backgroundColor: '#1976D2',
   },
   foodOption: {
     paddingHorizontal: 12,

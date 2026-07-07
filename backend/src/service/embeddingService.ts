@@ -13,6 +13,8 @@ const QUERY_PREFIX = 'query: ';
 const SEARCH_TOP_K = 10;
 // Over-fetch raw food_name rows so collapsing by element still yields enough hits.
 const SEARCH_RAW_FETCH = SEARCH_TOP_K * 3;
+const SEARCH_CANDIDATE_FETCH = SEARCH_TOP_K * 5;
+const TRIGRAM_SIMILARITY_THRESHOLD = 0.45;
 
 export type FoodNameSearchHit = {
 	foodNameId: number;
@@ -32,6 +34,15 @@ export type EmbeddingService = {
 
 function toPgVector(vec: number[]): string {
 	return `[${vec.join(',')}]`;
+}
+
+function normalizeFoodSearchQuery(query: string): string {
+	return query
+		.trim()
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 async function runExtractor(
@@ -110,6 +121,14 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 	const searchFoodName = async (
 		query: string,
 	): Promise<FoodNameSearchHit[]> => {
+		const normalizedQuery = normalizeFoodSearchQuery(query);
+		if (!normalizedQuery) return [];
+		const queryTerms = normalizedQuery.split(' ');
+		const reversedQuery =
+			queryTerms.length > 1
+				? [...queryTerms].reverse().join(' ')
+				: normalizedQuery;
+
 		const vec = await embed(`${QUERY_PREFIX}${query}`);
 		const vecText = toPgVector(vec);
 
@@ -120,15 +139,177 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 			name: string;
 			distance: number;
 		}>`
+			WITH params AS (
+				SELECT
+					${normalizedQuery}::text AS query,
+					${reversedQuery}::text AS reversed_query,
+					${vecText}::vector AS query_vector
+			),
+			base_names AS (
+				SELECT
+					fn.id,
+					fn.element_id,
+					e.name AS element_name,
+					fn.name,
+					fn.embedding,
+					btrim(
+						regexp_replace(
+							regexp_replace(lower(fn.name), '[^[:alnum:]]+', ' ', 'g'),
+							'[[:space:]]+',
+							' ',
+							'g'
+						)
+					) AS normalized_name,
+					btrim(
+						regexp_replace(
+							regexp_replace(lower(e.name), '[^[:alnum:]]+', ' ', 'g'),
+							'[[:space:]]+',
+							' ',
+							'g'
+						)
+					) AS normalized_element_name,
+					CASE e.type
+						WHEN 'whole_food' THEN 0
+						WHEN 'recipe' THEN 1
+						WHEN 'branded_food' THEN 2
+						ELSE 3
+					END AS element_rank
+				FROM food_name fn
+				JOIN element e ON e.id = fn.element_id
+				UNION ALL
+				SELECT
+					(-e.id)::bigint AS id,
+					e.id AS element_id,
+					e.name AS element_name,
+					e.name AS name,
+					NULL::vector AS embedding,
+					btrim(
+						regexp_replace(
+							regexp_replace(lower(e.name), '[^[:alnum:]]+', ' ', 'g'),
+							'[[:space:]]+',
+							' ',
+							'g'
+						)
+					) AS normalized_name,
+					btrim(
+						regexp_replace(
+							regexp_replace(lower(e.name), '[^[:alnum:]]+', ' ', 'g'),
+							'[[:space:]]+',
+							' ',
+							'g'
+						)
+					) AS normalized_element_name,
+					CASE e.type
+						WHEN 'whole_food' THEN 0
+						WHEN 'recipe' THEN 1
+						WHEN 'branded_food' THEN 2
+						ELSE 3
+					END AS element_rank
+				FROM element e
+				WHERE NOT EXISTS (
+					SELECT 1
+					FROM food_name fn
+					WHERE fn.element_id = e.id
+				)
+			),
+			lexical_candidates AS (
+				SELECT bn.id
+				FROM base_names bn
+				CROSS JOIN params p
+				WHERE
+					bn.normalized_name = p.query
+					OR bn.normalized_element_name = p.query
+					OR bn.normalized_name IN (
+						'whole ' || p.query,
+						p.query || ' whole'
+					)
+					OR bn.normalized_name LIKE p.query || ' %'
+					OR bn.normalized_name LIKE p.query || 's %'
+					OR bn.normalized_name LIKE '% ' || p.query || ' %'
+					OR bn.normalized_name LIKE '% ' || p.query || 's %'
+					OR (
+						p.reversed_query <> p.query
+						AND (
+							bn.normalized_name LIKE p.reversed_query || ' %'
+							OR bn.normalized_name LIKE '% ' || p.reversed_query || ' %'
+						)
+					)
+				ORDER BY
+					CASE
+						WHEN bn.normalized_name = p.query THEN 0
+						WHEN bn.normalized_element_name = p.query THEN 0
+						WHEN bn.normalized_name IN (
+							'whole ' || p.query,
+							p.query || ' whole'
+						) THEN 1
+						WHEN bn.normalized_name LIKE p.query || ' %' THEN 2
+						WHEN bn.normalized_name LIKE p.query || 's %' THEN 2
+						WHEN bn.normalized_name LIKE '% ' || p.query || ' %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.query || 's %' THEN 3
+						WHEN bn.normalized_name LIKE p.reversed_query || ' %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.reversed_query || ' %' THEN 3
+						ELSE 4
+					END,
+					bn.element_rank,
+					COALESCE(bn.embedding <=> p.query_vector, 1),
+					bn.id
+				LIMIT ${SEARCH_CANDIDATE_FETCH}
+			),
+			trigram_candidates AS (
+				SELECT bn.id
+				FROM base_names bn
+				CROSS JOIN params p
+				WHERE
+					length(p.query) >= 3
+					AND similarity(bn.normalized_name, p.query) >= ${TRIGRAM_SIMILARITY_THRESHOLD}
+				ORDER BY similarity(bn.normalized_name, p.query) DESC, bn.id
+				LIMIT ${SEARCH_CANDIDATE_FETCH}
+			),
+			vector_candidates AS (
+				SELECT bn.id
+				FROM base_names bn
+				CROSS JOIN params p
+				WHERE bn.embedding IS NOT NULL
+				ORDER BY bn.embedding <=> p.query_vector
+				LIMIT ${SEARCH_CANDIDATE_FETCH}
+			),
+			candidate_ids AS (
+				SELECT id FROM lexical_candidates
+				UNION
+				SELECT id FROM trigram_candidates
+				UNION
+				SELECT id FROM vector_candidates
+			)
 			SELECT
-				fn.id,
-				fn.element_id,
-				e.name AS element_name,
-				fn.name,
-				fn.embedding <=> ${vecText}::vector AS distance
-			FROM food_name fn
-			JOIN element e ON e.id = fn.element_id
-			ORDER BY fn.embedding <=> ${vecText}::vector
+				bn.id,
+				bn.element_id,
+				bn.element_name,
+				bn.name,
+				COALESCE(bn.embedding <=> p.query_vector, 1) AS distance
+			FROM candidate_ids c
+			JOIN base_names bn ON bn.id = c.id
+			CROSS JOIN params p
+			ORDER BY
+				CASE
+					WHEN bn.normalized_name = p.query THEN 0
+					WHEN bn.normalized_element_name = p.query THEN 0
+					WHEN bn.normalized_name IN (
+						'whole ' || p.query,
+						p.query || ' whole'
+					) THEN 1
+					WHEN bn.normalized_name LIKE p.query || ' %' THEN 2
+					WHEN bn.normalized_name LIKE p.query || 's %' THEN 2
+					WHEN bn.normalized_name LIKE '% ' || p.query || ' %' THEN 3
+					WHEN bn.normalized_name LIKE '% ' || p.query || 's %' THEN 3
+					WHEN bn.normalized_name LIKE p.reversed_query || ' %' THEN 3
+					WHEN bn.normalized_name LIKE '% ' || p.reversed_query || ' %' THEN 3
+					ELSE 4
+				END,
+				bn.element_rank,
+				COALESCE(bn.embedding <=> p.query_vector, 1),
+				bn.element_id,
+				bn.id,
+				similarity(bn.normalized_name, p.query) DESC
 			LIMIT ${SEARCH_RAW_FETCH}
 		`.execute(db);
 

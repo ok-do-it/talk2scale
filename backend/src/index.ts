@@ -14,7 +14,6 @@ import { createVoiceRoutes } from './routes/voiceRoutes.js';
 import { createEmbeddingService } from './service/embeddingService.js';
 import { createFoodTreeService } from './service/foodTreeService.js';
 import { createMealService } from './service/mealService.js';
-import { createSearchService } from './service/searchService.js';
 import { createUserService } from './service/userService.js';
 import { createVoiceService } from './service/voiceService.js';
 
@@ -36,8 +35,7 @@ await assertDatabaseConnection();
 logger.info('Database connection is ready');
 
 const embeddingService = await createEmbeddingService();
-const searchService = await createSearchService(embeddingService);
-app.use(createSearchRoutes(searchService, embeddingService));
+app.use(createSearchRoutes(embeddingService));
 
 const foodTreeService = createFoodTreeService();
 app.use(createFoodTreeRoutes(foodTreeService, embeddingService));
