@@ -2,18 +2,8 @@ import { buildApiUrl } from '../config/api';
 
 const TRANSCRIBE_TIMEOUT_MS = 15000;
 
-export type VoiceFood = {
-	foodNameId: number;
-	elementId: number;
-	elementName: string;
-	name: string;
-	distance: number;
-	aliasCount: number;
-};
-
 type TranscribeResponse = {
 	text: string;
-	food: VoiceFood;
 };
 
 type TranscribeErrorResponse = {

@@ -1,25 +1,31 @@
+import { mkdir, writeFile } from 'node:fs/promises';
 import express from 'express';
 import multer from 'multer';
-import type {
-	EmbeddingService,
-	FoodNameSearchHit,
-} from '../service/embeddingService.js';
-import type { VoiceService } from '../service/voiceService.js';
+import {
+	detectAudioFormat,
+	type VoiceService,
+} from '../service/voiceService.js';
+
+const voiceSamplesDir = new URL('../../voice_samples/', import.meta.url);
 
 const upload = multer({
 	storage: multer.memoryStorage(),
 	limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-type VoiceFoodResponse = {
+type TranscribeResponse = {
 	text: string;
-	food: FoodNameSearchHit;
 };
 
-export function createVoiceRoutes(
-	voiceService: VoiceService,
-	embeddingService: EmbeddingService,
-): express.Router {
+function resolveVoiceSampleExtension(audio: Buffer): string {
+	try {
+		return detectAudioFormat(audio);
+	} catch {
+		return 'bin';
+	}
+}
+
+export function createVoiceRoutes(voiceService: VoiceService): express.Router {
 	const router = express.Router();
 
 	router.post('/voice/transcribe', upload.single('audio'), async (req, res) => {
@@ -28,22 +34,21 @@ export function createVoiceRoutes(
 			return;
 		}
 		try {
+			await mkdir(voiceSamplesDir, { recursive: true });
+			const extension = resolveVoiceSampleExtension(req.file.buffer);
+			await writeFile(
+				new URL(`./${Date.now().toString()}.${extension}`, voiceSamplesDir),
+				req.file.buffer,
+			);
+
 			const text = await voiceService.foodNameToText(req.file.buffer);
 			if (!text) {
 				res.status(404).json({ error: 'voice_not_recognized' });
 				return;
 			}
 
-			const result = await embeddingService.searchFoodName(text);
-			const [food] = result;
-			if (!food) {
-				res.status(404).json({ error: 'food_not_found', text, hits: result });
-				return;
-			}
-
-			const response: VoiceFoodResponse = {
+			const response: TranscribeResponse = {
 				text,
-				food,
 			};
 			res.json(response);
 		} catch (err) {

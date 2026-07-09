@@ -1,6 +1,7 @@
 .metals/
 node_modules/
 backend/node_modules/
+backend/voice_samples/
 .env
 
 db/dataset/usda/

@@ -15,7 +15,7 @@ const { WaveFile } = require('wavefile') as typeof import('wavefile');
 const MODEL_ID = 'onnx-community/whisper-large-v3-turbo';
 const WHISPER_SAMPLE_RATE = 16_000;
 
-type AudioFormat = 'wav' | 'aac';
+export type AudioFormat = 'wav' | 'aac' | 'm4a';
 
 type WaveFileWithSamples = InstanceType<typeof WaveFile> & {
 	getSamples(
@@ -34,7 +34,7 @@ function pickBackend(): Pick<PretrainedModelOptions, 'device'> {
 	return { device: 'cpu' };
 }
 
-function detectAudioFormat(audio: Buffer): AudioFormat {
+export function detectAudioFormat(audio: Buffer): AudioFormat {
 	if (audio.length < 12) {
 		throw new Error('Audio buffer too short');
 	}
@@ -50,7 +50,7 @@ function detectAudioFormat(audio: Buffer): AudioFormat {
 	}
 	// MP4/M4A container (typical mobile AAC recording)
 	if (audio.length >= 8 && audio.toString('ascii', 4, 8) === 'ftyp') {
-		return 'aac';
+		return 'm4a';
 	}
 	throw new Error(
 		'Unsupported audio format: expected WAV (RIFF/WAVE) or AAC (.m4a / ADTS)',
@@ -148,6 +148,7 @@ async function audioBufferToMonoFloat32(audio: Buffer): Promise<Float32Array> {
 		case 'wav':
 			return wavBufferToMonoFloat32(audio);
 		case 'aac':
+		case 'm4a':
 			return aacBufferToMonoFloat32(audio);
 	}
 }

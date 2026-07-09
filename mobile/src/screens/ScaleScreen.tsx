@@ -61,7 +61,7 @@ type SwipeableLogRowProps = {
 const GRAM_MEASURE_ID = 1;
 const NO_SELECTION = -1;
 const FOOD_SEARCH_DEBOUNCE_MS = 300;
-const FOOD_SEARCH_LIMIT = 10;
+const FOOD_SEARCH_LIMIT = 6;
 const VOICE_AUTO_SELECT_DELAY_MS = 3000;
 const VOICE_AUTO_SELECT_TICK_MS = 100;
 

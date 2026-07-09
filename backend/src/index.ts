@@ -47,7 +47,7 @@ const userService = createUserService(mealService);
 app.use(createUserRoutes(userService));
 
 const voiceService = await createVoiceService();
-app.use(createVoiceRoutes(voiceService, embeddingService));
+app.use(createVoiceRoutes(voiceService));
 
 app.listen({ port: env.port }, () => {
 	logger.info({ port: env.port }, 'Server ready');
