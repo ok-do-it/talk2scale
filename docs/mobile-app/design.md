@@ -11,7 +11,7 @@ The active mobile app is the React Native / Expo app in `mobile/`.
 | Navigation | `mobile/src/navigation/RootStack.tsx` |
 | State | Zustand store in `mobile/src/state/scaleStore.ts` |
 | BLE transport | `react-native-ble-plx` in `mobile/src/transport/BleScaleTransport.ts` |
-| Voice capture | `expo-av` recorder in `mobile/src/services/voiceRecording.ts` |
+| Voice capture | `expo-audio` recorder in `mobile/src/services/voiceRecording.ts` |
 
 ## BLE identifiers
 
@@ -64,7 +64,7 @@ The calibration flow is implemented as a React Native modal in `mobile/src/compo
 
 ## Speech-to-text
 
-The React Native app records short audio clips with `expo-av`. `mobile/src/services/speech.ts` sends the clip to the backend voice API and receives the resolved food result.
+The React Native app records short audio clips with `expo-audio`. `mobile/src/services/speech.ts` sends the clip to the backend voice API and receives the transcribed text.
 
 The current flow is push-to-record:
 

@@ -38,7 +38,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      ["react-native-ble-plx", { "isBackgroundEnabled": false }]
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false
+        }
+      ],
+      "expo-audio",
+      "expo-asset",
+      "expo-font"
     ]
   }
 }

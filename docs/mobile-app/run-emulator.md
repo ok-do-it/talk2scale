@@ -54,6 +54,23 @@ adb shell am start -a android.intent.action.VIEW \
   dev.talk2scale
 ```
 
+## Voice / microphone
+
+Android emulator mic input is flaky. For voice testing:
+
+1. Do **not** launch the emulator with `-no-audio`.
+2. After the emulator boots, enable host mic:
+
+```bash
+adb emu avd hostmicon
+```
+
+Or in Extended Controls (⋯) → Microphone → enable **Virtual microphone uses host audio input**.
+
+That host-mic toggle resets on every emulator restart.
+
+If the first take after an app restart is good but later takes are a continuous beep/tone, cold-restart the app or re-run `adb emu avd hostmicon`. Prefer a physical phone for reliable voice QA.
+
 ## Emulator Troubleshooting
 
 List available emulators:
@@ -62,7 +79,7 @@ List available emulators:
 emulator -list-avds
 ```
 
-If `Pixel_7` exits shortly after boot on macOS, try launching it with GPU disabled:
+If `Pixel_7` exits shortly after boot on macOS, try launching it with GPU disabled (this disables audio — do not use for voice testing):
 
 ```bash
 emulator -avd Pixel_7 -no-snapshot-load -no-snapshot-save -gpu off -no-audio -no-boot-anim -netfast
