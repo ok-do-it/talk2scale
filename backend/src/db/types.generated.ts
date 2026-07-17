@@ -13,6 +13,18 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface CaloriesBurned {
@@ -34,16 +46,18 @@ export interface FoodLog {
   element_id: number | null;
   id: Generated<number>;
   meal_id: number;
-  raw_name: string;
   measure_id: number;
+  raw_name: string;
 }
 
 export interface FoodName {
   element_id: number;
   embedding: string | null;
   id: Generated<number>;
+  is_default: Generated<boolean>;
   locale: string | null;
   name: string;
+  rank: Generated<number>;
   user_id: number | null;
 }
 
@@ -68,16 +82,8 @@ export interface Measure {
   user_id: number | null;
 }
 
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
-
 export interface Users {
-  daily_targets: JsonValue | null;
+  daily_targets: Json | null;
   email: string;
   id: Generated<number>;
   name: string;

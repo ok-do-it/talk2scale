@@ -2,7 +2,7 @@
 
 Embedding search should not be the only ranking signal for food names. For common
 queries, users often expect the generic whole food first. For example, searching
-for `egg` should return `egg, whole` before `egg yolk` or `egg white`.
+for `egg` should return whole egg before `egg yolk` or `egg white`.
 
 The same search service is used by typed food search and voice resolution:
 
@@ -15,6 +15,26 @@ The same search service is used by typed food search and voice resolution:
 This makes `searchFoodName` the right place to centralize ranking improvements.
 Typed search, voice search, and user-added aliases should all benefit from the
 same resolver.
+
+## Status
+
+**Implemented today:**
+
+- Hybrid candidate generation (exact/prefix, trigram, embedding).
+- Query normalization (lowercase, punctuation stripped).
+- Deterministic ranking that uses `food_name.rank` and `food_name.is_default`.
+- Collapse results to one hit per `element_id`.
+- Schema columns `is_default` and `rank` on `food_name`.
+- Foundation-food suppression, exact-name dedupe, curated merges, and simplified
+  aliases during USDA reseed (see [`docs/db/import-usda.md`](../db/import-usda.md)).
+- Search regression fixtures in `backend/int-test/search/expectations.json`.
+
+**Still open:**
+
+- User-scoped search (`user_id` on search/voice endpoints).
+- Voice correction mappings.
+- Optional rank/debug fields in the API response.
+- Whisper prompt/context for rare custom words.
 
 ## Goals
 
@@ -32,131 +52,86 @@ same resolver.
 - Do not build an audio fingerprint system as the first solution. Text aliases,
   correction mappings, and phonetic/fuzzy matching should come first.
 
-## Recommended Approach
+## Current Ranking Approach
 
-Use a hybrid rank:
+`searchFoodName` builds a candidate pool from:
 
-1. Exact and common-name intent first.
-2. Default or preferred aliases second.
-3. Fuzzy lexical matches third.
-4. Embedding similarity as the fallback ranking signal.
+1. Exact / prefix / whole-word lexical matches on normalized `food_name.name`
+   and `element.name`.
+2. Trigram candidates (`pg_trgm`, similarity threshold `0.45`).
+3. Embedding nearest neighbors.
+
+Final ordering (conceptually):
+
+```sql
+ORDER BY
+  text_rank ASC,          -- exact / whole / prefix / fuzzy buckets
+  rank DESC,              -- curated food_name.rank
+  is_default DESC,        -- prefer default alias when collapsing
+  element_rank ASC,       -- whole_food before branded/recipe when tied
+  vector_distance ASC,
+  trigram_similarity DESC
+```
+
+`text_rank` buckets include exact name, `whole <query>` / `<query> whole`,
+prefix matches, and looser contains / reversed-term matches. After SQL ranking,
+the service collapses to the first hit per `element_id` and returns top 10.
 
 For the `egg` case:
 
-- Add `egg` as a `food_name` alias for the whole egg element.
-- Rank exact alias matches above semantic matches.
-- Keep embedding distance as the tie-breaker after intent-based ranking.
-
-Conceptually:
-
-```sql
-ORDER BY
-  CASE
-    WHEN lower(fn.name) = lower(:query) THEN 0
-    WHEN lower(fn.name) = 'whole ' || lower(:query) THEN 1
-    WHEN lower(fn.name) = lower(:query) || ', whole' THEN 1
-    WHEN lower(fn.name) LIKE lower(:query) || ' %' THEN 2
-    ELSE 3
-  END,
-  fn.embedding <=> :query_vector
-```
-
-Longer term, add a small priority signal to `food_name`, such as
-`rank_priority` or `is_default`, and mark the default/common alias for each food.
-Then search can rank by:
-
-```sql
-ORDER BY
-  exact_match_rank,
-  fn.rank_priority DESC,
-  vector_distance
-```
-
-This preserves semantic search for vague queries while making common one-word
-queries behave closer to user expectations.
+- Curated alias `Egg` (`is_default`, high `rank`) is seeded in
+  `db/dataset/curate-foundation-food-names.json`.
+- Exact alias match outranks semantic near-neighbors like yolk/white.
 
 ## Ranking Signals
 
 Use a score made from explicit signals instead of relying on vector distance
 alone. Keep the result explainable enough that tests can assert why a food won.
 
-Suggested fields returned from the query:
+Signals in use:
 
 - `text_rank`: exact/prefix/fuzzy ranking bucket.
-- `alias_priority`: curated priority for the matching `food_name`.
-- `user_rank`: whether the alias belongs to the requesting user.
+- `rank` (`food_name.rank`): curated alias priority.
+- `is_default`: preferred display/search alias for an element.
 - `element_rank`: generic whole foods before branded foods when all else ties.
-- `vector_distance`: existing embedding distance.
+- `vector_distance`: embedding distance.
 - `trigram_similarity`: PostgreSQL `pg_trgm` similarity for typo and ASR cleanup.
 
-Suggested priority order:
+Still planned:
 
-```sql
-ORDER BY
-  text_rank ASC,
-  user_rank ASC,
-  alias_priority DESC,
-  element_rank ASC,
-  trigram_similarity DESC,
-  vector_distance ASC
-```
-
-Start with simple buckets:
-
-```sql
-CASE
-  WHEN lower(fn.name) = :normalized_query THEN 0
-  WHEN lower(e.name) = :normalized_query THEN 0
-  WHEN lower(fn.name) IN (
-    'whole ' || :normalized_query,
-    :normalized_query || ', whole'
-  ) THEN 1
-  WHEN lower(fn.name) LIKE :normalized_query || ' %' THEN 2
-  WHEN similarity(lower(fn.name), :normalized_query) >= 0.45 THEN 3
-  ELSE 4
-END AS text_rank
-```
-
-The exact thresholds should be tuned against test fixtures. Keep the threshold
-high enough to avoid surprising matches for very short queries like `tea`, `pea`,
-or `yam`.
+- `user_rank`: whether the alias belongs to the requesting user.
 
 ## Candidate Generation
 
-The current query orders all rows by embedding distance and limits to
-`SEARCH_RAW_FETCH`. That can drop a good exact/fuzzy match if its embedding is not
-near the query. Instead, collect candidates from multiple sources and rank them
-together:
+Candidates are collected from multiple sources and ranked together:
 
 1. Exact and prefix candidates from `food_name.name`.
 2. Trigram candidates from `food_name.name`.
 3. Embedding candidates from `food_name.embedding`.
-4. Optional user-history candidates from recent `food_log` rows.
 
-Implementation options:
+Implementation notes:
 
-- Use SQL CTEs with `UNION`/`UNION ALL`, then group by `food_name.id`.
-- Over-fetch each source separately, for example 50 lexical, 50 trigram, and 50
-  vector candidates.
-- Compute rank columns in the final SELECT and collapse by `element_id` after
-  ordering, as the service does today.
+- SQL CTEs union lexical, trigram, and vector candidate ids.
+- Over-fetch so collapsing by `element_id` still yields enough hits.
+- Rank columns are computed in the final SELECT; collapse happens in
+  application code after ordering.
 
 This avoids a failure mode where vector search never sees an exact alias because
 the alias was outside the initial vector top N.
 
-## Schema Changes
+## Schema
 
-Add small, explicit metadata to `food_name`:
+`food_name` includes ranking metadata (see `db/migrations/002_schema.sql`):
 
 ```sql
-ALTER TABLE food_name
-  ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN rank_priority INTEGER NOT NULL DEFAULT 0;
+is_default BOOLEAN NOT NULL DEFAULT FALSE,
+rank INTEGER NOT NULL DEFAULT 0
 ```
 
-Use `is_default` for the best display/search alias of an element. Use
-`rank_priority` for curated exceptions, such as common whole-food names that
-should outrank more specific cuts or parts.
+Use `is_default` for the best display/search alias of an element. Use `rank`
+for curated priority (higher wins). Seeded values come from
+[`db/dataset/curate-foundation-food-names.json`](../../db/dataset/curate-foundation-food-names.json)
+via `npm run curate-usda-foundation-food-names` during reseed.
 
 Optional later fields:
 
@@ -166,9 +141,22 @@ ALTER TABLE food_name
   ADD COLUMN phonetic_name TEXT;
 ```
 
-`normalized_name` can store lowercased, punctuation-stripped names. Only add it
-if query normalization becomes repeated or expensive. `phonetic_name` should wait
-until there is evidence that trigram matching is not enough for voice mistakes.
+Today normalization is computed in the search SQL (`lower` + punctuation strip).
+Persist `normalized_name` only if that becomes expensive. `phonetic_name` should
+wait until trigram matching is not enough for voice mistakes.
+
+## Dataset curation (companion to search)
+
+Import-time curation improves what search can see:
+
+| Step | Config / script | Effect |
+|------|-----------------|--------|
+| Suppress | `suppressed-foundation-food-names.json` | Delete unlikely `food_name` rows (raw meats, lab rows, etc.); elements kept |
+| Exact dedupe | `dedupe-whole-foods` | Merge `whole_food` elements with identical `element.name` |
+| Curated merge | `curate-foundation-food-names.json` `merge_groups` | Merge similar FDC ids (e.g. apple cultivars) onto one winner |
+| Name simplification | same file `aliases` | Add short names like `Egg`, `Apple`, `Chicken breast` with `is_default` / `rank` |
+
+Details: [`docs/db/import-usda.md`](../db/import-usda.md).
 
 ## User-Specific Aliases
 
@@ -261,25 +249,19 @@ Add optional `user_id` as form data or query string so the backend can:
 
 ## Implementation Plan
 
-### Phase 1: Hybrid Search Ranking
+### Phase 1: Hybrid Search Ranking — done
 
-- Add query normalization helper for food search.
-- Change `FoodNameSearchHit` to optionally include rank/debug fields while
-  keeping existing fields.
-- Refactor `searchFoodName(query)` into `searchFoodName(query, opts)` with
-  optional `userId`.
-- Generate candidates from exact/prefix, trigram, and embedding sources.
-- Apply deterministic final ranking and keep the current collapse-by-`element_id`
-  behavior.
-- Keep returning the top 10 hits.
+- Query normalization helper for food search.
+- Candidates from exact/prefix, trigram, and embedding sources.
+- Deterministic final ranking and collapse-by-`element_id`.
+- Top 10 hits returned.
 
-### Phase 2: Alias Priority Metadata
+### Phase 2: Alias Priority Metadata — done
 
-- Add `is_default` and `rank_priority` to `food_name`.
-- Backfill default aliases for common whole foods.
-- Seed specific aliases for known bad cases, starting with `egg`.
-- Update the embed script to leave existing embeddings alone and embed only new
-  aliases with `embedding IS NULL`, as it already does.
+- `is_default` and `rank` on `food_name`.
+- Curated default aliases for common whole foods via
+  `curate-foundation-food-names.json` (includes `egg` and other staples).
+- Embed script still only embeds rows with `embedding IS NULL`.
 
 ### Phase 3: User-Aware Search
 
@@ -297,7 +279,7 @@ Add optional `user_id` as form data or query string so the backend can:
 - Investigate Whisper prompt/context support in `@huggingface/transformers` for
   `onnx-community/whisper-large-v3-turbo`.
 
-### Phase 5: Evaluation and Tuning
+### Phase 5: Evaluation and Tuning — partially done
 
 - Expand `backend/int-test/search/expectations.json` with common generic foods:
   `egg`, `banana`, `apple`, `milk`, `rice`, `chicken`, `potato`, `tomato`.
@@ -321,7 +303,6 @@ Minimum cases:
 
 ## Open Decisions
 
-- Should `rank_priority` live on `food_name`, `element`, or both?
 - Should branded foods be demoted by default for short generic queries?
 - Should recipe results appear before whole foods when the recipe name is an
   exact user alias?

@@ -1,0 +1,198 @@
+{
+	"merge_groups": [
+		{
+			"winner_fdc_id": 1750339,
+			"loser_fdc_ids": [1750340, 1750341, 1750342, 1750343],
+			"reason": "Apple cultivars; macros interchangeable for everyday logging"
+		}
+	],
+	"aliases": [
+		{
+			"fdc_id": 1750339,
+			"names": [
+				{ "name": "Apple", "is_default": true, "rank": 100 },
+				{ "name": "Red delicious apple", "rank": 80 }
+			]
+		},
+		{
+			"fdc_id": 1105314,
+			"names": [{ "name": "Banana", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2710824,
+			"names": [{ "name": "Avocado", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 747447,
+			"names": [{ "name": "Broccoli", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2258586,
+			"names": [{ "name": "Carrot", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2346406,
+			"names": [{ "name": "Cucumber", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 790577,
+			"names": [{ "name": "Red onion", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2346401,
+			"names": [
+				{ "name": "Russet potato", "is_default": true, "rank": 100 },
+				{ "name": "Potato", "rank": 70 }
+			]
+		},
+		{
+			"fdc_id": 2747664,
+			"names": [{ "name": "Radicchio", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 1999632,
+			"names": [{ "name": "Spinach", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2346404,
+			"names": [{ "name": "Sweet potato", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 1999634,
+			"names": [{ "name": "Tomato", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 331960,
+			"names": [
+				{ "name": "Chicken breast", "is_default": true, "rank": 100 },
+				{ "name": "Boiled chicken breast", "rank": 90 }
+			]
+		},
+		{
+			"fdc_id": 2514743,
+			"names": [{ "name": "Ground beef", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2684440,
+			"names": [{ "name": "Salmon", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 334194,
+			"names": [{ "name": "Canned tuna", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 748967,
+			"names": [
+				{ "name": "Egg", "is_default": true, "rank": 120 },
+				{ "name": "Whole egg", "rank": 100 }
+			]
+		},
+		{
+			"fdc_id": 790508,
+			"names": [{ "name": "Butter", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 328637,
+			"names": [{ "name": "Cheddar cheese", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2259794,
+			"names": [{ "name": "Greek yogurt", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 746782,
+			"names": [
+				{ "name": "Whole milk", "is_default": true, "rank": 100 },
+				{ "name": "Milk", "rank": 70 }
+			]
+		},
+		{
+			"fdc_id": 325036,
+			"names": [{ "name": "Parmesan cheese", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2346387,
+			"names": [{ "name": "Sour cream", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2346393,
+			"names": [
+				{ "name": "Almonds", "is_default": true, "rank": 100 },
+				{ "name": "Raw almonds", "rank": 90 }
+			]
+		},
+		{
+			"fdc_id": 2346396,
+			"names": [{ "name": "Oats", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2262072,
+			"names": [{ "name": "Peanut butter", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2512381,
+			"names": [
+				{ "name": "Rice", "is_default": true, "rank": 100 },
+				{ "name": "White rice", "rank": 90 }
+			]
+		},
+		{
+			"fdc_id": 325871,
+			"names": [{ "name": "White bread", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 748608,
+			"names": [{ "name": "Olive oil", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 332282,
+			"names": [{ "name": "Spaghetti sauce", "is_default": true, "rank": 100 }]
+		},
+		{
+			"fdc_id": 2644285,
+			"names": [{ "name": "Black beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644287,
+			"names": [{ "name": "Cannellini beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644281,
+			"names": [{ "name": "Dry cannellini beans", "is_default": true, "rank": 80 }]
+		},
+		{
+			"fdc_id": 2644294,
+			"names": [{ "name": "Great northern beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644289,
+			"names": [{ "name": "Dark red kidney beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644290,
+			"names": [{ "name": "Light red kidney beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644286,
+			"names": [{ "name": "Navy beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644292,
+			"names": [{ "name": "Pinto beans", "is_default": true, "rank": 90 }]
+		},
+		{
+			"fdc_id": 2644288,
+			"names": [
+				{ "name": "Chickpeas", "is_default": true, "rank": 90 },
+				{ "name": "Garbanzo beans", "rank": 80 }
+			]
+		},
+		{
+			"fdc_id": 2644282,
+			"names": [
+				{ "name": "Dry chickpeas", "is_default": true, "rank": 80 },
+				{ "name": "Dry garbanzo beans", "rank": 70 }
+			]
+		}
+	]
+}

@@ -10,6 +10,8 @@ Use this for **project context**. Prefer the linked docs before inventing archit
 | Hardware schematics, wiring, BOM (placeholders and conventions) | [docs/hardware/README.md](docs/hardware/README.md) |
 | Mobile app BLE design (React Native transport, permissions, GATT flow, UUIDs) | [docs/mobile-app/design.md](docs/mobile-app/design.md) |
 | Backend API endpoint reference (request/response shapes, error codes) | [docs/backend/endpoints.md](docs/backend/endpoints.md) |
+| USDA import, name suppression, dedupe, curated merges/aliases | [docs/db/import-usda.md](docs/db/import-usda.md) |
+| Food search ranking design (hybrid lexical + embedding) | [docs/backend/food_item_search_improvements.md](docs/backend/food_item_search_improvements.md) |
 | Open decisions and scratch tasks | [docs/todo.txt](docs/todo.txt) |
 
 

@@ -15,7 +15,7 @@
 	{ "query": "ground beef", "expected_food_item_id": 754 },
 	{ "query": "salmon", "expected_food_item_id": 798 },
 	{ "query": "canned tuna", "expected_food_item_id": 524 },
-	{ "query": "egg", "expected_food_item_id": 605 },
+	{ "query": "egg", "expected_food_item_id": 610 },
 	{ "query": "butter", "expected_food_item_id": 620 },
 	{ "query": "cheddar cheese", "expected_food_item_id": 502 },
 	{ "query": "greek yogurt", "expected_food_item_id": 696 },

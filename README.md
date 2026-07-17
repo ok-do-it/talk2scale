@@ -115,7 +115,7 @@ Exact UUIDs, byte order, field widths, command opcodes, and error handling belon
 | **Users** | `id`, `name`, `email` (minimal for now). |
 | **Element** | Canonical component: nutrients, foods, recipes (`id`, `type`, `name`, `owner`). |
 | **Link** | Recursive composition junction (`parentId`, `childId`, `ratio`). Creates a directed acyclic graph (DAG) of components. |
-| **Alias** | Searchable/display aliases for an Element (`id`, `elementId`, `name`, `locale`). |
+| **food_name** | Searchable/display aliases for an Element (`id`, `elementId`, `name`, `locale`, `is_default`, `rank`). USDA long descriptions plus curated short names; see [`docs/db/import-usda.md`](docs/db/import-usda.md). |
 | **Unit** | Serving definitions like "slice" or "cup" (`id`, `elementId`, `name`, `grams`). |
 | **Meal** | Timestamped collection of logs (`id`, `userId`, `name`, `loggedAt`). |
 | **Log** | A single weighed portion: `id`, `mealId` (FK → Meal), `elementId` (FK → Element), `amount`, `measureId` (FK → Measure), `rawName`. **No macro columns** — resolve nutrition by joining `Element` and `Link` using recursive CTEs. |

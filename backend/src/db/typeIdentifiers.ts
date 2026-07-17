@@ -51,6 +51,8 @@ export const COLUMN = {
 		embedding: 'embedding',
 		name: 'name',
 		locale: 'locale',
+		is_default: 'is_default',
+		rank: 'rank',
 	},
 	meal: {
 		id: 'id',

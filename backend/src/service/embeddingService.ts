@@ -152,6 +152,8 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 					e.name AS element_name,
 					fn.name,
 					fn.embedding,
+					fn.is_default,
+					fn.rank,
 					btrim(
 						regexp_replace(
 							regexp_replace(lower(fn.name), '[^[:alnum:]]+', ' ', 'g'),
@@ -176,41 +178,6 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 					END AS element_rank
 				FROM food_name fn
 				JOIN element e ON e.id = fn.element_id
-				UNION ALL
-				SELECT
-					(-e.id)::bigint AS id,
-					e.id AS element_id,
-					e.name AS element_name,
-					e.name AS name,
-					NULL::vector AS embedding,
-					btrim(
-						regexp_replace(
-							regexp_replace(lower(e.name), '[^[:alnum:]]+', ' ', 'g'),
-							'[[:space:]]+',
-							' ',
-							'g'
-						)
-					) AS normalized_name,
-					btrim(
-						regexp_replace(
-							regexp_replace(lower(e.name), '[^[:alnum:]]+', ' ', 'g'),
-							'[[:space:]]+',
-							' ',
-							'g'
-						)
-					) AS normalized_element_name,
-					CASE e.type
-						WHEN 'whole_food' THEN 0
-						WHEN 'recipe' THEN 1
-						WHEN 'branded_food' THEN 2
-						ELSE 3
-					END AS element_rank
-				FROM element e
-				WHERE NOT EXISTS (
-					SELECT 1
-					FROM food_name fn
-					WHERE fn.element_id = e.id
-				)
 			),
 			lexical_candidates AS (
 				SELECT bn.id
@@ -227,11 +194,14 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 					OR bn.normalized_name LIKE p.query || 's %'
 					OR bn.normalized_name LIKE '% ' || p.query || ' %'
 					OR bn.normalized_name LIKE '% ' || p.query || 's %'
+					OR bn.normalized_name LIKE '% ' || p.query
+					OR bn.normalized_name LIKE '% ' || p.query || 's'
 					OR (
 						p.reversed_query <> p.query
 						AND (
 							bn.normalized_name LIKE p.reversed_query || ' %'
 							OR bn.normalized_name LIKE '% ' || p.reversed_query || ' %'
+							OR bn.normalized_name LIKE '% ' || p.reversed_query
 						)
 					)
 				ORDER BY
@@ -246,10 +216,15 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 						WHEN bn.normalized_name LIKE p.query || 's %' THEN 2
 						WHEN bn.normalized_name LIKE '% ' || p.query || ' %' THEN 3
 						WHEN bn.normalized_name LIKE '% ' || p.query || 's %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.query THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.query || 's' THEN 3
 						WHEN bn.normalized_name LIKE p.reversed_query || ' %' THEN 3
 						WHEN bn.normalized_name LIKE '% ' || p.reversed_query || ' %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.reversed_query THEN 3
 						ELSE 4
 					END,
+					bn.rank DESC,
+					bn.is_default DESC,
 					bn.element_rank,
 					COALESCE(bn.embedding <=> p.query_vector, 1),
 					bn.id
@@ -262,7 +237,11 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 				WHERE
 					length(p.query) >= 3
 					AND similarity(bn.normalized_name, p.query) >= ${TRIGRAM_SIMILARITY_THRESHOLD}
-				ORDER BY similarity(bn.normalized_name, p.query) DESC, bn.id
+				ORDER BY
+					similarity(bn.normalized_name, p.query) DESC,
+					bn.rank DESC,
+					bn.is_default DESC,
+					bn.id
 				LIMIT ${SEARCH_CANDIDATE_FETCH}
 			),
 			vector_candidates AS (
@@ -270,7 +249,10 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 				FROM base_names bn
 				CROSS JOIN params p
 				WHERE bn.embedding IS NOT NULL
-				ORDER BY bn.embedding <=> p.query_vector
+				ORDER BY
+					bn.embedding <=> p.query_vector,
+					bn.rank DESC,
+					bn.is_default DESC
 				LIMIT ${SEARCH_CANDIDATE_FETCH}
 			),
 			candidate_ids AS (
@@ -279,37 +261,75 @@ export async function createEmbeddingService(): Promise<EmbeddingService> {
 				SELECT id FROM trigram_candidates
 				UNION
 				SELECT id FROM vector_candidates
+			),
+			scored_candidates AS (
+				SELECT
+					bn.id,
+					bn.element_id,
+					bn.element_name,
+					bn.name,
+					bn.rank,
+					bn.is_default,
+					bn.element_rank,
+					CASE
+						WHEN bn.normalized_name = p.query THEN 0
+						WHEN bn.normalized_element_name = p.query THEN 0
+						WHEN bn.normalized_name IN (
+							'whole ' || p.query,
+							p.query || ' whole'
+						) THEN 1
+						WHEN bn.normalized_name LIKE p.query || ' %' THEN 2
+						WHEN bn.normalized_name LIKE p.query || 's %' THEN 2
+						WHEN bn.normalized_name LIKE '% ' || p.query || ' %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.query || 's %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.query THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.query || 's' THEN 3
+						WHEN bn.normalized_name LIKE p.reversed_query || ' %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.reversed_query || ' %' THEN 3
+						WHEN bn.normalized_name LIKE '% ' || p.reversed_query THEN 3
+						ELSE 4
+					END AS text_rank,
+					COALESCE(bn.embedding <=> p.query_vector, 1) AS distance,
+					similarity(bn.normalized_name, p.query) AS trigram_similarity
+				FROM candidate_ids c
+				JOIN base_names bn ON bn.id = c.id
+				CROSS JOIN params p
+			),
+			ranked_candidates AS (
+				SELECT
+					sc.*,
+					MIN(sc.text_rank) OVER (PARTITION BY sc.element_id) AS best_text_rank,
+					MAX(sc.rank) OVER (PARTITION BY sc.element_id) AS best_rank,
+					BOOL_OR(sc.is_default) OVER (PARTITION BY sc.element_id) AS has_default,
+					ROW_NUMBER() OVER (
+						PARTITION BY sc.element_id
+						ORDER BY
+							sc.rank DESC,
+							sc.is_default DESC,
+							sc.text_rank,
+							sc.distance,
+							sc.trigram_similarity DESC,
+							sc.id
+					) AS element_row_number
+				FROM scored_candidates sc
 			)
 			SELECT
-				bn.id,
-				bn.element_id,
-				bn.element_name,
-				bn.name,
-				COALESCE(bn.embedding <=> p.query_vector, 1) AS distance
-			FROM candidate_ids c
-			JOIN base_names bn ON bn.id = c.id
-			CROSS JOIN params p
+				rc.id,
+				rc.element_id,
+				rc.element_name,
+				rc.name,
+				rc.distance
+			FROM ranked_candidates rc
+			WHERE rc.element_row_number = 1
 			ORDER BY
-				CASE
-					WHEN bn.normalized_name = p.query THEN 0
-					WHEN bn.normalized_element_name = p.query THEN 0
-					WHEN bn.normalized_name IN (
-						'whole ' || p.query,
-						p.query || ' whole'
-					) THEN 1
-					WHEN bn.normalized_name LIKE p.query || ' %' THEN 2
-					WHEN bn.normalized_name LIKE p.query || 's %' THEN 2
-					WHEN bn.normalized_name LIKE '% ' || p.query || ' %' THEN 3
-					WHEN bn.normalized_name LIKE '% ' || p.query || 's %' THEN 3
-					WHEN bn.normalized_name LIKE p.reversed_query || ' %' THEN 3
-					WHEN bn.normalized_name LIKE '% ' || p.reversed_query || ' %' THEN 3
-					ELSE 4
-				END,
-				bn.element_rank,
-				COALESCE(bn.embedding <=> p.query_vector, 1),
-				bn.element_id,
-				bn.id,
-				similarity(bn.normalized_name, p.query) DESC
+				rc.best_text_rank,
+				rc.best_rank DESC,
+				rc.has_default DESC,
+				rc.element_rank,
+				rc.distance,
+				rc.trigram_similarity DESC,
+				rc.element_id,
+				rc.id
 			LIMIT ${SEARCH_RAW_FETCH}
 		`.execute(db);
 

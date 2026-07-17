@@ -8,6 +8,7 @@ import { closeDatabaseConnection, db } from '../../db/client.js';
 import { COLUMN, TABLE } from '../../db/typeIdentifiers.js';
 import { createEmbeddingService } from '../../service/embeddingService.js';
 import { recreateDatabase } from './clean-db.js';
+import { curateUsdaFoundationFoodNames } from './curate-usda-foundation-food-names.js';
 import { dedupeWholeFoods } from './dedupe-whole-foods.js';
 
 type CsvRow = Record<string, string>;
@@ -39,6 +40,10 @@ const STATIC_MEASURES_JSON = path.resolve(
 const SUPPRESSED_FOUNDATION_FOOD_NAMES_JSON = path.resolve(
 	process.cwd(),
 	'../db/dataset/suppressed-foundation-food-names.json',
+);
+const CURATE_FOUNDATION_FOOD_NAMES_JSON = path.resolve(
+	process.cwd(),
+	'../db/dataset/curate-foundation-food-names.json',
 );
 
 const DEFAULT_USER_DAILY_TARGETS = [
@@ -823,6 +828,7 @@ async function main(): Promise<void> {
 		STATIC_USERS_JSON,
 		STATIC_MEASURES_JSON,
 		SUPPRESSED_FOUNDATION_FOOD_NAMES_JSON,
+		CURATE_FOUNDATION_FOOD_NAMES_JSON,
 		path.join(datasetDir, 'nutrient.csv'),
 		path.join(datasetDir, 'food.csv'),
 		path.join(datasetDir, 'food_nutrient.csv'),
@@ -854,6 +860,7 @@ async function main(): Promise<void> {
 	await importFoundationUnits(datasetDir, foodElementByFdcId);
 
 	await dedupeWholeFoods();
+	await curateUsdaFoundationFoodNames();
 
 	logger.info('Embedding food_name rows');
 	const embeddingService = await createEmbeddingService();

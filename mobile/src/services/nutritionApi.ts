@@ -231,6 +231,6 @@ export async function searchFoodNames(
   return hits.slice(0, limit).map((hit) => ({
     id: hit.elementId,
     type: 'whole_food',
-    name: hit.elementName,
+    name: hit.name,
   }));
 }

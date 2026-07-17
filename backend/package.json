@@ -13,6 +13,7 @@
 		"check:fix": "biome check --write .",
 		"clean-reseed": "tsx src/scripts/db/clean-reseed.ts",
 		"dedupe-whole-foods": "tsx src/scripts/db/dedupe-whole-foods.ts",
+		"curate-usda-foundation-food-names": "tsx src/scripts/db/curate-usda-foundation-food-names.ts",
 		"download-usda": "tsx src/scripts/download-usda-datasets.ts",
 		"clean-db": "tsx src/scripts/db/clean-db.ts",
 		"generate-types": "tsx src/scripts/db/generate-db-types.ts",

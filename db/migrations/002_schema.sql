@@ -87,7 +87,9 @@ CREATE TABLE food_name (
   user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   embedding vector(768) NULL,
-  locale TEXT NULL
+  locale TEXT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  rank INTEGER NOT NULL DEFAULT 0
 );
 
 -- meal: timestamped collection of log entries for a user.
@@ -126,6 +128,9 @@ CREATE INDEX idx_food_name_element_id ON food_name(element_id);
 CREATE INDEX idx_food_name_user_id ON food_name(user_id);
 CREATE INDEX idx_food_name_embedding_cosine ON food_name USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX idx_food_name_name_trgm ON food_name USING GIN (name gin_trgm_ops);
+CREATE UNIQUE INDEX idx_food_name_one_default_per_element
+  ON food_name(element_id)
+  WHERE is_default AND user_id IS NULL;
 
 CREATE INDEX idx_meal_user_id_logged_at ON meal(user_id, logged_at DESC);
 

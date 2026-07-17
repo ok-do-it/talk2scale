@@ -44,7 +44,7 @@ async function runCodegen(databaseUrl: string): Promise<void> {
 				'--out-file',
 				'src/db/types.generated.ts',
 				'--type-mapping',
-				'{"int8":"number"}',
+				'{"date":"string","int8":"number"}',
 			],
 			{
 				cwd: backendDir,
