@@ -5,8 +5,8 @@ type FoodPick = {
 	name: string;
 };
 
-type MealSpec = {
-	name: string;
+type LogClusterSpec = {
+	label: string;
 	hour: number;
 	minute: number;
 	items: Array<{
@@ -15,7 +15,7 @@ type MealSpec = {
 	}>;
 };
 
-type SelectedMeal = Omit<MealSpec, 'items'> & {
+type SelectedCluster = Omit<LogClusterSpec, 'items'> & {
 	items: Array<{
 		search: string;
 		amount: number;
@@ -24,9 +24,9 @@ type SelectedMeal = Omit<MealSpec, 'items'> & {
 };
 
 const DEFAULT_USER_ID = 1;
-const MEAL_SPECS: MealSpec[] = [
+const LOG_CLUSTER_SPECS: LogClusterSpec[] = [
 	{
-		name: 'Test Breakfast',
+		label: 'Test Breakfast',
 		hour: 8,
 		minute: 15,
 		items: [
@@ -35,7 +35,7 @@ const MEAL_SPECS: MealSpec[] = [
 		],
 	},
 	{
-		name: 'Test Lunch',
+		label: 'Test Lunch',
 		hour: 12,
 		minute: 30,
 		items: [
@@ -57,7 +57,7 @@ function getUserId(): number {
 	return parsed;
 }
 
-function getTodayAt(hour: number, minute: number): Date {
+function getTodayAt(hour: number, minute: number, offsetSeconds = 0): Date {
 	const now = new Date();
 	return new Date(
 		now.getFullYear(),
@@ -65,7 +65,7 @@ function getTodayAt(hour: number, minute: number): Date {
 		now.getDate(),
 		hour,
 		minute,
-		0,
+		offsetSeconds,
 		0,
 	);
 }
@@ -156,59 +156,49 @@ async function main(): Promise<void> {
 	}
 
 	const usedIds = new Set<number>();
-	const selectedMeals: SelectedMeal[] = [];
-	for (const meal of MEAL_SPECS) {
+	const selectedClusters: SelectedCluster[] = [];
+	for (const cluster of LOG_CLUSTER_SPECS) {
 		const items = [];
-		for (const item of meal.items) {
+		for (const item of cluster.items) {
 			items.push({
 				...item,
 				food: await pickFood(item.search, usedIds),
 			});
 		}
-		selectedMeals.push({ ...meal, items });
+		selectedClusters.push({ ...cluster, items });
 	}
 
 	const { from, to } = getTodayRange();
 	const inserted = await db.transaction().execute(async (trx) => {
+		const rawNames = selectedClusters.flatMap((cluster) =>
+			cluster.items.map((item) => item.food.name),
+		);
 		await trx
-			.deleteFrom('meal')
+			.deleteFrom('food_log')
 			.where('user_id', '=', userId)
-			.where(
-				'name',
-				'in',
-				MEAL_SPECS.map((meal) => meal.name),
-			)
+			.where('raw_name', 'in', rawNames)
 			.where('logged_at', '>=', from)
 			.where('logged_at', '<=', to)
 			.execute();
 
 		const rows = [];
-		for (const meal of selectedMeals) {
-			const insertedMeal = await trx
-				.insertInto('meal')
-				.values({
-					user_id: userId,
-					name: meal.name,
-					logged_at: getTodayAt(meal.hour, meal.minute),
-				})
-				.returning(['id', 'name', 'logged_at'])
-				.executeTakeFirstOrThrow();
-
+		for (const cluster of selectedClusters) {
 			const foodLogs = await trx
 				.insertInto('food_log')
 				.values(
-					meal.items.map((item) => ({
-						meal_id: insertedMeal.id,
+					cluster.items.map((item, index) => ({
+						user_id: userId,
+						logged_at: getTodayAt(cluster.hour, cluster.minute, index * 30),
 						element_id: item.food.id,
 						raw_name: item.food.name,
 						amount: item.amount,
 						measure_id: gramMeasure.id,
 					})),
 				)
-				.returning(['id', 'raw_name', 'amount'])
+				.returning(['id', 'raw_name', 'amount', 'logged_at'])
 				.execute();
 
-			rows.push({ ...insertedMeal, food_logs: foodLogs });
+			rows.push({ label: cluster.label, food_logs: foodLogs });
 		}
 
 		return rows;

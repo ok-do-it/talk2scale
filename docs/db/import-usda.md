@@ -14,7 +14,6 @@ It imports into these DB tables:
 It does **not** import into:
 
 - `users` (seeded from static JSON instead)
-- `meal`
 - `food_log`
 
 ## Running

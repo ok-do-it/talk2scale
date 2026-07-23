@@ -201,21 +201,21 @@ GET /measures/42?user_id=1
 
 ---
 
-## Meals
+## Food logs
 
-### `POST /meals`
+### `POST /food-logs`
 
-Create a new meal. Name is assigned by the server based on `logged_at` (or `NOW()` if omitted): **Breakfast** 05–11h, **Lunch** 11–16h, **Dinner** 16–22h, **Late Night** otherwise.
+Create a single food log entry for a user. `logged_at` defaults to now when omitted.
 
 **Request body**
 ```json
 {
   "user_id": 1,
   "logged_at": "2026-05-04T08:30:00Z",
-  "food_logs": [
-    { "element_id": 42, "raw_name": "oatmeal", "amount": 1, "measure_id": 5 },
-    { "element_id": null, "raw_name": "mystery berry", "amount": 100, "measure_id": 1 }
-  ]
+  "element_id": 42,
+  "raw_name": "oatmeal",
+  "amount": 100,
+  "measure_id": 1
 }
 ```
 
@@ -224,102 +224,73 @@ Create a new meal. Name is assigned by the server based on `logged_at` (or `NOW(
 **Response** `201`
 ```json
 {
-  "id": 7,
+  "id": 12,
   "user_id": 1,
-  "name": "Breakfast",
   "logged_at": "2026-05-04T08:30:00.000Z",
-  "food_logs": [
-    { "id": 12, "meal_id": 7, "element_id": 42, "raw_name": "oatmeal", "amount": 1, "measure_id": 5 },
-    { "id": 13, "meal_id": 7, "element_id": null, "raw_name": "mystery berry", "amount": 100, "measure_id": 1 }
-  ]
+  "element_id": 42,
+  "raw_name": "oatmeal",
+  "amount": 100,
+  "measure_id": 1
 }
 ```
 
 ---
 
-### `GET /meals/:id`
+### `GET /food-logs/:id`
 
-Fetch a meal with its food logs.
+Fetch a single food log.
 
-**Response** `200` — same shape as `POST /meals` response
-
----
-
-### `PATCH /meals/:id/name`
-
-Rename a meal.
-
-**Request body**
-```json
-{ "name": "Sunday Brunch" }
-```
-
-**Response** `200` — updated meal row (without food logs)
+**Response** `200` — same shape as `POST /food-logs` response
 
 ---
 
-### `POST /meals/:id/food-logs`
+### `DELETE /food-logs/:id`
 
-Add a food log item to an existing meal. Request body is a single food log item (same shape as items in `POST /meals`).
-
-**Response** `201` — created food log row
-
----
-
-### `DELETE /meals/:id/food-logs/:logId`
-
-Remove a food log item from a meal.
+Delete a food log.
 
 **Response** `204`
 
 ---
 
-### `GET /meals/:id/nutrients`
+### `GET /food-logs/:id/nutrients`
 
-Aggregated nutrients for all resolved food log items in the meal. Nutrients are summed across items. Unresolved items (`element_id: null`) are skipped.
+Nutrients for one resolved food log. Unresolved items (`element_id: null`) return an empty group list.
 
 **Response** `200` — same structure as `GET /element/:id/nutrients`
 
 ---
 
-### `GET /users/:userId/meals`
+### `GET /users/:userId/food-logs`
 
-List all meals for a user, newest first. Each meal includes its food logs. `from` / `to` are optional ISO 8601 datetimes bounding `logged_at`.
+List food logs for a user, newest first. `from` / `to` are optional ISO 8601 datetimes bounding `logged_at`.
 
 ```
-GET /users/1/meals
-GET /users/1/meals?from=2026-05-04T00:00:00Z&to=2026-05-04T23:59:59Z
+GET /users/1/food-logs
+GET /users/1/food-logs?from=2026-05-04T00:00:00Z&to=2026-05-04T23:59:59Z
 ```
 
-**Response** `200` — array of meals in `POST /meals` shape, ordered by `logged_at` desc, with an additional computed `kcal` total per meal
+**Response** `200` — array of food logs with computed `kcal` per row
 
 ```json
 [
   {
-    "id": 7,
+    "id": 12,
     "user_id": 1,
-    "name": "Breakfast",
     "logged_at": "2026-05-04T08:30:00.000Z",
-    "kcal": 312.5,
-    "food_logs": [
-      {
-        "id": 12,
-        "meal_id": 7,
-        "element_id": 42,
-        "raw_name": "oatmeal",
-        "amount": 1,
-        "measure_id": 5
-      }
-    ]
+    "element_id": 42,
+    "raw_name": "oatmeal",
+    "amount": 100,
+    "measure_id": 1,
+    "kcal": 312.5
   }
 ]
 ```
 
 ---
 
-### `GET /users/:userId/meals/nutrients`
+### `GET /users/:userId/food-logs/nutrients`
 
-Aggregated nutrients across all of a user's meals in a date range. Same `from` / `to` query params as `GET /users/:userId/meals`.
+Aggregated nutrients across all of a user's food logs in a date range. Same `from` / `to` query params as `GET /users/:userId/food-logs`.
 
 **Response** `200` — same structure as `GET /element/:id/nutrients`
 
@@ -339,11 +310,12 @@ Create a new user recipe. Automatically adds a `whole batch` measure (total of a
     { "element_id": 10, "grams": 80 },
     { "element_id": 20, "grams": 150 }
   ],
-  "serving_grams": 230
+  "serving_grams": 230,
+  "user_id": 1
 }
 ```
 
-`serving_grams` is optional. `link.ratio` is computed as `child.grams / sum(children.grams)`.
+`serving_grams` is optional. `user_id` is optional and, when set, stored as `element.external_id`. `link.ratio` is computed as `child.grams / sum(children.grams)`.
 
 **Response** `201`
 ```json
@@ -352,7 +324,7 @@ Create a new user recipe. Automatically adds a `whole batch` measure (total of a
   "type": "recipe",
   "name": "Overnight Oats",
   "source": "user",
-  "external_id": null,
+  "external_id": "1",
   "links": [
     { "parent_id": 55, "child_id": 10, "ratio": 0.348 },
     { "parent_id": 55, "child_id": 20, "ratio": 0.652 }

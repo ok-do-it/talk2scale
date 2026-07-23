@@ -45,9 +45,10 @@ export interface FoodLog {
   amount: number;
   element_id: number | null;
   id: Generated<number>;
-  meal_id: number;
+  logged_at: Generated<Timestamp>;
   measure_id: number;
   raw_name: string;
+  user_id: number;
 }
 
 export interface FoodName {
@@ -65,13 +66,6 @@ export interface Link {
   child_id: number;
   parent_id: number;
   ratio: number;
-}
-
-export interface Meal {
-  id: Generated<number>;
-  logged_at: Generated<Timestamp>;
-  name: string | null;
-  user_id: number;
 }
 
 export interface Measure {
@@ -96,7 +90,6 @@ export interface DB {
   food_log: FoodLog;
   food_name: FoodName;
   link: Link;
-  meal: Meal;
   measure: Measure;
   users: Users;
 }

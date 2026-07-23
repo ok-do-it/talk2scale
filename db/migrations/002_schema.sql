@@ -5,7 +5,7 @@
 -- - Mobile app syncs food data and logs through backend APIs.
 -- - Core entities:
 --   users, element (canonical nutrients/foods/recipes), food_name (search/display names),
---   link (recursive composition), measure (serving definitions), meal, food_log.
+--   link (recursive composition), measure (serving definitions), food_log.
 --
 -- Data scale estimations for full USDA FoodData Central import:
 -- - element: ~510k rows (nutrients, generic foods, branded foods)
@@ -28,7 +28,7 @@ CREATE TYPE data_source AS ENUM ('user', 'usda', 'admin');
 --   shape: { "kcal": <number>, "nutrient_amounts": [{ "id": <element_id>, "grams": <number> }, ...] }
 --   shape is validated in the application layer, not via CHECK.
 -- - tracking_started_on is the date the user first logged data. Set by the app on
---   first meal/food_log/calories_burned write and used as the lower bound for
+--   first food_log/calories_burned write and used as the lower bound for
 --   "all time" date-range queries instead of scanning from epoch.
 CREATE TABLE users (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -92,21 +92,15 @@ CREATE TABLE food_name (
   rank INTEGER NOT NULL DEFAULT 0
 );
 
--- meal: timestamped collection of log entries for a user.
-CREATE TABLE meal (
-  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT NULL,
-  logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- food_log: one recorded food/recipe amount within a meal.
+-- food_log: one recorded food/recipe amount for a user.
 -- - raw_name stores original voice/text input.
 -- - element_id is nullable until entity resolution completes.
 -- - amount + measure_id represent quantity (grams, cup, slice, etc.).
+-- - logged_at is per-entry; UI may visually cluster nearby timestamps.
 CREATE TABLE food_log (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  meal_id BIGINT NOT NULL REFERENCES meal(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   element_id BIGINT REFERENCES element(id) ON DELETE SET NULL,
   raw_name TEXT NOT NULL,
   amount DOUBLE PRECISION NOT NULL CHECK (amount > 0),
@@ -132,9 +126,7 @@ CREATE UNIQUE INDEX idx_food_name_one_default_per_element
   ON food_name(element_id)
   WHERE is_default AND user_id IS NULL;
 
-CREATE INDEX idx_meal_user_id_logged_at ON meal(user_id, logged_at DESC);
-
-CREATE INDEX idx_food_log_meal_id ON food_log(meal_id);
+CREATE INDEX idx_food_log_user_id_logged_at ON food_log(user_id, logged_at DESC);
 CREATE INDEX idx_food_log_element_id ON food_log(element_id);
 CREATE INDEX idx_food_log_measure_id ON food_log(measure_id);
 

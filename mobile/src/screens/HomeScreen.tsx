@@ -1,102 +1,54 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  FlatList,
-  type GestureResponderEvent,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
+import { CalibrationOverlay } from '../components/CalibrationOverlay';
+import {
+  FoodLogList,
+  toFoodLogRow,
+  type FoodLogRow,
+} from '../components/FoodLogList';
+import {
+  buildSummaryRows,
+  NutritionSummaryPanel,
+  type SummaryRow,
+} from '../components/NutritionSummaryPanel';
+import {
+  ScaleIngredientEntry,
+  type ResolvedFood,
+} from '../components/ScaleIngredientEntry';
 import type { RootStackParamList } from '../navigation/types';
 import {
-  deleteMeal,
+  createFoodLog,
+  deleteFoodLog,
   fetchDailyTargets,
   fetchNutrientElements,
-  fetchUserMealNutrients,
-  fetchUserMeals,
-  type ApiMeal,
-  type DailyTargets,
-  type ElementSummary,
-  type NutrientEntry,
-  type NutrientGroup,
+  fetchUserFoodLogNutrients,
+  fetchUserFoodLogs,
 } from '../services/nutritionApi';
 import { DEFAULT_USER_ID, getUserId, setUserId } from '../services/storage';
 import { fetchUser } from '../services/userApi';
+import { useScaleStore } from '../state/scaleStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-type SummaryRow = {
-  key: 'calories' | 'protein' | 'fiber' | 'fat';
-  label: string;
-  amount: number;
-  target: number | null;
-  unit: 'kcal' | 'g';
-};
-
-type MealRow = {
-  id: number;
-  name: string;
-  time: string;
-  calories: number;
-};
-
-type SwipeableMealRowProps = {
-  item: MealRow;
-  onPress: (mealId: number) => void;
-  onSwipeRight: (meal: MealRow) => void;
-};
-
-const SUMMARY_NUTRIENTS: Array<{
-  key: SummaryRow['key'];
-  label: string;
-  unit: SummaryRow['unit'];
-  match: (nutrient: NutrientEntry) => boolean;
-}> = [
-  {
-    key: 'calories',
-    label: 'Calories',
-    unit: 'kcal',
-    match: (nutrient) => {
-      const name = nutrient.name.toLowerCase();
-      return (
-        nutrient.calculated === true ||
-        name.includes('energy') ||
-        name.includes('kcal') ||
-        name.includes('calorie')
-      );
-    },
-  },
-  {
-    key: 'protein',
-    label: 'Protein',
-    unit: 'g',
-    match: (nutrient) => nutrient.name.toLowerCase().includes('protein'),
-  },
-  {
-    key: 'fiber',
-    label: 'Fiber',
-    unit: 'g',
-    match: (nutrient) => nutrient.name.toLowerCase().includes('fiber'),
-  },
-  {
-    key: 'fat',
-    label: 'Fat',
-    unit: 'g',
-    match: (nutrient) => {
-      const name = nutrient.name.toLowerCase();
-      return name.includes('fat') || name.includes('total lipid');
-    },
-  },
-];
+const GRAM_MEASURE_ID = 1;
+const CAROUSEL_PAGES = 2;
 
 function getTodayRange(): { from: Date; to: Date } {
   const now = new Date();
@@ -113,117 +65,17 @@ function getTodayRange(): { from: Date; to: Date } {
   return { from, to };
 }
 
-function getAllNutrients(groups: NutrientGroup[]): NutrientEntry[] {
-  return groups.flatMap((group) => group.nutrients);
-}
-
-function formatAmount(amount: number, unit: SummaryRow['unit']): string {
-  if (unit === 'kcal') return String(Math.round(amount));
-  if (amount >= 10) return String(Math.round(amount));
-  if (amount === 0) return '0';
-  return amount.toFixed(1);
-}
-
-function buildSummaryRows(
-  groups: NutrientGroup[],
-  targets: DailyTargets | null,
-  targetNutrients: ElementSummary[] = [],
-): SummaryRow[] {
-  const nutrients = getAllNutrients(groups);
-  return SUMMARY_NUTRIENTS.map(({ key, label, unit, match }) => {
-    const nutrient = nutrients.find(match);
-    const amount = nutrient?.amount ?? 0;
-    const matchingTarget = targets?.nutrient_amounts.find((item) => {
-      if (item.id === nutrient?.id) return true;
-      const element = targetNutrients.find((entry) => entry.id === item.id);
-      return element
-        ? match({ id: element.id, name: element.name, amount: 0 })
-        : false;
-    });
-    const target =
-      key === 'calories'
-        ? targets?.kcal ?? null
-        : matchingTarget?.grams ?? null;
-
-    return { key, label, unit, amount, target };
-  });
-}
-
-function getProgress(row: SummaryRow): number {
-  if (row.target === null || row.target <= 0) {
-    return row.amount > 0 ? 100 : 0;
-  }
-  return Math.min((row.amount / row.target) * 100, 100);
-}
-
-function getValueText(row: SummaryRow): string {
-  const amount = formatAmount(row.amount, row.unit);
-  if (row.target === null) return `${amount} ${row.unit}`;
-  return `${amount}/${formatAmount(row.target, row.unit)} ${row.unit}`;
-}
-
-function toMealRow(meal: ApiMeal): MealRow {
-  return {
-    id: meal.id,
-    name: meal.name ?? 'Meal',
-    time: new Date(meal.logged_at).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    }),
-    calories: Math.round(meal.kcal ?? 0),
-  };
-}
-
-function SwipeableMealRow({
-  item,
-  onPress,
-  onSwipeRight,
-}: SwipeableMealRowProps) {
-  const startXRef = useRef<number | null>(null);
-  const swipedRef = useRef(false);
-
-  const onTouchStart = (event: GestureResponderEvent) => {
-    startXRef.current = event.nativeEvent.pageX;
-    swipedRef.current = false;
-  };
-
-  const onTouchEnd = (event: GestureResponderEvent) => {
-    const startX = startXRef.current;
-    startXRef.current = null;
-    if (startX === null) return;
-    const deltaX = event.nativeEvent.pageX - startX;
-    if (deltaX > 60) {
-      swipedRef.current = true;
-      onSwipeRight(item);
-    }
-  };
-
-  return (
-    <Pressable
-      style={styles.mealRow}
-      onPress={() => {
-        if (swipedRef.current) return;
-        onPress(item.id);
-      }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
-      <Text style={styles.mealName} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <Text style={styles.mealTime}>{item.time}</Text>
-      <Text style={styles.mealCal}>{item.calories}</Text>
-    </Pressable>
-  );
-}
-
 export function HomeScreen({ navigation }: Props) {
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const carouselRef = useRef<ScrollView>(null);
+  const isFocused = useIsFocused();
+  const isConnected = useScaleStore((s) => s.isConnected);
+
   const [userId, setUserIdState] = useState(DEFAULT_USER_ID);
   const [userName, setUserName] = useState<string | null>(null);
-  const [mealRows, setMealRows] = useState<MealRow[]>([]);
-  const [mealsLoading, setMealsLoading] = useState(true);
-  const [mealsError, setMealsError] = useState<string | null>(null);
+  const [foodLogRows, setFoodLogRows] = useState<FoodLogRow[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [logsError, setLogsError] = useState<string | null>(null);
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(() =>
     buildSummaryRows([], null),
   );
@@ -231,7 +83,23 @@ export function HomeScreen({ navigation }: Props) {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [userIdInput, setUserIdInput] = useState('');
-  const summaryHeight = Math.max(160, Math.round(height * 0.24));
+  const [pageIndex, setPageIndex] = useState(0);
+  const [showCalib, setShowCalib] = useState(false);
+  const [savingFood, setSavingFood] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const foodLogsRequestIdRef = useRef(0);
+  const summaryRequestIdRef = useRef(0);
+
+  const carouselHeight = Math.max(280, Math.round(height * 0.36));
+
+  const goToPage = useCallback(
+    (index: number) => {
+      const next = Math.max(0, Math.min(CAROUSEL_PAGES - 1, index));
+      carouselRef.current?.scrollTo({ x: next * width, animated: true });
+      setPageIndex(next);
+    },
+    [width],
+  );
 
   const loadUserProfile = useCallback(async (id: number) => {
     if (id <= 0) {
@@ -246,33 +114,42 @@ export function HomeScreen({ navigation }: Props) {
     }
   }, []);
 
-  const loadMeals = useCallback(async (id: number) => {
+  const loadFoodLogs = useCallback(async (id: number) => {
+    const requestId = ++foodLogsRequestIdRef.current;
     if (id <= 0) {
-      setMealRows([]);
-      setMealsLoading(false);
-      setMealsError(null);
+      if (requestId === foodLogsRequestIdRef.current) {
+        setFoodLogRows([]);
+        setLogsLoading(false);
+        setLogsError(null);
+      }
       return;
     }
 
-    setMealsLoading(true);
-    setMealsError(null);
+    setLogsLoading(true);
+    setLogsError(null);
     try {
       const { from, to } = getTodayRange();
-      const meals = await fetchUserMeals(id, from, to);
-      setMealRows(meals.map(toMealRow));
+      const logs = await fetchUserFoodLogs(id, from, to);
+      if (requestId !== foodLogsRequestIdRef.current) return;
+      setFoodLogRows(logs.map(toFoodLogRow));
     } catch {
-      setMealRows([]);
-      setMealsError('Unable to load meals');
+      if (requestId !== foodLogsRequestIdRef.current) return;
+      setLogsError('Unable to load food logs');
     } finally {
-      setMealsLoading(false);
+      if (requestId === foodLogsRequestIdRef.current) {
+        setLogsLoading(false);
+      }
     }
   }, []);
 
   const loadSummary = useCallback(async (id: number) => {
+    const requestId = ++summaryRequestIdRef.current;
     if (id <= 0) {
-      setSummaryRows(buildSummaryRows([], null));
-      setSummaryLoading(false);
-      setSummaryError(null);
+      if (requestId === summaryRequestIdRef.current) {
+        setSummaryRows(buildSummaryRows([], null));
+        setSummaryLoading(false);
+        setSummaryError(null);
+      }
       return;
     }
 
@@ -281,28 +158,31 @@ export function HomeScreen({ navigation }: Props) {
     try {
       const { from, to } = getTodayRange();
       const [groups, targets] = await Promise.all([
-        fetchUserMealNutrients(id, from, to),
+        fetchUserFoodLogNutrients(id, from, to),
         fetchDailyTargets(id),
       ]);
       const targetNutrients =
         targets !== null && targets.nutrient_amounts.length > 0
           ? await fetchNutrientElements()
           : [];
+      if (requestId !== summaryRequestIdRef.current) return;
       setSummaryRows(buildSummaryRows(groups, targets, targetNutrients));
     } catch {
-      setSummaryRows(buildSummaryRows([], null));
+      if (requestId !== summaryRequestIdRef.current) return;
+      // Keep the last successful totals visible; only surface the error.
       setSummaryError('Unable to load today');
     } finally {
-      setSummaryLoading(false);
+      if (requestId === summaryRequestIdRef.current) {
+        setSummaryLoading(false);
+      }
     }
   }, []);
 
   const refreshDashboard = useCallback(
-    (id: number) => {
-      void loadMeals(id);
-      void loadSummary(id);
+    async (id: number) => {
+      await Promise.all([loadFoodLogs(id), loadSummary(id)]);
     },
-    [loadMeals, loadSummary],
+    [loadFoodLogs, loadSummary],
   );
 
   useEffect(() => {
@@ -311,13 +191,12 @@ export function HomeScreen({ navigation }: Props) {
 
   useEffect(() => {
     void loadUserProfile(userId);
-    void loadMeals(userId);
-    void loadSummary(userId);
-  }, [loadMeals, loadSummary, loadUserProfile, userId]);
+    void refreshDashboard(userId);
+  }, [loadUserProfile, refreshDashboard, userId]);
 
   useFocusEffect(
     useCallback(() => {
-      refreshDashboard(userId);
+      void refreshDashboard(userId);
     }, [refreshDashboard, userId]),
   );
 
@@ -340,16 +219,9 @@ export function HomeScreen({ navigation }: Props) {
     setShowUserDialog(false);
   };
 
-  const openMealEditor = useCallback(
-    (mealId: number) => {
-      navigation.navigate('Scale', { mealId });
-    },
-    [navigation],
-  );
-
-  const confirmDeleteMeal = useCallback(
-    (meal: MealRow) => {
-      Alert.alert('Are you sure', `Delete ${meal.name}?`, [
+  const confirmDeleteLog = useCallback(
+    (log: FoodLogRow) => {
+      Alert.alert('Are you sure', `Delete ${log.name}?`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -357,10 +229,10 @@ export function HomeScreen({ navigation }: Props) {
           onPress: () => {
             void (async () => {
               try {
-                await deleteMeal(meal.id);
-                refreshDashboard(userId);
+                await deleteFoodLog(log.id);
+                await refreshDashboard(userId);
               } catch {
-                Alert.alert('Unable to delete meal');
+                Alert.alert('Unable to delete food log');
               }
             })();
           },
@@ -370,16 +242,36 @@ export function HomeScreen({ navigation }: Props) {
     [refreshDashboard, userId],
   );
 
-  const renderMeal = useCallback(
-    ({ item }: { item: MealRow }) => (
-      <SwipeableMealRow
-        item={item}
-        onPress={openMealEditor}
-        onSwipeRight={confirmDeleteMeal}
-      />
-    ),
-    [confirmDeleteMeal, openMealEditor],
+  const handleFoodResolved = useCallback(
+    async (food: ResolvedFood) => {
+      setSavingFood(true);
+      try {
+        await createFoodLog({
+          user_id: userId,
+          logged_at: new Date().toISOString(),
+          element_id: food.element.id,
+          raw_name: food.rawName,
+          amount: food.amountGrams,
+          measure_id: GRAM_MEASURE_ID,
+        });
+        await refreshDashboard(userId);
+      } finally {
+        setSavingFood(false);
+      }
+    },
+    [refreshDashboard, userId],
   );
+
+  const onCarouselScrollEnd = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    const next = Math.round(event.nativeEvent.contentOffset.x / width);
+    const clamped = Math.max(0, Math.min(CAROUSEL_PAGES - 1, next));
+    setPageIndex(clamped);
+    if (clamped === 0) {
+      void loadSummary(userId);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -387,80 +279,105 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable style={styles.iconBtn} onPress={openUserDialog}>
           <Ionicons name="person-circle-outline" size={32} color="#333" />
         </Pressable>
-        <Text style={styles.userLabel}>
-          {userName ?? `#${userId}`}
-        </Text>
+        <Text style={styles.userLabel}>{userName ?? `#${userId}`}</Text>
         <View style={styles.spacer} />
         <Pressable
           style={styles.iconBtn}
           onPress={() =>
-            navigation.navigate('Connection', { autoStartConnect: true })
+            navigation.navigate('Connection', {
+              autoStartConnect: !isConnected(),
+            })
           }
         >
           <Ionicons name="bluetooth" size={28} color="#333" />
         </Pressable>
-        <Pressable style={styles.iconBtn}>
+        <Pressable
+          style={styles.iconBtn}
+          onPress={() => {
+            if (!isConnected()) {
+              Alert.alert('Scale not connected');
+              return;
+            }
+            setShowCalib(true);
+          }}
+        >
+          <Ionicons name="settings-outline" size={28} color="#333" />
+        </Pressable>
+        <Pressable style={styles.iconBtn} onPress={() => setMenuOpen(true)}>
           <Ionicons name="menu" size={28} color="#333" />
         </Pressable>
       </View>
 
-      <View style={[styles.summary, { height: summaryHeight }]}>
-        <View style={styles.summaryHeader}>
-          <Text style={styles.summaryTitle}>Today</Text>
-          <Text style={styles.summarySubtitle}>
-            {summaryLoading
-              ? 'Loading...'
-              : summaryError ?? 'Daily targets'}
-          </Text>
-        </View>
-        <View style={styles.summaryBars}>
-          {summaryRows.map((row) => (
-            <View key={row.key} style={styles.nutrientRow}>
-              <Text style={styles.nutrientName}>{row.label}</Text>
-              <View style={styles.nutrientTrack}>
-                <View
-                  style={[
-                    styles.nutrientFill,
-                    { width: `${getProgress(row)}%` },
-                    row.target === null && styles.nutrientFillUntargeted,
-                  ]}
-                />
-              </View>
-              <Text style={styles.nutrientValue} numberOfLines={1}>
-                {getValueText(row)}
-              </Text>
-            </View>
-          ))}
+      <View style={[styles.carouselWrap, { height: carouselHeight }]}>
+        <ScrollView
+          ref={carouselRef}
+          horizontal
+          pagingEnabled
+          removeClippedSubviews={false}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onCarouselScrollEnd}
+          style={{ width }}
+        >
+          <View style={{ width, height: carouselHeight }}>
+            <NutritionSummaryPanel
+              key={`summary-${summaryRows.map((row) => `${row.key}:${row.amount}`).join('|')}`}
+              rows={summaryRows}
+              loading={summaryLoading}
+              error={summaryError}
+            />
+          </View>
+          <View style={{ width, height: carouselHeight }}>
+            <ScrollView
+              nestedScrollEnabled
+              contentContainerStyle={styles.scalePageContent}
+            >
+              <ScaleIngredientEntry
+                active={isFocused && pageIndex === 1}
+                busy={savingFood}
+                onFoodResolved={handleFoodResolved}
+              />
+            </ScrollView>
+          </View>
+        </ScrollView>
+        <View style={styles.dots}>
+          <Pressable
+            accessibilityLabel="Nutrition"
+            onPress={() => goToPage(0)}
+            style={[styles.dot, pageIndex === 0 && styles.dotActive]}
+          />
+          <Pressable
+            accessibilityLabel="Scale"
+            onPress={() => goToPage(1)}
+            style={[styles.dot, pageIndex === 1 && styles.dotActive]}
+          />
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Meals and snacks</Text>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.headerCell, styles.nameCol]}>Name</Text>
-        <Text style={[styles.headerCell, styles.timeCol]}>Time</Text>
-        <Text style={[styles.headerCell, styles.calCol]}>Cal</Text>
-      </View>
-
-      <FlatList
-        data={mealRows}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderMeal}
-        style={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {mealsLoading ? 'Loading meals...' : mealsError ?? 'No meals yet'}
-          </Text>
-        }
+      <Text style={styles.sectionTitle}>Today's food</Text>
+      <FoodLogList
+        logs={foodLogRows}
+        loading={logsLoading}
+        error={logsError}
+        onSwipeDelete={confirmDeleteLog}
       />
 
       <View style={styles.footer}>
-        <Pressable
-          style={styles.mealBtn}
-          onPress={() => navigation.navigate('Scale', undefined)}
-        >
-          <Text style={styles.mealBtnText}>+ Meal</Text>
-          <Ionicons name="scale-outline" size={20} color="#fff" />
-        </Pressable>
+        {pageIndex === 0 ? (
+          <Pressable style={styles.primaryBtn} onPress={() => goToPage(1)}>
+            <Text style={styles.primaryBtnText}>Add Food From Scale</Text>
+            <Ionicons name="scale-outline" size={20} color="#fff" />
+          </Pressable>
+        ) : (
+          <Pressable
+            style={styles.secondaryBtn}
+            onPress={() => {
+              goToPage(0);
+              void loadSummary(userId);
+            }}
+          >
+            <Text style={styles.secondaryBtnText}>Back</Text>
+          </Pressable>
+        )}
       </View>
 
       <Modal visible={showUserDialog} transparent animationType="fade">
@@ -485,6 +402,30 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={menuOpen} transparent animationType="fade">
+        <Pressable
+          style={styles.dialogBackdrop}
+          onPress={() => setMenuOpen(false)}
+        >
+          <View style={styles.menuCard}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuOpen(false);
+                navigation.navigate('CreateRecipe');
+              }}
+            >
+              <Text style={styles.menuItemText}>Create Recipe</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <CalibrationOverlay
+        visible={showCalib}
+        onClose={() => setShowCalib(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -499,88 +440,36 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 8 },
   userLabel: { fontSize: 16, marginLeft: 4 },
   spacer: { flex: 1 },
-  summary: {
-    margin: 12,
-    padding: 18,
-    backgroundColor: '#f5f7fb',
-    borderRadius: 12,
-    gap: 18,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  summaryTitle: { fontSize: 20, fontWeight: 'bold' },
-  summarySubtitle: { color: '#666', fontSize: 13 },
-  summaryBars: {
-    gap: 14,
-  },
-  nutrientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  nutrientName: {
-    width: 72,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  nutrientTrack: {
-    flex: 1,
-    height: 12,
+  carouselWrap: {
     overflow: 'hidden',
-    backgroundColor: '#dde3ea',
-    borderRadius: 999,
   },
-  nutrientFill: {
-    height: '100%',
+  scalePageContent: {
+    paddingBottom: 8,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#c5ced8',
+  },
+  dotActive: {
     backgroundColor: '#1976D2',
-    borderRadius: 999,
-  },
-  nutrientFillUntargeted: {
-    backgroundColor: '#8aa4bf',
-  },
-  nutrientValue: {
-    width: 92,
-    fontSize: 12,
-    color: '#555',
-    textAlign: 'right',
-    flexShrink: 0,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 4,
   },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  headerCell: { fontSize: 14, fontWeight: 'bold' },
-  nameCol: { flex: 3 },
-  timeCol: { flex: 1, textAlign: 'right' },
-  calCol: { flex: 1, textAlign: 'right' },
-  list: { flex: 1 },
-  mealRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ddd',
-  },
-  mealName: { flex: 3, fontSize: 15 },
-  mealTime: { flex: 1, textAlign: 'right', fontSize: 15 },
-  mealCal: { flex: 1, textAlign: 'right', fontSize: 15 },
-  empty: { textAlign: 'center', color: '#888', marginTop: 24 },
   footer: { padding: 16 },
-  mealBtn: {
+  primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -589,7 +478,16 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 4,
   },
-  mealBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  secondaryBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  secondaryBtnText: { fontSize: 16, fontWeight: '600', color: '#333' },
   dialogBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -611,4 +509,21 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   dialogOk: { fontWeight: '600', color: '#1976D2' },
+  menuCard: {
+    alignSelf: 'flex-end',
+    marginTop: 56,
+    marginRight: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    minWidth: 180,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#222',
+  },
 });

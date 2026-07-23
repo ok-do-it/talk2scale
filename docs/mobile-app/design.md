@@ -71,8 +71,8 @@ The current flow is push-to-record:
 1. Request microphone permission.
 2. Record up to the configured max duration.
 3. Upload the audio file to the backend.
-4. Use the resolved food name in the meal logging UI.
+4. Use the resolved food name in the dashboard scale carousel or Create Recipe screen.
 
 ## Persistence
 
-Device identity is stored through `mobile/src/services/storage.ts`. Meal and log state is currently held in the Zustand store during the app session.
+Device identity and the selected user id are stored through `mobile/src/services/storage.ts`. Food logs persist immediately through the backend API. The dashboard shows today's food logs in a shared list under a two-page Nutrition/Scale carousel; nearby timestamps are clustered client-side (30 minutes). Recipes are drafted locally and saved atomically with `POST /recipes`.

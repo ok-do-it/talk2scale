@@ -29,7 +29,7 @@ Start the backend and open `http://localhost:8888/explore.html`.
 
 ## Run backend + mobile app
 
-Use this flow to test audio food search while adding meal log items in the scale app.
+Use this flow to test audio food search while adding food log items in the scale app.
 
 1. Create local env files once:
 
@@ -68,11 +68,11 @@ Wait for the backend to report that the database, embedding model, voice model, 
 - [Run on Android emulator](docs/mobile-app/run-emulator.md)
 - [Run on WiFi Android phone](docs/mobile-app/run-phone.md)
 
-6. In the app, open the scale screen. Without real BLE hardware, use mock scale mode: tap the large weight display to add a mock weight.
+6. In the app, open the home dashboard. Swipe the top carousel to the Scale page, or tap **Add Food From Scale**. Without real BLE hardware, use mock scale mode: tap the large weight display to add a mock weight.
 
-7. Hold **Hold to speak**, say a food name, then release. The app sends the recording to `/voice/transcribe`, searches for the matched food, and adds it to the current meal log with the current weight.
+7. Hold **Hold to speak**, say a food name, then release. The app sends the recording to `/voice/transcribe`, searches for the matched food, and immediately creates a `food_log` with the current weight.
 
-8. Repeat for more items, then tap **Submit**. Meal submission is currently stored in mobile local state; audio search uses the backend.
+8. Repeat for more items. Nearby logs are visually clustered by timestamp. Tap **Back** to return to the nutrition summary page; there is no Submit step.
 
 ## User flow (end-to-end)
 
@@ -85,7 +85,7 @@ Scale (stable weight) ──BLE──► Mobile app ──► Backend ──► 
 
 ## Speech-to-text (mobile)
 
-The React Native app records a short audio clip and sends it to the backend voice endpoint. The backend transcribes and resolves the spoken food name before the app adds it to the current meal flow.
+The React Native app records a short audio clip and sends it to the backend voice endpoint. The backend transcribes and resolves the spoken food name before the app creates a food log.
 
 ## Hardware (summary)
 
@@ -117,8 +117,8 @@ Exact UUIDs, byte order, field widths, command opcodes, and error handling belon
 | **Link** | Recursive composition junction (`parentId`, `childId`, `ratio`). Creates a directed acyclic graph (DAG) of components. |
 | **food_name** | Searchable/display aliases for an Element (`id`, `elementId`, `name`, `locale`, `is_default`, `rank`). USDA long descriptions plus curated short names; see [`docs/db/import-usda.md`](docs/db/import-usda.md). |
 | **Unit** | Serving definitions like "slice" or "cup" (`id`, `elementId`, `name`, `grams`). |
-| **Meal** | Timestamped collection of logs (`id`, `userId`, `name`, `loggedAt`). |
-| **Log** | A single weighed portion: `id`, `mealId` (FK → Meal), `elementId` (FK → Element), `amount`, `measureId` (FK → Measure), `rawName`. **No macro columns** — resolve nutrition by joining `Element` and `Link` using recursive CTEs. |
+| **food_log** | One weighed portion: `id`, `userId`, `loggedAt`, `elementId` (FK → Element), `amount`, `measureId` (FK → Measure), `rawName`. **No macro columns** — resolve nutrition by joining `Element` and `Link` using recursive CTEs. Nearby timestamps may be visually clustered in the UI. |
+| **recipe** | Reusable user composition stored as an `element` of type `recipe` with `link` children and `measure` servings. |
 | **NutrientGroup** | (Concept, not an RDBMS table.) Admin-curated presentation buckets for nutrients. Membership is defined in [`backend/data/nutrient_group.json`](backend/data/nutrient_group.json) (USDA `nutrient.id` lists); the API resolves those to `element.id` at runtime after nutrients exist in the DB. Exposed as `GET /nutrient-groups` and used to build grouped responses for `GET /element/:id/nutrients`. Group `id` values are stable synthetic integers (load order), not persisted — not part of composition math. |
 
 Net intake for a day is derived as `consumed_calories − burned_calories` (or compute consumed from logs if you prefer a single source of truth later). See [`docs/db/schema.md`](docs/db/schema.md) for full details.

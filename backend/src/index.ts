@@ -6,14 +6,16 @@ import {
 	assertDatabaseConnection,
 	closeDatabaseConnection,
 } from './db/client.js';
+import { createFoodLogRoutes } from './routes/foodLogRoutes.js';
 import { createFoodTreeRoutes } from './routes/foodTreeRoutes.js';
-import { createMealRoutes } from './routes/mealRoutes.js';
+import { createRecipeRoutes } from './routes/recipeRoutes.js';
 import { createSearchRoutes } from './routes/searchRoutes.js';
 import { createUserRoutes } from './routes/userRoutes.js';
 import { createVoiceRoutes } from './routes/voiceRoutes.js';
 import { createEmbeddingService } from './service/embeddingService.js';
+import { createFoodLogService } from './service/foodLogService.js';
 import { createFoodTreeService } from './service/foodTreeService.js';
-import { createMealService } from './service/mealService.js';
+import { createRecipeService } from './service/recipeService.js';
 import { createUserService } from './service/userService.js';
 import { createVoiceService } from './service/voiceService.js';
 
@@ -40,10 +42,13 @@ app.use(createSearchRoutes(embeddingService));
 const foodTreeService = createFoodTreeService();
 app.use(createFoodTreeRoutes(foodTreeService, embeddingService));
 
-const mealService = createMealService(foodTreeService);
-app.use(createMealRoutes(mealService));
+const foodLogService = createFoodLogService(foodTreeService);
+app.use(createFoodLogRoutes(foodLogService));
 
-const userService = createUserService(mealService);
+const recipeService = createRecipeService();
+app.use(createRecipeRoutes(recipeService));
+
+const userService = createUserService(foodLogService);
 app.use(createUserRoutes(userService));
 
 const voiceService = await createVoiceService();

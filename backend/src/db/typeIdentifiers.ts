@@ -12,7 +12,6 @@ export const TABLE = {
 	link: 'link',
 	measure: 'measure',
 	food_name: 'food_name',
-	meal: 'meal',
 	food_log: 'food_log',
 	calories_burned: 'calories_burned',
 } as const satisfies Record<keyof Database, keyof Database>;
@@ -54,15 +53,10 @@ export const COLUMN = {
 		is_default: 'is_default',
 		rank: 'rank',
 	},
-	meal: {
-		id: 'id',
-		user_id: 'user_id',
-		name: 'name',
-		logged_at: 'logged_at',
-	},
 	food_log: {
 		id: 'id',
-		meal_id: 'meal_id',
+		user_id: 'user_id',
+		logged_at: 'logged_at',
 		element_id: 'element_id',
 		raw_name: 'raw_name',
 		amount: 'amount',

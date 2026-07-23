@@ -5,7 +5,7 @@ import { bleScaleTransport } from '../transport/BleScaleTransport';
 import { MockScaleTransport } from '../transport/MockScaleTransport';
 import type { ScaleTransportListener } from '../transport/ScaleTransport';
 import { clearStoredMac, getStoredMac, storeMac } from '../services/storage';
-import type { LogEntry, MealEntry, WeightReading } from './types';
+import type { WeightReading } from './types';
 
 const STABLE_WINDOW = 3;
 
@@ -15,8 +15,6 @@ type ScaleState = {
   weightReading: WeightReading | null;
   lastWeight: number;
   connectionState: number;
-  logEntries: LogEntry[];
-  mealEntries: MealEntry[];
   mockEnabled: boolean;
   realConnectionRequested: boolean;
   initialized: boolean;
@@ -32,10 +30,6 @@ type ScaleActions = {
   disconnect: () => void;
   cancelConnection: () => void;
   forgetStoredDevice: () => Promise<void>;
-  addLogEntry: (foodName: string, weightGrams: number) => void;
-  renameLogEntry: (index: number, foodName: string) => boolean;
-  clearLogEntries: () => void;
-  submitBreakfastMeal: () => boolean;
   sendTare: () => void;
   sendCalibrate: (refMassGrams: number) => void;
   setMockEnabled: (enabled: boolean) => void;
@@ -77,7 +71,7 @@ const bleTransportListener: ScaleTransportListener = {
 
 const mockTransportListener: ScaleTransportListener = {
   onConnectionStateChanged: () => {
-    // Connection state tracks real BLE only (see ScaleViewModel.java).
+    // Connection state tracks real BLE only.
   },
   onWeightData: (weight) => {
     const { connectionState, mockEnabled } = useScaleStore.getState();
@@ -100,8 +94,6 @@ export const useScaleStore = create<ScaleState & ScaleActions>((set, get) => ({
   weightReading: null,
   lastWeight: 0,
   connectionState: ConnectionState.DISCONNECTED,
-  logEntries: [],
-  mealEntries: [],
   mockEnabled: true,
   realConnectionRequested: false,
   initialized: false,
@@ -159,48 +151,6 @@ export const useScaleStore = create<ScaleState & ScaleActions>((set, get) => ({
 
   forgetStoredDevice: async () => {
     await clearStoredMac();
-  },
-
-  addLogEntry: (foodName, weightGrams) => {
-    const calories = Math.floor(Math.random() * 300) + 50;
-    const entry: LogEntry = { foodName, weightGrams, calories };
-    set((s) => ({ logEntries: [entry, ...s.logEntries] }));
-  },
-
-  renameLogEntry: (index, foodName) => {
-    const current = get().logEntries;
-    if (index < 0 || index >= current.length) return false;
-    const existing = current[index];
-    const updated = [...current];
-    updated[index] = {
-      foodName,
-      weightGrams: existing.weightGrams,
-      calories: existing.calories,
-    };
-    set({ logEntries: updated });
-    return true;
-  },
-
-  clearLogEntries: () => set({ logEntries: [] }),
-
-  submitBreakfastMeal: () => {
-    const logs = get().logEntries;
-    if (logs.length === 0) return false;
-    const totalCalories = logs.reduce((sum, e) => sum + e.calories, 0);
-    const now = new Date().toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-    const submitted: MealEntry = {
-      name: 'Breakfast',
-      time: now,
-      calories: totalCalories,
-    };
-    set((s) => ({
-      mealEntries: [submitted, ...s.mealEntries],
-      logEntries: [],
-    }));
-    return true;
   },
 
   sendTare: () => {

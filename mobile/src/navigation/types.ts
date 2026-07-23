@@ -1,5 +1,5 @@
 export type RootStackParamList = {
   Home: undefined;
-  Scale: { mealId?: number } | undefined;
+  CreateRecipe: undefined;
   Connection: { autoStartConnect?: boolean } | undefined;
 };

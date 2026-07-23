@@ -21,20 +21,13 @@ export type DailyTargets = {
 
 export type ApiFoodLog = {
   id: number;
-  meal_id: number;
+  user_id: number;
+  logged_at: string;
   element_id: number | null;
   raw_name: string;
   amount: number;
   measure_id: number;
-};
-
-export type ApiMeal = {
-  id: number;
-  user_id: number;
-  name: string | null;
-  logged_at: string;
   kcal?: number;
-  food_logs: ApiFoodLog[];
 };
 
 export type ElementSummary = {
@@ -59,17 +52,30 @@ export type ApiMeasure = {
   grams: number;
 };
 
-export type MealFoodLogInput = {
+export type NewFoodLogInput = {
+  user_id: number;
+  logged_at?: string;
   element_id: number | null;
   raw_name: string;
   amount: number;
   measure_id: number;
 };
 
-export type NewMealInput = {
-  user_id: number;
-  logged_at?: string;
-  food_logs: MealFoodLogInput[];
+export type NewRecipeInput = {
+  name: string;
+  children: Array<{ element_id: number; grams: number }>;
+  serving_grams?: number;
+  user_id?: number;
+};
+
+export type ApiRecipe = {
+  id: number;
+  type: 'recipe';
+  name: string;
+  source: string;
+  external_id: string | null;
+  links: Array<{ parent_id: number; child_id: number; ratio: number }>;
+  measures: ApiMeasure[];
 };
 
 async function readJsonOrThrow<T>(res: Response): Promise<T> {
@@ -94,7 +100,7 @@ export async function fetchDailyTargets(
   return readJsonOrThrow<DailyTargets | null>(res);
 }
 
-export async function fetchUserMealNutrients(
+export async function fetchUserFoodLogNutrients(
   userId: number,
   from: Date,
   to: Date,
@@ -104,7 +110,7 @@ export async function fetchUserMealNutrients(
     to: to.toISOString(),
   });
   const res = await fetch(
-    buildApiUrl(`/users/${userId}/meals/nutrients?${params.toString()}`),
+    buildApiUrl(`/users/${userId}/food-logs/nutrients?${params.toString()}`),
   );
   return readJsonOrThrow<NutrientGroup[]>(res);
 }
@@ -135,49 +141,25 @@ export async function fetchMeasures(
   return readJsonOrThrow<ApiMeasure[]>(res);
 }
 
-export async function fetchUserMeals(
+export async function fetchUserFoodLogs(
   userId: number,
   from: Date,
   to: Date,
-): Promise<ApiMeal[]> {
+): Promise<ApiFoodLog[]> {
   const params = new URLSearchParams({
     from: from.toISOString(),
     to: to.toISOString(),
   });
   const res = await fetch(
-    buildApiUrl(`/users/${userId}/meals?${params.toString()}`),
+    buildApiUrl(`/users/${userId}/food-logs?${params.toString()}`),
   );
-  return readJsonOrThrow<ApiMeal[]>(res);
+  return readJsonOrThrow<ApiFoodLog[]>(res);
 }
 
-export async function fetchMeal(mealId: number): Promise<ApiMeal> {
-  const res = await fetch(buildApiUrl(`/meals/${mealId}`));
-  return readJsonOrThrow<ApiMeal>(res);
-}
-
-export async function createMeal(input: NewMealInput): Promise<ApiMeal> {
-  const res = await fetch(buildApiUrl('/meals'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  return readJsonOrThrow<ApiMeal>(res);
-}
-
-export async function renameMeal(mealId: number, name: string): Promise<ApiMeal> {
-  const res = await fetch(buildApiUrl(`/meals/${mealId}/name`), {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
-  });
-  return readJsonOrThrow<ApiMeal>(res);
-}
-
-export async function addMealFoodLog(
-  mealId: number,
-  input: MealFoodLogInput,
+export async function createFoodLog(
+  input: NewFoodLogInput,
 ): Promise<ApiFoodLog> {
-  const res = await fetch(buildApiUrl(`/meals/${mealId}/food-logs`), {
+  const res = await fetch(buildApiUrl('/food-logs'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -185,11 +167,8 @@ export async function addMealFoodLog(
   return readJsonOrThrow<ApiFoodLog>(res);
 }
 
-export async function deleteMealFoodLog(
-  mealId: number,
-  logId: number,
-): Promise<void> {
-  const res = await fetch(buildApiUrl(`/meals/${mealId}/food-logs/${logId}`), {
+export async function deleteFoodLog(logId: number): Promise<void> {
+  const res = await fetch(buildApiUrl(`/food-logs/${logId}`), {
     method: 'DELETE',
   });
   if (!res.ok) {
@@ -197,13 +176,13 @@ export async function deleteMealFoodLog(
   }
 }
 
-export async function deleteMeal(mealId: number): Promise<void> {
-  const res = await fetch(buildApiUrl(`/meals/${mealId}`), {
-    method: 'DELETE',
+export async function createRecipe(input: NewRecipeInput): Promise<ApiRecipe> {
+  const res = await fetch(buildApiUrl('/recipes'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    await readJsonOrThrow<unknown>(res);
-  }
+  return readJsonOrThrow<ApiRecipe>(res);
 }
 
 export async function fetchNutrientElements(): Promise<ElementSummary[]> {

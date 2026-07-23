@@ -2,33 +2,22 @@
 General issue:
 if im making salad every day, it's slightly different content. 
 - use pre saved recepie and adhere to it
-- don't save recepie, just make new meal every time - but what if I shared the salad?
+- don't save recepie, just log ingredients every time - but what if I shared the salad?
 
 Mobile app:
 
-## Make main screen: 
-- top left - user icon, click - open user settings screen
-- summary block / chart, take daily targets from user's json, each target is 100% and show bars,
-   (if target for nutrient is not set just show grams)
-- list of today meals (table: time, name) - clickable, if clicked open meal edit dialog
-- plus button to add meal - open edit meal dialog with empty new meal
-- dictate button - sending audio to backend and resolving whole meal
-
-**Single food meals / snack** 
-in db - 1 meal and 1 food_log inside
-in ui - single button
-
+## Main dashboard (implemented):
+- top left - user icon, click - open user settings dialog
+- top carousel: Nutrition targets | Scale controls, with pagination dots
+- shared list of today's food_log rows, visually clustered by nearby timestamps
+- Add Food From Scale advances carousel to Scale page; Back returns to Nutrition
+- each resolved scale/voice entry immediately creates a food_log
+- menu -> Create Recipe screen (draft ingredients locally, Save Recipe atomically)
 
 ## Detailed chart:
 clicking on the chart snapshot open screen:
 - tabs on top: today (default), 7d (avg), 30d, from beginning (start measuring date on user)
 - the longer chart with all vitamins (if target for nutrient is not set just show grams)
-
-## Add/Edit meal or dialog (partially implemented):
-- title - New Meal or based on time default name, editable
-- if scale detected and weight positive the mic button should have icon (scale and mic).
-   user hit button say food name and food log added to in memory array
-- of no scale mode, the button should state "food name and grams", same thing but grams should be detected somehow
 
 ## User settings screen:
 - Sign in replacement: set user id - just text input for now, stored in persisted props
@@ -48,14 +37,3 @@ The caveat: current Whisper is forced to language: 'english', so if you say Russ
 I would not add "you" as an alias for egg, even though that is what the bad test produced. That would make normal accidental “you” transcriptions resolve to egg. A pronunciation alias like yaytso is much safer.
 
 One more thing: custom names store user_id, but current search does not filter by user, so aliases are effectively global right now. If this becomes a real feature, we should make voice/search user-scoped before relying on personal pronunciations.
-
-
-
-
-
-
-
-
-
-
-

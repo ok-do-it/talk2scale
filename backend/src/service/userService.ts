@@ -1,5 +1,5 @@
 import { db } from '../db/client.js';
-import type { MealService } from './mealService.js';
+import type { FoodLogService } from './foodLogService.js';
 
 export type CaloriesBurnedRow = {
 	user_id: number;
@@ -52,7 +52,7 @@ function endOfDay(day: string): Date {
 	return new Date(`${day}T23:59:59.999Z`);
 }
 
-export function createUserService(mealService: MealService): UserService {
+export function createUserService(foodLogService: FoodLogService): UserService {
 	return {
 		async getUser(userId) {
 			const row = await db
@@ -112,7 +112,7 @@ export function createUserService(mealService: MealService): UserService {
 			if (to) burnedQuery = burnedQuery.where('day', '<=', to);
 			const burnedRows = await burnedQuery.execute();
 
-			const consumed = await mealService.getUserDailyKcal(
+			const consumed = await foodLogService.getUserDailyKcal(
 				userId,
 				from ? toDate(from) : undefined,
 				to ? endOfDay(to) : undefined,

@@ -10,11 +10,11 @@ let unitId: number;
 
 const BURN_ONLY_DAY = '2025-12-15';
 const UPSERT_DAY = '2025-12-16';
-const MEAL_ONLY_DAY = '2025-12-17';
+const LOG_ONLY_DAY = '2025-12-17';
 const COMBINED_DAY = '2025-12-18';
 const OUT_OF_RANGE_DAY = '2026-06-01';
 
-const createdMealIds: number[] = [];
+const createdLogIds: number[] = [];
 
 let nutrientId: number;
 
@@ -66,34 +66,25 @@ afterAll(async () => {
 		.deleteFrom('calories_burned')
 		.where('user_id', '=', userId)
 		.execute();
-	await db
-		.updateTable('users')
-		.set({ daily_targets: null })
-		.where('id', '=', userId)
-		.execute();
-	if (createdMealIds.length > 0) {
-		await db.deleteFrom('meal').where('id', 'in', createdMealIds).execute();
+	if (createdLogIds.length > 0) {
+		await db.deleteFrom('food_log').where('id', 'in', createdLogIds).execute();
 	}
 	await db.destroy();
 });
 
-async function seedMeal(day: string): Promise<number> {
+async function seedFoodLog(day: string): Promise<number> {
 	const res = await request(app)
-		.post('/meals')
+		.post('/food-logs')
 		.send({
 			user_id: userId,
 			logged_at: `${day}T12:00:00Z`,
-			food_logs: [
-				{
-					element_id: elementId,
-					raw_name: 'test food',
-					amount: 100,
-					measure_id: unitId,
-				},
-			],
+			element_id: elementId,
+			raw_name: 'test food',
+			amount: 100,
+			measure_id: unitId,
 		});
 	expect(res.status).toBe(201);
-	createdMealIds.push(res.body.id);
+	createdLogIds.push(res.body.id);
 	return res.body.id;
 }
 
@@ -193,7 +184,7 @@ describe('POST /users/:userId/calories-burned', () => {
 });
 
 describe('GET /users/:userId/balance', () => {
-	it('returns days with only kcal_burned set when no meals on that day', async () => {
+	it('returns days with only kcal_burned set when no food logs on that day', async () => {
 		const res = await request(app).get(
 			`/users/${userId}/balance?from=${BURN_ONLY_DAY}&to=${BURN_ONLY_DAY}`,
 		);
@@ -204,22 +195,22 @@ describe('GET /users/:userId/balance', () => {
 	});
 
 	it('returns days with only kcal_consumed set when no burned record', async () => {
-		await seedMeal(MEAL_ONLY_DAY);
+		await seedFoodLog(LOG_ONLY_DAY);
 
 		const res = await request(app).get(
-			`/users/${userId}/balance?from=${MEAL_ONLY_DAY}&to=${MEAL_ONLY_DAY}`,
+			`/users/${userId}/balance?from=${LOG_ONLY_DAY}&to=${LOG_ONLY_DAY}`,
 		);
 		expect(res.status).toBe(200);
 		expect(res.body).toHaveLength(1);
 		expect(res.body[0]).toMatchObject({
-			day: MEAL_ONLY_DAY,
+			day: LOG_ONLY_DAY,
 			kcal_burned: 0,
 		});
 		expect(res.body[0].kcal_consumed).toBeGreaterThan(0);
 	});
 
 	it('combines burned + consumed for the same day', async () => {
-		await seedMeal(COMBINED_DAY);
+		await seedFoodLog(COMBINED_DAY);
 		await request(app)
 			.post(`/users/${userId}/calories-burned`)
 			.send({ day: COMBINED_DAY, kcal: 600 });
