@@ -155,6 +155,45 @@ describe('GET /food-logs/:id', () => {
 	});
 });
 
+describe('PUT /food-logs/:id', () => {
+	it('updates raw_name and element_id', async () => {
+		const log = await createFoodLog();
+		const otherElement = await db
+			.selectFrom('element')
+			.select('id')
+			.where('type', '=', 'whole_food')
+			.where('id', '!=', elementId)
+			.limit(1)
+			.executeTakeFirstOrThrow();
+
+		const res = await request(app).put(`/food-logs/${log.id}`).send({
+			raw_name: 'renamed food',
+			element_id: otherElement.id,
+		});
+		expect(res.status).toBe(200);
+		expect(res.body).toMatchObject({
+			id: log.id,
+			raw_name: 'renamed food',
+			element_id: otherElement.id,
+			amount: 100,
+			measure_id: unitId,
+		});
+	});
+
+	it('returns 404 for nonexistent log', async () => {
+		const res = await request(app).put('/food-logs/999999999').send({
+			raw_name: 'nope',
+		});
+		expect(res.status).toBe(404);
+	});
+
+	it('returns 400 when body is empty', async () => {
+		const log = await createFoodLog();
+		const res = await request(app).put(`/food-logs/${log.id}`).send({});
+		expect(res.status).toBe(400);
+	});
+});
+
 describe('DELETE /food-logs/:id', () => {
 	it('deletes a food log and returns 204', async () => {
 		const log = await createFoodLog();

@@ -33,14 +33,22 @@ export type ResolvedFood = {
 type ScaleIngredientEntryProps = {
   busy?: boolean;
   active?: boolean;
+  /** When set, skip the live-weight gate (edit existing food log). */
+  editing?: boolean;
+  /** Prefill search box and run an immediate search when the token changes. */
+  foodQuerySeed?: { token: number; name: string } | null;
   onFoodResolved: (food: ResolvedFood) => void | Promise<void>;
+  onClearSelection?: () => void;
   onRequestCalibrate?: () => void;
 };
 
 export function ScaleIngredientEntry({
   busy = false,
   active = true,
+  editing = false,
+  foodQuerySeed = null,
   onFoodResolved,
+  onClearSelection,
   onRequestCalibrate,
 }: ScaleIngredientEntryProps) {
   const weightReading = useScaleStore((s) => s.weightReading);
@@ -144,6 +152,29 @@ export function ScaleIngredientEntry({
     };
   }, [busy, foodText, listening, resolving, runFoodSearch]);
 
+  useEffect(() => {
+    if (!foodQuerySeed) return;
+    const name = foodQuerySeed.name.trim();
+    clearSearchSourceMetadata();
+    setFoodText(name);
+    setFoodSearchResults([]);
+    setFoodSearchLoading(false);
+    if (!name) return;
+    immediateFoodSearchRef.current = name;
+    void runFoodSearch(name);
+  }, [clearSearchSourceMetadata, foodQuerySeed, runFoodSearch]);
+
+  const wasEditingRef = useRef(false);
+  useEffect(() => {
+    if (wasEditingRef.current && !editing) {
+      clearSearchSourceMetadata();
+      setFoodText('');
+      setFoodSearchResults([]);
+      setFoodSearchLoading(false);
+    }
+    wasEditingRef.current = editing;
+  }, [clearSearchSourceMetadata, editing]);
+
   const applyFoodElement = useCallback(
     async (element: ElementSummary, rawNameOverride?: string) => {
       const rawName =
@@ -152,7 +183,7 @@ export function ScaleIngredientEntry({
         Alert.alert('Enter a food name first');
         return;
       }
-      if (lastWeight <= 0) {
+      if (!editing && lastWeight <= 0) {
         Alert.alert('No weight reading yet');
         return;
       }
@@ -168,7 +199,9 @@ export function ScaleIngredientEntry({
         setFoodText('');
         setFoodSearchResults([]);
         setFoodSearchLoading(false);
-        sendTare();
+        if (!editing) {
+          sendTare();
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unable to add food';
@@ -177,7 +210,14 @@ export function ScaleIngredientEntry({
         setResolving(false);
       }
     },
-    [clearSearchSourceMetadata, foodText, lastWeight, onFoodResolved, sendTare],
+    [
+      clearSearchSourceMetadata,
+      editing,
+      foodText,
+      lastWeight,
+      onFoodResolved,
+      sendTare,
+    ],
   );
 
   useEffect(() => {
@@ -246,6 +286,9 @@ export function ScaleIngredientEntry({
   }, [active, runFoodSearch, showRepeatToast, updateFoodText]);
 
   const onClearFood = () => {
+    if (editing) {
+      onClearSelection?.();
+    }
     clearSearchSourceMetadata();
     setFoodText('');
     setFoodSearchResults([]);

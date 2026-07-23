@@ -5,6 +5,8 @@ import {
 	type FoodLogService,
 	type NewFoodLog,
 	newFoodLogSchema,
+	type UpdateFoodLog,
+	updateFoodLogSchema,
 } from '../service/foodLogService.js';
 
 const dateRangeSchema = z.object({
@@ -75,6 +77,37 @@ export function createFoodLogRoutes(
 		}
 		res.json(foodLog);
 	});
+
+	router.put(
+		'/food-logs/:id',
+		validate(updateFoodLogSchema),
+		async (req, res) => {
+			const logId = parseId(req.params.id);
+			if (logId === null) {
+				res.status(400).json({ error: 'invalid food log id' });
+				return;
+			}
+			try {
+				const foodLog = await foodLogService.updateFoodLog(
+					logId,
+					req.body as UpdateFoodLog,
+				);
+				if (!foodLog) {
+					res.status(404).json({ error: `food log ${logId} not found` });
+					return;
+				}
+				res.json(foodLog);
+			} catch (err) {
+				if (isForeignKeyViolation(err)) {
+					res.status(400).json({
+						error: 'invalid element_id or measure_id',
+					});
+					return;
+				}
+				throw err;
+			}
+		},
+	);
 
 	router.delete('/food-logs/:id', async (req, res) => {
 		const logId = parseId(req.params.id);

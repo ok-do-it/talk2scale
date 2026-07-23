@@ -17,7 +17,26 @@ export const newFoodLogSchema = z.object({
 	measure_id: z.number().int().positive(),
 });
 
+export const updateFoodLogSchema = z
+	.object({
+		logged_at: z.coerce.date().optional(),
+		element_id: z.number().int().positive().nullable().optional(),
+		raw_name: z.string().min(1).optional(),
+		amount: z.number().positive().optional(),
+		measure_id: z.number().int().positive().optional(),
+	})
+	.refine(
+		(value) =>
+			value.logged_at !== undefined ||
+			value.element_id !== undefined ||
+			value.raw_name !== undefined ||
+			value.amount !== undefined ||
+			value.measure_id !== undefined,
+		{ message: 'at least one field is required' },
+	);
+
 export type NewFoodLog = z.infer<typeof newFoodLogSchema>;
+export type UpdateFoodLog = z.infer<typeof updateFoodLogSchema>;
 
 export type FoodLogWithKcal = Selectable<FoodLog> & {
 	kcal: number;
@@ -137,6 +156,33 @@ export function createFoodLogService(foodTreeService: FoodTreeService) {
 					.selectFrom('food_log')
 					.selectAll()
 					.where('id', '=', logId)
+					.executeTakeFirst()) ?? null
+			);
+		},
+
+		async updateFoodLog(
+			logId: number,
+			input: UpdateFoodLog,
+		): Promise<Selectable<FoodLog> | null> {
+			const values: {
+				logged_at?: Date;
+				element_id?: number | null;
+				raw_name?: string;
+				amount?: number;
+				measure_id?: number;
+			} = {};
+			if (input.logged_at !== undefined) values.logged_at = input.logged_at;
+			if (input.element_id !== undefined) values.element_id = input.element_id;
+			if (input.raw_name !== undefined) values.raw_name = input.raw_name;
+			if (input.amount !== undefined) values.amount = input.amount;
+			if (input.measure_id !== undefined) values.measure_id = input.measure_id;
+
+			return (
+				(await db
+					.updateTable('food_log')
+					.set(values)
+					.where('id', '=', logId)
+					.returningAll()
 					.executeTakeFirst()) ?? null
 			);
 		},

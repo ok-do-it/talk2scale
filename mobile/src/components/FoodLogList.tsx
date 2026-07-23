@@ -29,11 +29,15 @@ type FoodLogListProps = {
   loading?: boolean;
   error?: string | null;
   emptyText?: string;
+  selectedLogId?: number | null;
+  onPressLog: (log: FoodLogRow) => void;
   onSwipeDelete: (log: FoodLogRow) => void;
 };
 
 type SwipeableLogRowProps = {
   item: FoodLogRow;
+  selected: boolean;
+  onPress: (log: FoodLogRow) => void;
   onSwipeRight: (log: FoodLogRow) => void;
 };
 
@@ -80,7 +84,12 @@ export function buildClusteredListItems(logs: FoodLogRow[]): ListItem[] {
   return items;
 }
 
-function SwipeableLogRow({ item, onSwipeRight }: SwipeableLogRowProps) {
+function SwipeableLogRow({
+  item,
+  selected,
+  onPress,
+  onSwipeRight,
+}: SwipeableLogRowProps) {
   const startXRef = useRef<number | null>(null);
   const swipedRef = useRef(false);
 
@@ -101,7 +110,11 @@ function SwipeableLogRow({ item, onSwipeRight }: SwipeableLogRowProps) {
 
   return (
     <Pressable
-      style={styles.logRow}
+      style={[styles.logRow, selected && styles.logRowSelected]}
+      onPress={() => {
+        if (swipedRef.current) return;
+        onPress(item);
+      }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -119,6 +132,8 @@ export function FoodLogList({
   loading = false,
   error = null,
   emptyText = 'No food logs yet',
+  selectedLogId = null,
+  onPressLog,
   onSwipeDelete,
 }: FoodLogListProps) {
   const items = buildClusteredListItems(logs);
@@ -133,10 +148,15 @@ export function FoodLogList({
         );
       }
       return (
-        <SwipeableLogRow item={item.log} onSwipeRight={onSwipeDelete} />
+        <SwipeableLogRow
+          item={item.log}
+          selected={item.log.id === selectedLogId}
+          onPress={onPressLog}
+          onSwipeRight={onSwipeDelete}
+        />
       );
     },
-    [onSwipeDelete],
+    [onPressLog, onSwipeDelete, selectedLogId],
   );
 
   return (
@@ -192,6 +212,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ddd',
+  },
+  logRowSelected: {
+    backgroundColor: '#e3f2fd',
   },
   logName: { flex: 3, fontSize: 15 },
   logTime: { flex: 1, textAlign: 'right', fontSize: 15 },

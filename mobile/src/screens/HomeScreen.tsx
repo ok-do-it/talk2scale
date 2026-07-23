@@ -40,6 +40,7 @@ import {
   fetchNutrientElements,
   fetchUserFoodLogNutrients,
   fetchUserFoodLogs,
+  updateFoodLog,
 } from '../services/nutritionApi';
 import { DEFAULT_USER_ID, getUserId, setUserId } from '../services/storage';
 import { fetchUser } from '../services/userApi';
@@ -87,8 +88,14 @@ export function HomeScreen({ navigation }: Props) {
   const [showCalib, setShowCalib] = useState(false);
   const [savingFood, setSavingFood] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
+  const [foodQuerySeed, setFoodQuerySeed] = useState<{
+    token: number;
+    name: string;
+  } | null>(null);
   const foodLogsRequestIdRef = useRef(0);
   const summaryRequestIdRef = useRef(0);
+  const foodQuerySeedTokenRef = useRef(0);
 
   const carouselHeight = Math.max(280, Math.round(height * 0.36));
 
@@ -219,6 +226,23 @@ export function HomeScreen({ navigation }: Props) {
     setShowUserDialog(false);
   };
 
+  const clearLogSelection = useCallback(() => {
+    setSelectedLogId(null);
+  }, []);
+
+  const openLogEditor = useCallback(
+    (log: FoodLogRow) => {
+      setSelectedLogId(log.id);
+      foodQuerySeedTokenRef.current += 1;
+      setFoodQuerySeed({
+        token: foodQuerySeedTokenRef.current,
+        name: log.name,
+      });
+      goToPage(1);
+    },
+    [goToPage],
+  );
+
   const confirmDeleteLog = useCallback(
     (log: FoodLogRow) => {
       Alert.alert('Are you sure', `Delete ${log.name}?`, [
@@ -230,6 +254,9 @@ export function HomeScreen({ navigation }: Props) {
             void (async () => {
               try {
                 await deleteFoodLog(log.id);
+                if (selectedLogId === log.id) {
+                  clearLogSelection();
+                }
                 await refreshDashboard(userId);
               } catch {
                 Alert.alert('Unable to delete food log');
@@ -239,27 +266,35 @@ export function HomeScreen({ navigation }: Props) {
         },
       ]);
     },
-    [refreshDashboard, userId],
+    [clearLogSelection, refreshDashboard, selectedLogId, userId],
   );
 
   const handleFoodResolved = useCallback(
     async (food: ResolvedFood) => {
       setSavingFood(true);
       try {
-        await createFoodLog({
-          user_id: userId,
-          logged_at: new Date().toISOString(),
-          element_id: food.element.id,
-          raw_name: food.rawName,
-          amount: food.amountGrams,
-          measure_id: GRAM_MEASURE_ID,
-        });
+        if (selectedLogId !== null) {
+          await updateFoodLog(selectedLogId, {
+            element_id: food.element.id,
+            raw_name: food.rawName,
+          });
+          clearLogSelection();
+        } else {
+          await createFoodLog({
+            user_id: userId,
+            logged_at: new Date().toISOString(),
+            element_id: food.element.id,
+            raw_name: food.rawName,
+            amount: food.amountGrams,
+            measure_id: GRAM_MEASURE_ID,
+          });
+        }
         await refreshDashboard(userId);
       } finally {
         setSavingFood(false);
       }
     },
-    [refreshDashboard, userId],
+    [clearLogSelection, refreshDashboard, selectedLogId, userId],
   );
 
   const onCarouselScrollEnd = (
@@ -334,7 +369,10 @@ export function HomeScreen({ navigation }: Props) {
               <ScaleIngredientEntry
                 active={isFocused && pageIndex === 1}
                 busy={savingFood}
+                editing={selectedLogId !== null}
+                foodQuerySeed={foodQuerySeed}
                 onFoodResolved={handleFoodResolved}
+                onClearSelection={clearLogSelection}
               />
             </ScrollView>
           </View>
@@ -342,7 +380,11 @@ export function HomeScreen({ navigation }: Props) {
         <View style={styles.dots}>
           <Pressable
             accessibilityLabel="Nutrition"
-            onPress={() => goToPage(0)}
+            onPress={() => {
+              clearLogSelection();
+              goToPage(0);
+              void loadSummary(userId);
+            }}
             style={[styles.dot, pageIndex === 0 && styles.dotActive]}
           />
           <Pressable
@@ -358,6 +400,8 @@ export function HomeScreen({ navigation }: Props) {
         logs={foodLogRows}
         loading={logsLoading}
         error={logsError}
+        selectedLogId={selectedLogId}
+        onPressLog={openLogEditor}
         onSwipeDelete={confirmDeleteLog}
       />
 
@@ -371,6 +415,7 @@ export function HomeScreen({ navigation }: Props) {
           <Pressable
             style={styles.secondaryBtn}
             onPress={() => {
+              clearLogSelection();
               goToPage(0);
               void loadSummary(userId);
             }}

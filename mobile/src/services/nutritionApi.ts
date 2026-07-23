@@ -167,6 +167,26 @@ export async function createFoodLog(
   return readJsonOrThrow<ApiFoodLog>(res);
 }
 
+export type UpdateFoodLogInput = {
+  logged_at?: string;
+  element_id?: number | null;
+  raw_name?: string;
+  amount?: number;
+  measure_id?: number;
+};
+
+export async function updateFoodLog(
+  logId: number,
+  input: UpdateFoodLogInput,
+): Promise<ApiFoodLog> {
+  const res = await fetch(buildApiUrl(`/food-logs/${logId}`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return readJsonOrThrow<ApiFoodLog>(res);
+}
+
 export async function deleteFoodLog(logId: number): Promise<void> {
   const res = await fetch(buildApiUrl(`/food-logs/${logId}`), {
     method: 'DELETE',

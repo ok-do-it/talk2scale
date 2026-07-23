@@ -244,6 +244,24 @@ Fetch a single food log.
 
 ---
 
+### `PUT /food-logs/:id`
+
+Update fields on an existing food log. At least one of `element_id`, `raw_name`, `amount`, `measure_id`, or `logged_at` is required.
+
+```http
+PUT /food-logs/42
+Content-Type: application/json
+
+{
+  "raw_name": "egg white",
+  "element_id": 123
+}
+```
+
+**Response** `200` — updated food log (same shape as `POST /food-logs` response)
+
+---
+
 ### `DELETE /food-logs/:id`
 
 Delete a food log.
