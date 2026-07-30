@@ -71,6 +71,7 @@ export function ScaleIngredientEntry({
   const [voiceAutoSelectProgress, setVoiceAutoSelectProgress] = useState(0);
   const immediateFoodSearchRef = useRef<string | null>(null);
   const voiceSearchRawNameRef = useRef<string | null>(null);
+  const spokenGramsRef = useRef<number | null>(null);
 
   const weight = weightReading?.weight ?? 0;
   const stable = weightReading?.stable ?? false;
@@ -79,6 +80,7 @@ export function ScaleIngredientEntry({
 
   const clearSearchSourceMetadata = useCallback(() => {
     voiceSearchRawNameRef.current = null;
+    spokenGramsRef.current = null;
     setVoiceAutoSelect(null);
     setVoiceAutoSelectProgress(0);
   }, []);
@@ -183,7 +185,9 @@ export function ScaleIngredientEntry({
         Alert.alert('Enter a food name first');
         return;
       }
-      if (!editing && lastWeight <= 0) {
+      const spokenGrams = spokenGramsRef.current;
+      const amountGrams = spokenGrams !== null ? spokenGrams : lastWeight;
+      if (!editing && amountGrams <= 0) {
         Alert.alert('No weight reading yet');
         return;
       }
@@ -193,7 +197,7 @@ export function ScaleIngredientEntry({
         await onFoodResolved({
           rawName,
           element,
-          amountGrams: lastWeight,
+          amountGrams,
         });
         clearSearchSourceMetadata();
         setFoodText('');
@@ -262,7 +266,7 @@ export function ScaleIngredientEntry({
       onPartialText: (text) => {
         updateFoodText(text);
       },
-      onFinalText: (text) => {
+      onFinalText: (text, grams) => {
         const food = text.trim();
         updateFoodText(food);
         if (!food) {
@@ -270,6 +274,7 @@ export function ScaleIngredientEntry({
           return;
         }
         voiceSearchRawNameRef.current = food;
+        spokenGramsRef.current = grams;
         immediateFoodSearchRef.current = food;
         void runFoodSearch(food);
       },

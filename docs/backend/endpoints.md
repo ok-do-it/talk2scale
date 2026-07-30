@@ -15,6 +15,34 @@ Returns server health status.
 
 ---
 
+## Voice
+
+### `POST /voice/transcribe`
+
+Transcribe a short food-name audio clip (multipart field `audio`, max 10MB). After Whisper STT, the server strips an optional spoken weight in grams from the transcript.
+
+Supported weight patterns (digits + unit required): `100g chicken`, `100 grams of oatmeal`, `chicken 50 g`. Bare numbers without a unit are left in `text` and `grams` is `null`.
+
+**Response** `200`
+```json
+{ "text": "chicken", "grams": 100 }
+```
+
+When no weight is spoken:
+```json
+{ "text": "chicken", "grams": null }
+```
+
+- `text` — food name only (use for search / `raw_name`)
+- `grams` — positive integer grams when a weight+unit was spoken, else `null`
+
+**Errors**
+- `400` — missing audio file
+- `404` — `voice_not_recognized` (empty transcript)
+- `500` — transcription failed
+
+---
+
 ## Elements
 
 ### `GET /elements`

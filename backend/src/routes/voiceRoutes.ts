@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import express from 'express';
 import multer from 'multer';
+import { parseSpokenGrams } from '../service/spokenGrams.js';
 import {
 	detectAudioFormat,
 	type VoiceService,
@@ -15,6 +16,7 @@ const upload = multer({
 
 type TranscribeResponse = {
 	text: string;
+	grams: number | null;
 };
 
 function resolveVoiceSampleExtension(audio: Buffer): string {
@@ -41,14 +43,16 @@ export function createVoiceRoutes(voiceService: VoiceService): express.Router {
 				req.file.buffer,
 			);
 
-			const text = await voiceService.foodNameToText(req.file.buffer);
-			if (!text) {
+			const transcript = await voiceService.foodNameToText(req.file.buffer);
+			if (!transcript) {
 				res.status(404).json({ error: 'voice_not_recognized' });
 				return;
 			}
 
+			const parsed = parseSpokenGrams(transcript);
 			const response: TranscribeResponse = {
-				text,
+				text: parsed.foodName,
+				grams: parsed.grams,
 			};
 			res.json(response);
 		} catch (err) {
