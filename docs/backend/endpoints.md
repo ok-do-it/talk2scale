@@ -43,6 +43,56 @@ When no weight is spoken:
 
 ---
 
+## LLM
+
+Does not write food logs or elements. Nutrition-facts parse maps onto existing nutrient `element.id` values. Dictation does not resolve names via search.
+
+### `POST /llm/nutrition-facts`
+
+Parse a nutrition-facts photo (multipart field `image`, jpeg/png/webp, max 10MB). The food name is not extracted; serving mass and nutrient masses are.
+
+**Response** `200`
+```json
+{
+  "serving_grams": 40,
+  "nutrients": [
+    { "element_id": 3, "name": "Protein", "grams": 10 }
+  ]
+}
+```
+
+- `serving_grams` — labeled serving (or 100 if the panel is per 100g)
+- `nutrients[].grams` — mass of that nutrient **in the serving**, already converted to grams
+
+**Errors**
+- `400` — missing/unsupported image, or unusable model output
+- `502` — provider/transport failure
+
+### `POST /llm/dictation`
+
+Parse a whole-meal transcript into foods. `grams` is the estimated edible mass (source of truth). `quantity` + `unit` keep the spoken amount (e.g. `2` + `large`, or `120` + `g`).
+
+**Request**
+```json
+{ "text": "120 grams of chicken and two large eggs" }
+```
+
+**Response** `200`
+```json
+{
+  "items": [
+    { "name": "chicken", "quantity": 120, "unit": "g", "grams": 120 },
+    { "name": "egg", "quantity": 2, "unit": "large", "grams": 100 }
+  ]
+}
+```
+
+**Errors**
+- `400` — missing text, or no parseable items
+- `502` — provider/transport failure
+
+---
+
 ## Elements
 
 ### `GET /elements`

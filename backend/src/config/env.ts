@@ -20,6 +20,16 @@ const postgresPassword = process.env.POSTGRES_PASSWORD?.trim();
 const postgresHost = process.env.POSTGRES_HOST?.trim();
 const parsedPostgresPort = Number(process.env.POSTGRES_PORT);
 
+function parseLlmProvider(raw: string | undefined): 'ollama' | 'anthropic' {
+	const value = (raw ?? 'ollama').trim().toLowerCase();
+	if (value === 'ollama' || value === 'anthropic') {
+		return value;
+	}
+	throw new Error(`LLM_PROVIDER must be ollama or anthropic, got: ${raw}`);
+}
+
+export type LlmProvider = 'ollama' | 'anthropic';
+
 export const env = {
 	port: parsedPort,
 	postgresDb,
@@ -28,4 +38,12 @@ export const env = {
 	postgresHost,
 	postgresPort: parsedPostgresPort,
 	searchPrefix: 'Represent this sentence for searching relevant passages: ',
+	llm: {
+		provider: parseLlmProvider(process.env.LLM_PROVIDER),
+		anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim() ?? '',
+		anthropicModel:
+			process.env.ANTHROPIC_MODEL?.trim() || 'claude-3-5-haiku-20241022',
+		ollamaHost: process.env.OLLAMA_HOST?.trim() || 'http://127.0.0.1:11434',
+		ollamaModel: process.env.OLLAMA_MODEL?.trim() || 'llama3.2-vision',
+	},
 };

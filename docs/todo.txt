@@ -3,7 +3,6 @@ Add new user food element, picture nutrition facts with camera and or ability to
 
 Add user recepie, similar, the result is the same as new 
 
-Make 
 
 Whole-meal dictate button: current backend/mobile resolves one spoken food, not multiple meal items.
 
