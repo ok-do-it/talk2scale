@@ -9,7 +9,6 @@ Whole-meal dictate button: current backend/mobile resolves one spoken food, not 
 
 
 
-
 General issue:
 if im making salad every day, it's slightly different content. 
 - use pre saved recepie and adhere to it
