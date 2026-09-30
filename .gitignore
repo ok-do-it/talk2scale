@@ -5,3 +5,14 @@ backend/voice_samples/
 .env
 
 db/dataset/usda/
+
+# Android / Kotlin
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+*.log
+out/
+*.class
