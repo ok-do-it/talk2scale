@@ -37,6 +37,7 @@ class ScaleRepository(
     private var recentWeights = IntArray(STABLE_WINDOW)
     private var recentWeightCount = 0
     private var started = false
+    private var intentionalClose = false
 
     fun isBluetoothEnabled(): Boolean = ble.isBluetoothEnabled()
 
@@ -69,6 +70,7 @@ class ScaleRepository(
             ble.connect(address, autoConnect)
             preferences.setScaleMac(address)
         } catch (error: Exception) {
+            intentionalClose = true
             ble.close()
             fallBackToMock()
             throw error
@@ -76,6 +78,7 @@ class ScaleRepository(
     }
 
     fun disconnect() {
+        intentionalClose = true
         _realConnectionRequested.value = false
         _mockEnabled.value = true
         ble.close()
@@ -83,6 +86,7 @@ class ScaleRepository(
     }
 
     fun cancelConnection() {
+        intentionalClose = true
         _realConnectionRequested.value = false
         _mockEnabled.value = true
         ble.close()
@@ -96,7 +100,7 @@ class ScaleRepository(
     fun sendTare() {
         if (_connection.value == ConnectionState.Connected) {
             ble.sendTare()
-        } else {
+        } else if (_mockEnabled.value) {
             mock.sendTare()
         }
     }
@@ -110,15 +114,16 @@ class ScaleRepository(
     fun setMockEnabled(enabled: Boolean) {
         if (_mockEnabled.value == enabled) return
         if (enabled) {
+            intentionalClose = true
             _mockEnabled.value = true
             _realConnectionRequested.value = false
-            if (_connection.value == ConnectionState.Connected) {
-                ble.close()
-            } else {
-                mock.start()
-            }
+            ble.close()
+            mock.start()
         } else {
             _mockEnabled.value = false
+            if (_connection.value != ConnectionState.Connected) {
+                clearLiveReading()
+            }
         }
     }
 
@@ -138,9 +143,16 @@ class ScaleRepository(
     }
 
     private fun fallBackToMock() {
+        intentionalClose = true
         _mockEnabled.value = true
         _realConnectionRequested.value = false
         mock.start()
+    }
+
+    private fun clearLiveReading() {
+        recentWeights = IntArray(STABLE_WINDOW)
+        recentWeightCount = 0
+        _reading.value = null
     }
 
     private fun publishWeight(grams: Int, forceStable: Boolean) {
@@ -163,13 +175,16 @@ class ScaleRepository(
     private val bleListener = object : ScaleListener {
         override fun onConnectionStateChanged(state: ConnectionState) {
             _connection.value = state
-            if (state == ConnectionState.Connected) {
-                _mockEnabled.value = false
-            }
-            if (state == ConnectionState.Disconnected) {
-                _realConnectionRequested.value = false
-                _mockEnabled.value = true
-                mock.start()
+            when (state) {
+                ConnectionState.Connected -> _mockEnabled.value = false
+                ConnectionState.Disconnected -> {
+                    if (intentionalClose) {
+                        intentionalClose = false
+                    } else {
+                        clearLiveReading()
+                    }
+                }
+                ConnectionState.Connecting -> Unit
             }
         }
 

@@ -11,8 +11,10 @@ import androidx.lifecycle.viewModelScope
 import dev.talk2scale.Talk2ScaleApp
 import dev.talk2scale.data.FoodHit
 import dev.talk2scale.data.Preferences
+import dev.talk2scale.scale.ConnectionState
 import dev.talk2scale.voice.RecordStart
 import java.time.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -57,6 +60,7 @@ data class FoodEntryUiState(
     val error: FoodEntryError? = null,
     val errorMessage: String? = null,
     val controlsEnabled: Boolean = true,
+    val scaleLive: Boolean = true,
 )
 
 sealed interface FoodEntryEvent {
@@ -102,9 +106,21 @@ class FoodEntryViewModel(
             container.preferences.userId.collect { userId = it }
         }
         viewModelScope.launch {
-            scale.reading.collect { reading ->
+            combine(
+                scale.reading,
+                scale.connection,
+                scale.mockEnabled,
+            ) { reading, connection, mock ->
+                val live = reading != null &&
+                    (connection == ConnectionState.Connected || mock)
+                live to reading
+            }.collect { (live, reading) ->
                 _state.update {
-                    it.copy(grams = reading?.grams ?: 0, stable = reading?.stable ?: false)
+                    it.copy(
+                        grams = if (live) reading?.grams ?: 0 else 0,
+                        stable = live && reading?.stable == true,
+                        scaleLive = live,
+                    )
                 }
             }
         }
@@ -203,7 +219,7 @@ class FoodEntryViewModel(
                 show(FoodEntryError.EnterName)
                 return@launch
             }
-            val amount = spokenGrams ?: scale.lastGrams.value
+            val amount = spokenGrams ?: liveGrams() ?: 0
             val editingId = editingLogId
             if (editingId == null && amount <= 0) {
                 show(FoodEntryError.NoWeight)
@@ -242,6 +258,8 @@ class FoodEntryViewModel(
                     )
                 }
                 if (editingId == null) scale.sendTare()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 _state.update {
                     it.copy(
@@ -273,12 +291,22 @@ class FoodEntryViewModel(
                         results = hits,
                         showAutoSelect = auto,
                         autoSelectProgress = if (auto) 1f else 0f,
+                        error = null,
+                        errorMessage = null,
                     )
                 }
                 if (auto) startAutoSelect(hits.first(), filter)
-            } catch (_: Exception) {
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 _state.update {
-                    it.copy(searching = false, results = emptyList(), showAutoSelect = false)
+                    it.copy(
+                        searching = false,
+                        results = emptyList(),
+                        showAutoSelect = false,
+                        error = FoodEntryError.Message,
+                        errorMessage = error.message ?: "cannot reach server",
+                    )
                 }
             }
         }
@@ -325,6 +353,8 @@ class FoodEntryViewModel(
                 voiceRawName = food
                 spokenGrams = result.grams
                 scheduleSearch(food, immediate = true)
+            } catch (error: CancellationException) {
+                throw error
             } catch (_: Exception) {
                 promptRepeat()
             } finally {
@@ -355,6 +385,12 @@ class FoodEntryViewModel(
 
     private fun promptRepeat() {
         _repeatPrompts.tryEmit(Unit)
+    }
+
+    private fun liveGrams(): Int? {
+        val reading = scale.reading.value ?: return null
+        val live = scale.connection.value == ConnectionState.Connected || scale.mockEnabled.value
+        return reading.grams.takeIf { live }
     }
 
     private fun show(error: FoodEntryError) {

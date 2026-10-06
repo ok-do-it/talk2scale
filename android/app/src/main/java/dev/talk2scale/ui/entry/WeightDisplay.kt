@@ -27,15 +27,16 @@ private val StableColor = Color(0xFF36D7FF)
 fun WeightDisplay(
     grams: Int,
     stable: Boolean,
+    live: Boolean,
     onClick: () -> Unit,
     onToggleMock: () -> Boolean,
     modifier: Modifier = Modifier,
 ) {
     var mockNotice by remember { mutableStateOf<String?>(null) }
     Text(
-        text = "$grams g",
-        color = if (stable) StableColor else UnstableColor,
-        fontSize = 48.sp,
+        text = if (live) "$grams g" else "Disconnected",
+        color = if (!live) Color(0xFF607089) else if (stable) StableColor else UnstableColor,
+        fontSize = if (live) 48.sp else 32.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
         modifier = modifier

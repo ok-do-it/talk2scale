@@ -38,6 +38,14 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
     private val discovered = LinkedHashMap<String, ScannedDevice>()
     private val writeQueue = ArrayDeque<ByteArray>()
     private var writeInFlight = false
+    private var activeAddress: String? = null
+    private var maintainLink = false
+    private var linkEstablished = false
+    private val reconnectRunnable = Runnable {
+        val address = activeAddress ?: return@Runnable
+        if (!maintainLink || !isBluetoothEnabled()) return@Runnable
+        openSession(address, autoConnect = true, continuation = null)
+    }
 
     private val _devices = MutableStateFlow<List<ScannedDevice>>(emptyList())
     override val devices: StateFlow<List<ScannedDevice>> = _devices
@@ -91,41 +99,14 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
     @SuppressLint("MissingPermission")
     override suspend fun connect(address: String, autoConnect: Boolean) {
         stopScan()
+        activeAddress = address
+        maintainLink = true
+        linkEstablished = false
         suspendCancellableCoroutine { continuation ->
-            gattHandler.post {
-                listener?.onConnectionStateChanged(ConnectionState.Connecting)
-                closeGatt(dispatchDisconnected = false)
-                val session = ++generation
-                val device = try {
-                    adapter()?.getRemoteDevice(address)
-                } catch (error: IllegalArgumentException) {
-                    listener?.onConnectionStateChanged(ConnectionState.Disconnected)
-                    if (continuation.isActive) continuation.resumeWithException(error)
-                    return@post
-                }
-                if (device == null) {
-                    listener?.onConnectionStateChanged(ConnectionState.Disconnected)
-                    if (continuation.isActive) {
-                        continuation.resumeWithException(IllegalStateException("Bluetooth is off"))
-                    }
-                    return@post
-                }
-                val callback = SessionCallback(session, continuation)
-                try {
-                    gatt = device.connectGatt(
-                        context,
-                        autoConnect,
-                        callback,
-                        BluetoothDevice.TRANSPORT_LE,
-                        BluetoothDevice.PHY_LE_1M_MASK,
-                        gattHandler,
-                    )
-                } catch (error: SecurityException) {
-                    listener?.onConnectionStateChanged(ConnectionState.Disconnected)
-                    if (continuation.isActive) continuation.resumeWithException(error)
-                }
-            }
+            gattHandler.post { openSession(address, autoConnect, continuation) }
             continuation.invokeOnCancellation {
+                maintainLink = false
+                activeAddress = null
                 gattHandler.post { closeGatt(dispatchDisconnected = true) }
             }
         }
@@ -144,6 +125,9 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
     }
 
     override fun close() {
+        maintainLink = false
+        activeAddress = null
+        linkEstablished = false
         stopScan()
         disconnect()
     }
@@ -186,8 +170,62 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
     }
 
     @SuppressLint("MissingPermission")
-    private fun closeGatt(dispatchDisconnected: Boolean) {
+    private fun openSession(
+        address: String,
+        autoConnect: Boolean,
+        continuation: CancellableContinuation<Unit>?,
+    ) {
+        closeGatt(dispatchDisconnected = false)
+        activeAddress = address
+        listener?.onConnectionStateChanged(ConnectionState.Connecting)
+        val session = generation
+        val device = try {
+            adapter()?.getRemoteDevice(address)
+        } catch (error: IllegalArgumentException) {
+            listener?.onConnectionStateChanged(ConnectionState.Disconnected)
+            if (continuation?.isActive == true) continuation.resumeWithException(error)
+            else scheduleReconnect(address)
+            return
+        }
+        if (device == null) {
+            listener?.onConnectionStateChanged(ConnectionState.Disconnected)
+            if (continuation?.isActive == true) {
+                continuation.resumeWithException(IllegalStateException("Bluetooth is off"))
+            }
+            return
+        }
+        val callback = SessionCallback(session, continuation)
+        try {
+            gatt = device.connectGatt(
+                context,
+                autoConnect,
+                callback,
+                BluetoothDevice.TRANSPORT_LE,
+                BluetoothDevice.PHY_LE_1M_MASK,
+                gattHandler,
+            )
+        } catch (error: SecurityException) {
+            listener?.onConnectionStateChanged(ConnectionState.Disconnected)
+            if (continuation?.isActive == true) continuation.resumeWithException(error)
+            else scheduleReconnect(address)
+        }
+    }
+
+    private fun scheduleReconnect(address: String) {
+        activeAddress = address
+        gattHandler.removeCallbacks(reconnectRunnable)
+        gattHandler.postDelayed(reconnectRunnable, RECONNECT_DELAY_MS)
+    }
+
+    private fun cancelReconnect() {
+        gattHandler.removeCallbacks(reconnectRunnable)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun closeGatt(dispatchDisconnected: Boolean, disconnectFirst: Boolean = true) {
+        cancelReconnect()
         generation += 1
+        linkEstablished = false
         writeQueue.clear()
         writeInFlight = false
         notifyChar = null
@@ -196,11 +234,15 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
         gatt = null
         if (current != null) {
             try {
-                current.disconnect()
+                if (disconnectFirst) current.disconnect()
             } catch (_: SecurityException) {
                 // Already gone.
             }
-            current.close()
+            try {
+                current.close()
+            } catch (_: SecurityException) {
+                // Already closed.
+            }
         }
         if (dispatchDisconnected) {
             listener?.onConnectionStateChanged(ConnectionState.Disconnected)
@@ -235,7 +277,7 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
 
     private inner class SessionCallback(
         private val session: Int,
-        private val continuation: CancellableContinuation<Unit>,
+        private val continuation: CancellableContinuation<Unit>?,
     ) : BluetoothGattCallback() {
         private fun active(): Boolean = session == generation
 
@@ -251,14 +293,17 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
                     }
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    notifyChar = null
-                    writeChar = null
-                    if (this@BleScaleTransport.gatt == gatt) {
-                        this@BleScaleTransport.gatt = null
-                    }
+                    val address = activeAddress
+                    val wasLive = linkEstablished
+                    val awaiting = continuation?.isActive == true
+                    closeGatt(dispatchDisconnected = false, disconnectFirst = false)
                     listener?.onConnectionStateChanged(ConnectionState.Disconnected)
-                    if (continuation.isActive) {
-                        continuation.resumeWithException(IllegalStateException("Connection failed"))
+                    if (awaiting) {
+                        continuation?.resumeWithException(IllegalStateException("Connection failed"))
+                        return
+                    }
+                    if (maintainLink && !address.isNullOrBlank() && (wasLive || continuation == null)) {
+                        scheduleReconnect(address)
                     }
                 }
             }
@@ -300,8 +345,9 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
         ) {
             if (!active() || descriptor.uuid != ScaleUuids.CCCD) return
             if (status == BluetoothGatt.GATT_SUCCESS) {
+                linkEstablished = true
                 listener?.onConnectionStateChanged(ConnectionState.Connected)
-                if (continuation.isActive) continuation.resume(Unit)
+                if (continuation?.isActive == true) continuation.resume(Unit)
             } else {
                 fail(IllegalStateException("Connection failed"))
             }
@@ -328,8 +374,19 @@ class BleScaleTransport(private val context: Context) : ScaleTransport {
         }
 
         private fun fail(error: Exception) {
+            val address = activeAddress
+            val awaiting = continuation?.isActive == true
+            closeGatt(dispatchDisconnected = false, disconnectFirst = false)
             listener?.onConnectionStateChanged(ConnectionState.Disconnected)
-            if (continuation.isActive) continuation.resumeWithException(error)
+            if (awaiting) {
+                continuation?.resumeWithException(error)
+            } else if (continuation == null && maintainLink && !address.isNullOrBlank()) {
+                scheduleReconnect(address)
+            }
         }
+    }
+
+    companion object {
+        private const val RECONNECT_DELAY_MS = 1_000L
     }
 }

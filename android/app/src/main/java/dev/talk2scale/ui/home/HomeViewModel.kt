@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.talk2scale.Talk2ScaleApp
 import dev.talk2scale.data.Preferences
 import dev.talk2scale.scale.ConnectionState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -84,6 +85,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         summaryError = null,
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 if (userId != id) return@launch
                 _state.update {
@@ -119,6 +122,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     _state.update { it.copy(selectedLogId = null) }
                 }
                 refresh()
+            } catch (error: CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _state.update { it.copy(deleteFailed = true) }
             }
@@ -135,6 +140,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         profileJob = viewModelScope.launch {
             val name = try {
                 foodRepository.fetchUser(id).name.takeIf { it.isNotBlank() }
+            } catch (error: CancellationException) {
+                throw error
             } catch (_: Exception) {
                 null
             }
@@ -151,6 +158,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val logs = foodRepository.todayFoodLogs(id).map { it.toFoodLogRow() }
                 if (userId != id) return@launch
                 _state.update { it.copy(logs = logs, logsLoading = false, logsError = null) }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 if (userId != id) return@launch
                 _state.update {

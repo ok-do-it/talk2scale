@@ -13,6 +13,7 @@ import dev.talk2scale.data.api.RecipeChildBody
 import dev.talk2scale.data.api.Talk2ScaleApi
 import dev.talk2scale.data.api.UpdateFoodLogBody
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -99,6 +100,8 @@ class FoodRepository(private val api: Talk2ScaleApi) {
     private suspend fun <T> apiCall(block: suspend () -> T): T {
         try {
             return block()
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: ApiException) {
             throw error
         } catch (error: Exception) {

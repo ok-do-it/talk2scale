@@ -1,6 +1,7 @@
 package dev.talk2scale.ui.recipe
 
 import android.app.Application
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,6 +64,10 @@ fun CreateRecipeScreen(
 
     fun requestBack() {
         if (state.hasDraft) confirmDiscard = true else onBack()
+    }
+
+    BackHandler(enabled = !confirmDiscard && notice == null && state.error == null) {
+        requestBack()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

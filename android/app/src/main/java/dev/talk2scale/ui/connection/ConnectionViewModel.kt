@@ -86,16 +86,21 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
                 val connected = connection == ConnectionState.Connected
                 val inProgress = scale.realConnectionRequested.value && !connected
                 _state.update { current ->
+                    val status = when {
+                        connected -> ConnectionStatus.Connected
+                        current.status == ConnectionStatus.BluetoothOff -> current.status
+                        current.status == ConnectionStatus.PermissionDenied -> current.status
+                        current.status == ConnectionStatus.Searching && inProgress -> current.status
+                        current.status == ConnectionStatus.SelectScale && current.devices.isNotEmpty() ->
+                            current.status
+                        current.status == ConnectionStatus.Connecting && inProgress -> current.status
+                        inProgress -> ConnectionStatus.Reconnecting
+                        else -> ConnectionStatus.Disconnected
+                    }
                     current.copy(
                         connected = connected,
                         inProgress = inProgress,
-                        status = when {
-                            connected -> ConnectionStatus.Connected
-                            inProgress && current.status != ConnectionStatus.SelectScale ->
-                                if (current.devices.isEmpty()) ConnectionStatus.Reconnecting
-                                else current.status
-                            else -> current.status
-                        },
+                        status = status,
                     )
                 }
                 if (connected) scale.stopScan()

@@ -99,6 +99,7 @@ fun FoodEntryPanel(
         WeightDisplay(
             grams = state.grams,
             stable = state.stable,
+            live = state.scaleLive,
             onClick = viewModel::addMockWeight,
             onToggleMock = viewModel::toggleMock,
         )
