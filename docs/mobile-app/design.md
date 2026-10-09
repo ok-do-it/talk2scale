@@ -1,21 +1,21 @@
 # Mobile app design
 
-The active mobile app is the React Native / Expo app in `mobile/`.
+This page describes the legacy React Native / Expo app in `mobile-rn/`. The active mobile app is the native Android project in `android/`.
 
 ## Project setup
 
 | Item | Value |
 |------|-------|
 | Runtime | React Native 0.81 with Expo dev client |
-| Entry point | `mobile/App.tsx` |
-| Navigation | `mobile/src/navigation/RootStack.tsx` |
-| State | Zustand store in `mobile/src/state/scaleStore.ts` |
-| BLE transport | `react-native-ble-plx` in `mobile/src/transport/BleScaleTransport.ts` |
-| Voice capture | `expo-audio` recorder in `mobile/src/services/voiceRecording.ts` |
+| Entry point | `mobile-rn/App.tsx` |
+| Navigation | `mobile-rn/src/navigation/RootStack.tsx` |
+| State | Zustand store in `mobile-rn/src/state/scaleStore.ts` |
+| BLE transport | `react-native-ble-plx` in `mobile-rn/src/transport/BleScaleTransport.ts` |
+| Voice capture | `expo-audio` recorder in `mobile-rn/src/services/voiceRecording.ts` |
 
 ## BLE identifiers
 
-Shared identifiers live in `mobile/src/constants/ble.ts`.
+Shared identifiers live in `mobile-rn/src/constants/ble.ts`.
 
 | Item | UUID |
 |------|------|
@@ -45,7 +45,7 @@ Firmware pushes a 4-byte notification every ~333 ms as soon as a client is conne
 |--------|------|---------|
 | 0-3 | `int32` LE | Weight in grams, signed |
 
-`mobile/src/transport/bleCodec.ts` decodes the notification payload from base64 into a gram value. The store marks readings stable when the same gram value repeats across the configured stability window.
+`mobile-rn/src/transport/bleCodec.ts` decodes the notification payload from base64 into a gram value. The store marks readings stable when the same gram value repeats across the configured stability window.
 
 ## Commands
 
@@ -60,11 +60,11 @@ Commands are fire-and-forget writes mapped to UI actions.
 
 ## Calibration
 
-The calibration flow is implemented as a React Native modal in `mobile/src/components/CalibrationOverlay.tsx`. See [`calibration-flow.md`](calibration-flow.md) for the user flow and command details.
+The calibration flow is implemented as a React Native modal in `mobile-rn/src/components/CalibrationOverlay.tsx`. See [`calibration-flow.md`](calibration-flow.md) for the user flow and command details.
 
 ## Speech-to-text
 
-The React Native app records short audio clips with `expo-audio`. `mobile/src/services/speech.ts` sends the clip to the backend voice API and receives the transcribed text.
+The React Native app records short audio clips with `expo-audio`. `mobile-rn/src/services/speech.ts` sends the clip to the backend voice API and receives the transcribed text.
 
 The current flow is push-to-record:
 
@@ -75,4 +75,4 @@ The current flow is push-to-record:
 
 ## Persistence
 
-Device identity and the selected user id are stored through `mobile/src/services/storage.ts`. Food logs persist immediately through the backend API. The dashboard shows today's food logs in a shared list under a two-page Nutrition/Scale carousel; nearby timestamps are clustered client-side (30 minutes). Recipes are drafted locally and saved atomically with `POST /recipes`.
+Device identity and the selected user id are stored through `mobile-rn/src/services/storage.ts`. Food logs persist immediately through the backend API. The dashboard shows today's food logs in a shared list under a two-page Nutrition/Scale carousel; nearby timestamps are clustered client-side (30 minutes). Recipes are drafted locally and saved atomically with `POST /recipes`.

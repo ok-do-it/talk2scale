@@ -35,4 +35,4 @@
 - FR-003 and FR-005 reference the existing Bluetooth protocol by document. That is a compatibility constraint with the scale firmware, not a design choice.
 - SC-005 and SC-006 are developer-experience outcomes, because the motivation for the switch is debugging and build or deploy cost. Both are measured on the developer's own machine and phone.
 - The constitution names React Native in Principles I and II and in Technology Constraints. The amendment is in scope (FR-018) and should happen before or alongside planning, so the plan does not fail the constitution check.
-- `specs/001-add-user-food` currently targets the React Native app. The Assumptions defer its mobile part until after parity; revisit its plan if you want it built first.
+- `specs/001-add-user-food` targets the legacy React Native app in `mobile-rn/`. The Assumptions defer its mobile part until after parity; revisit its plan if you want it built first.

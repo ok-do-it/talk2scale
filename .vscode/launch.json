@@ -14,9 +14,9 @@
         {
             "type": "node-terminal",
             "request": "launch",
-            "name": "Mobile Android Emulator",
-            "command": "npm run android",
-            "cwd": "${workspaceFolder}/mobile",
+            "name": "Android",
+            "command": "./gradlew :app:installDebug && adb shell am start -n dev.talk2scale.android/dev.talk2scale.MainActivity",
+            "cwd": "${workspaceFolder}/android",
             "env": {
                 "ANDROID_HOME": "${env:HOME}/Library/Android/sdk",
                 "ANDROID_SDK_ROOT": "${env:HOME}/Library/Android/sdk",

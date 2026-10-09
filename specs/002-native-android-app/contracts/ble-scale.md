@@ -1,6 +1,6 @@
 # Contract: Scale Bluetooth protocol
 
-Binding and unchanged (FR-003, FR-005). Source of truth: [docs/mobile-app/design.md](../../../docs/mobile-app/design.md) and `mobile/src/transport/`.
+Binding and unchanged (FR-003, FR-005). Source of truth: [docs/mobile-app/design.md](../../../docs/mobile-app/design.md) and the legacy React Native transport in `mobile-rn/src/transport/`.
 
 ## Identifiers
 

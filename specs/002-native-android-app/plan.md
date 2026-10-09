@@ -8,7 +8,7 @@
 
 ## Summary
 
-Build a new native Android app in `android/` with Kotlin and Jetpack Compose that has every feature of the React Native app in `mobile/`: scale connection over Bluetooth, live weight, tare and calibration, mock mode, voice and typed food search, food logging with edit and delete, the Nutrition and Scale carousel, Create Recipe, and user switching. It uses the existing backend and scale protocol unchanged. The app talks to Android's own Bluetooth and audio APIs, keeps shared scale state in one repository with `StateFlow`, and installs next to the React Native app under its own ID. Parity is checked by hand on the phone. After parity, `mobile/` and `android-legacy/` are removed and the docs and constitution are updated.
+Build a new native Android app in `android/` with Kotlin and Jetpack Compose that has every feature of the legacy React Native app in `mobile-rn/`: scale connection over Bluetooth, live weight, tare and calibration, mock mode, voice and typed food search, food logging with edit and delete, the Nutrition and Scale carousel, Create Recipe, and user switching. It uses the existing backend and scale protocol unchanged. The app talks to Android's own Bluetooth and audio APIs, keeps shared scale state in one repository with `StateFlow`, and installs next to the legacy React Native app under its own ID. Parity is checked by hand on the phone. After parity, `mobile-rn/` and `android-legacy/` are removed and the docs and constitution are updated.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ Build a new native Android app in `android/` with Kotlin and Jetpack Compose tha
 
 **Performance Goals**: Live weight within 5 s of opening with a stored scale (SC-003). Weight updates about three times a second without dropped frames. UI change on the phone in under 30 s (SC-005).
 
-**Constraints**: No backend, firmware, or protocol changes (FR-015). Captions are literals in the composable that renders them. `mobile/` stays in the repository and keeps working until parity (FR-017). Fresh project, not a conversion of `android-legacy/` (FR-019).
+**Constraints**: No backend, firmware, or protocol changes (FR-015). Captions are literals in the composable that renders them. `mobile-rn/` stays in the repository and keeps working until parity (FR-017). Fresh project, not a conversion of `android-legacy/` (FR-019).
 
 **Scale/Scope**: 3 screens and 1 dialog, 11 backend calls, 1 Bluetooth service. The React Native source is about 3,400 lines.
 
@@ -39,7 +39,7 @@ Checked against constitution 2.0.0.
 | Principle | Gate | Result |
 |-----------|------|--------|
 | I. Food-Logging Product | Native Android client, Node backend, Postgres, BLE scale | Pass. Same product, native client. |
-| II. Existing Module Boundaries | Mobile work in `android/`; `mobile/` is a reference only, stays working, binding for features, backend calls, and protocol | Pass. All new code in `android/`. `mobile/` is read, not changed. Contracts list the binding calls and protocol. |
+| II. Existing Module Boundaries | Mobile work in `android/`; `mobile-rn/` is a legacy reference only, stays working, binding for features, backend calls, and protocol | Pass. All new code in `android/`. `mobile-rn/` is read, not changed. Contracts list the binding calls and protocol. |
 | III. Backend Verification Gate | Backend changes pass typecheck and check | Pass. No backend changes planned. If one turns out to be needed, it is a separate change that must pass the gate. |
 | IV. Hard-Coded Mobile Captions | Captions are literals in the UI file that renders them | Pass. No `strings.xml` for UI copy; only the app name lives there, as Android requires. |
 | V. User-Owned Foods | User foods stay out of the USDA catalog | Pass. Not touched by this feature. |
@@ -105,7 +105,7 @@ android/
                 └── recipe/CreateRecipeScreen.kt, CreateRecipeViewModel.kt
 ```
 
-Removed after parity (FR-018): `mobile/`, `android-legacy/`. Updated after parity: `README.md`, `AGENTS.md`, `docs/mobile-app/`, constitution (drop `mobile/` as reference).
+Removed after parity (FR-018): `mobile-rn/`, `android-legacy/`. Updated after parity: `README.md`, `AGENTS.md`, `docs/mobile-app/`, constitution (drop `mobile-rn/` as reference).
 
 **Structure Decision**: One Gradle app module in `android/`, split by package rather than by Gradle module, because the app is small and one module builds fastest. Packages follow the React Native layout: `scale/` for `transport/` and `state/scaleStore.ts`, `data/` for `services/`, `ui/` for `screens/` and `components/`. `backend/` and `esp32/` are unchanged.
 

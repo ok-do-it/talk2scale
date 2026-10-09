@@ -8,7 +8,7 @@ Use this for **project context**. Prefer the linked docs before inventing archit
 |-----|------|
 | Product overview, modules, flows, BLE sketch, RDBMS data model | [README.md](README.md) |
 | Hardware schematics, wiring, BOM (placeholders and conventions) | [docs/hardware/README.md](docs/hardware/README.md) |
-| Mobile app BLE design (React Native transport, permissions, GATT flow, UUIDs) | [docs/mobile-app/design.md](docs/mobile-app/design.md) |
+| Mobile BLE design (protocol and the legacy React Native app in `mobile-rn/`; active client is `android/`) | [docs/mobile-app/design.md](docs/mobile-app/design.md) |
 | Backend API endpoint reference (request/response shapes, error codes) | [docs/backend/endpoints.md](docs/backend/endpoints.md) |
 | USDA import, name suppression, dedupe, curated merges/aliases | [docs/db/import-usda.md](docs/db/import-usda.md) |
 | Food search ranking design (hybrid lexical + embedding) | [docs/backend/food_item_search_improvements.md](docs/backend/food_item_search_improvements.md) |
@@ -40,5 +40,6 @@ The command prints a JSON array of rows to stdout. On failure, it writes the err
 - run `cd backend && npm run typecheck && npm run check` before finishing backend changes
 
 ## Mobile app
-- React Native app lives in `mobile/`
-- hard-code captions in component files for now
+- Active app is the native Android project in `android/`
+- React Native app in `mobile-rn/` is legacy
+- hard-code captions in the UI file that renders them

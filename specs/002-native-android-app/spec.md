@@ -13,10 +13,10 @@
 ### Session 2026-09-29
 
 - Q: Where does the native app live? → A: A new module at `./android` in the repository root.
-- Q: What defines the expected behavior of the native app? → A: The React Native app code in `mobile/` is the spec. This document summarizes it; where they differ, the React Native code wins (narrowed by the next answer).
+- Q: What defines the expected behavior of the native app? → A: The legacy React Native app code in `mobile-rn/` is the spec. This document summarizes it; where they differ, the React Native code wins (narrowed by the next answer).
 - Q: When the React Native code has a bug or awkward behavior, should the native app copy it or fix it? → A: Treat the React Native app as a guide only; improve the design freely where it helps.
 - Q: How much automated testing should the native app include before parity counts as done? → A: None; every feature is checked by hand on the phone against the parity checklist.
-- Q: When should the project constitution be updated to name the native Android app instead of React Native? → A: Now, before `/speckit-plan`: `android/` becomes the mobile module, and `mobile/` stays only as the reference until parity.
+- Q: When should the project constitution be updated to name the native Android app instead of React Native? → A: Now, before `/speckit-plan`: `android/` becomes the mobile module, and `mobile-rn/` stays only as the legacy reference until parity.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -118,7 +118,7 @@ Once the native app matches every feature, the developer removes the React Nativ
 **Acceptance Scenarios**:
 
 1. **Given** every item on the parity checklist passes, **When** the old apps are removed, **Then** the project docs point only to the native app.
-2. **Given** the constitution was amended before planning (FR-021), **When** the old apps are removed, **Then** the constitution no longer mentions `mobile/` as a reference.
+2. **Given** the constitution was amended before planning (FR-021), **When** the old apps are removed, **Then** the constitution no longer mentions `mobile-rn/` as a reference.
 
 ### Edge Cases
 
@@ -137,7 +137,7 @@ Once the native app matches every feature, the developer removes the React Nativ
 ### Functional Requirements
 
 - **FR-001**: The mobile client MUST be a native Android app in a new `android/` module at the repository root, replacing the React Native app with no loss of user-facing features.
-- **FR-001a**: The React Native app code in `mobile/` is the reference specification. It is binding for which features exist, for backend calls, and for the scale protocol; where this document is silent or differs on those, the native app MUST follow the React Native code. For screen layout, flows, captions, and error handling it is a guide only: the native app MAY improve them, and bugs or awkward behavior in the React Native app MUST NOT be copied on purpose.
+- **FR-001a**: The legacy React Native app code in `mobile-rn/` is the reference specification. It is binding for which features exist, for backend calls, and for the scale protocol; where this document is silent or differs on those, the native app MUST follow the React Native code. For screen layout, flows, captions, and error handling it is a guide only: the native app MAY improve them, and bugs or awkward behavior in the React Native app MUST NOT be copied on purpose.
 - **FR-002**: The app MUST request Bluetooth permission, scan for the scale, connect to a chosen device, and remember it for automatic reconnect.
 - **FR-003**: The app MUST decode weight notifications from the scale using the existing protocol in `docs/mobile-app/design.md` (same service and characteristic identifiers, 4-byte signed little-endian grams) and show the live weight.
 - **FR-004**: The app MUST mark a reading as stable when the same gram value repeats across the stability window, as the current app does.
@@ -154,8 +154,8 @@ Once the native app matches every feature, the developer removes the React Nativ
 - **FR-015**: The app MUST work against the existing backend without backend changes; any gap found MUST be recorded and resolved in a separate backend change.
 - **FR-016**: User-visible captions MUST stay hard-coded in the UI file that renders them, following the project constitution.
 - **FR-017**: The React Native app MUST stay in the repository and working until every item on the parity checklist passes in the native app.
-- **FR-018**: After parity, the React Native app (`mobile/`) and the old Java app (`android-legacy/`) MUST be removed, and `README.md`, `AGENTS.md`, and `docs/mobile-app/` MUST be updated to describe the native app. The constitution's mention of `mobile/` as the reference MUST be dropped at the same time.
-- **FR-021**: Before planning starts, the constitution MUST be amended so that `android/` is the mobile module and `mobile/` is only the reference until parity. The amendment is a MAJOR version change.
+- **FR-018**: After parity, the legacy React Native app (`mobile-rn/`) and the old Java app (`android-legacy/`) MUST be removed, and `README.md`, `AGENTS.md`, and `docs/mobile-app/` MUST be updated to describe the native app. The constitution's mention of `mobile-rn/` as the reference MUST be dropped at the same time.
+- **FR-021**: Before planning starts, the constitution MUST be amended so that `android/` is the mobile module and `mobile-rn/` is only the reference until parity. The amendment is a MAJOR version change.
 - **FR-019**: The old Java app MUST NOT be converted in place; the native app starts as a new project, using the old app only as a reference for native Bluetooth handling.
 - **FR-020**: Parity MUST be verified by hand on the developer's Android phone, walking every item on the parity checklist. Automated tests are not required for this feature.
 
@@ -166,7 +166,7 @@ Once the native app matches every feature, the developer removes the React Nativ
 - **Food log**: A logged food with name, weight, time, and owner, stored by the backend.
 - **Recipe draft**: A local, unsaved recipe with a name, an optional serving size, and weighed ingredients, saved to the backend in one step.
 - **Active user**: The user ID whose logs, targets, and nutrition the app shows.
-- **Parity checklist**: The list of features in the React Native code (`mobile/src`) that the native app must match before the old apps are removed, derived screen by screen and service by service from that code.
+- **Parity checklist**: The list of features in the React Native code (`mobile-rn/src`) that the native app must match before the old apps are removed, derived screen by screen and service by service from that code.
 
 ## Success Criteria *(mandatory)*
 
@@ -184,7 +184,7 @@ Once the native app matches every feature, the developer removes the React Nativ
 
 - The app targets Android only. iOS is out of scope; if it is ever needed, it would be a separate port.
 - The target stack is modern native Android, Kotlin with Jetpack Compose, as requested. Library choices belong in the plan.
-- The native app lives in `android/` at the repository root, separate from `mobile/` (including its generated `mobile/android` build folder) and `android-legacy/`.
+- The native app lives in `android/` at the repository root, separate from `mobile-rn/` (including its generated `mobile-rn/android` build folder) and `android-legacy/`.
 - Minimum Android version stays at the level the old Java app used (Android 14, API 34), since the app runs on the developer's own phones.
 - Parity is measured against the current React Native app. Features still being specified, such as `specs/001-add-user-food`, are built in the native app after parity rather than in the React Native app.
 - The scale firmware, Bluetooth protocol, and backend API do not change as part of this feature.

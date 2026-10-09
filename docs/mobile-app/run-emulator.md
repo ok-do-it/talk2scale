@@ -1,10 +1,12 @@
-# Run Mobile App on Android Emulator
+# Run the legacy React Native app on an Android emulator
 
-Use this flow after completing [mobile setup](setup.md).
+This flow is for the legacy React Native app in `mobile-rn/`. The active mobile app is `android/`.
+
+Use this flow after completing [legacy mobile setup](setup.md).
 
 ## Configure API URL
 
-For Android emulator, `mobile/.env` should use the emulator host alias:
+For Android emulator, `mobile-rn/.env` should use the emulator host alias:
 
 ```bash
 EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8888
@@ -31,7 +33,7 @@ Wait for the backend to report `Server ready` on port `8888`.
 Start an emulator, then build and install the dev client:
 
 ```bash
-cd mobile
+cd mobile-rn
 npm run android
 ```
 
@@ -42,7 +44,7 @@ This runs `expo run:android`. The first build can take a few minutes; later buil
 After the dev client is already installed, start Metro:
 
 ```bash
-cd mobile
+cd mobile-rn
 npx expo start --dev-client --clear
 ```
 
@@ -96,6 +98,6 @@ adb devices
 If Metro bundles fail after dependency changes:
 
 ```bash
-cd mobile
+cd mobile-rn
 npx expo start --dev-client --clear
 ```

@@ -1,6 +1,6 @@
 # Research: Native Android App
 
-All Technical Context unknowns are resolved below. The React Native app in `mobile/` is binding for features, backend calls, and the scale protocol (constitution Principle II, spec FR-001a).
+All Technical Context unknowns are resolved below. The legacy React Native app in `mobile-rn/` is binding for features, backend calls, and the scale protocol (constitution Principle II, spec FR-001a).
 
 ## R1. Language and UI toolkit
 
@@ -23,7 +23,7 @@ All Technical Context unknowns are resolved below. The React Native app in `mobi
 ## R4. State and architecture
 
 - **Decision**: One `ScaleRepository` (application-scoped) that owns the transports and exposes `StateFlow`s for connection state, weight reading, and mock mode. Screen state lives in a `ViewModel` per screen with `StateFlow`. Dependencies are wired by hand in an `AppContainer` on the `Application` class.
-- **Rationale**: Mirrors `mobile/src/state/scaleStore.ts` (one shared scale store, screens read from it). Manual wiring keeps the build small and readable; there are about ten classes to wire.
+- **Rationale**: Mirrors `mobile-rn/src/state/scaleStore.ts` (one shared scale store, screens read from it). Manual wiring keeps the build small and readable; there are about ten classes to wire.
 - **Alternatives considered**: Hilt. Rejected for now: annotation processing adds build time and indirection, which is what the switch is trying to remove.
 
 ## R5. Bluetooth
@@ -47,13 +47,13 @@ All Technical Context unknowns are resolved below. The React Native app in `mobi
 ## R8. Backend base URL
 
 - **Decision**: A `BuildConfig.API_BASE_URL` field read from the Gradle property `talk2scale.apiBaseUrl` (settable in `android/local.properties` or `~/.gradle/gradle.properties`), default `http://10.0.2.2:8888`. A debug-only network security config allows cleartext HTTP.
-- **Rationale**: Same default and same override idea as `EXPO_PUBLIC_API_BASE_URL` in `mobile/src/config/api.ts`. The React Native app already enables cleartext traffic.
+- **Rationale**: Same default and same override idea as `EXPO_PUBLIC_API_BASE_URL` in `mobile-rn/src/config/api.ts`. The React Native app already enables cleartext traffic.
 - **Alternatives considered**: An in-app setting screen. Deferred: not in the React Native app.
 
 ## R9. Local storage
 
 - **Decision**: Jetpack DataStore (Preferences) with keys `scale_mac` and `user_id`; default user ID `1`.
-- **Rationale**: Replaces AsyncStorage in `mobile/src/services/storage.ts` with the same keys and default.
+- **Rationale**: Replaces AsyncStorage in `mobile-rn/src/services/storage.ts` with the same keys and default.
 - **Alternatives considered**: `SharedPreferences`. Works, but DataStore is the current recommendation and fits flows.
 
 ## R10. Dashboard carousel and lists
@@ -70,4 +70,4 @@ All Technical Context unknowns are resolved below. The React Native app in `mobi
 
 - **Decision**: Use Compose Previews for layout and Android Studio Live Edit or Apply Changes for small UI edits on the phone. Configuration cache and build cache on in `gradle.properties`.
 - **Rationale**: Targets SC-005 (UI change on the phone in under 30 s) and SC-006 (lower memory than Metro + Gradle).
-- **How to measure SC-006**: Peak resident memory of the build processes during a clean debug build and install, using Activity Monitor or `/usr/bin/time -l`, for `mobile` (`npx expo run:android`) and for `android` (`./gradlew :app:installDebug`).
+- **How to measure SC-006**: Peak resident memory of the build processes during a clean debug build and install, using Activity Monitor or `/usr/bin/time -l`, for `mobile-rn` (`npx expo run:android`) and for `android` (`./gradlew :app:installDebug`).

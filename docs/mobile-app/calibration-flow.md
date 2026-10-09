@@ -1,6 +1,6 @@
 # Calibration flow
 
-The active calibration UI is the React Native modal in `mobile/src/components/CalibrationOverlay.tsx`.
+The legacy React Native calibration UI is the modal in `mobile-rn/src/components/CalibrationOverlay.tsx`. The active mobile app is `android/`.
 
 ## User-facing flow
 
@@ -28,4 +28,4 @@ Calibration is in-memory only on the ESP32 and is lost on power cycle.
 | Tare | `0x01` |
 | Calibrate | `0x02`, low byte of grams, high byte of grams |
 
-Encoding lives in `mobile/src/transport/bleCodec.ts`; transport writes live in `mobile/src/transport/BleScaleTransport.ts`.
+Encoding lives in `mobile-rn/src/transport/bleCodec.ts`; transport writes live in `mobile-rn/src/transport/BleScaleTransport.ts`.

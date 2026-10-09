@@ -1,6 +1,8 @@
 # Mobile App Setup
 
-The mobile app is a React Native app using Expo and a custom dev client. Expo Go is not enough because the app uses native modules such as BLE.
+This page is for the legacy React Native app in `mobile-rn/`. The active mobile app is the native Android project in `android/`.
+
+The legacy app uses Expo and a custom dev client. Expo Go is not enough because the app uses native modules such as BLE.
 
 Use this page for one-time setup. For running the app, see:
 
@@ -62,13 +64,13 @@ Create local env files from the repo root:
 
 ```bash
 cp .env.example .env
-cp mobile/.env.example mobile/.env
+cp mobile-rn/.env.example mobile-rn/.env
 ```
 
 Install mobile dependencies:
 
 ```bash
-cd mobile
+cd mobile-rn
 npm ci
 ```
 
@@ -93,8 +95,8 @@ Wait for the backend to report database, embedding model, voice model, and serve
 If Metro reports missing `ansi-regex`, `pretty-format`, or SHA-1 errors for files under `node_modules`, restart it with cache clearing:
 
 ```bash
-cd mobile
+cd mobile-rn
 npx expo start --dev-client --clear
 ```
 
-The repo includes `mobile/metro.config.js` and small dev-only shims for these React Native dev-server dependencies so Android bundling works reliably with the current Expo/RN dependency set.
+The repo includes `mobile-rn/metro.config.js` and small dev-only shims for these React Native dev-server dependencies so Android bundling works reliably with the current Expo/RN dependency set.

@@ -1,6 +1,6 @@
 # Parity Checklist: Native Android App
 
-Walk this on the phone with the native app (FR-020, SC-001). Every item must pass before `mobile/` and `android-legacy/` are removed. Each item is a feature from `mobile/src`; it must be present and working, not identical (FR-001a). Record intended differences in the last section.
+Walk this on the phone with the native app (FR-020, SC-001). Every item must pass before the legacy React Native app (`mobile-rn/`) and `android-legacy/` are removed. Each item is a feature from `mobile-rn/src`; it must be present and working, not identical (FR-001a). Record intended differences in the last section.
 
 ## Scale connection
 

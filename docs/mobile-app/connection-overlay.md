@@ -1,6 +1,6 @@
 # Connection screen
 
-The active connection UI is the React Native screen in `mobile/src/screens/ConnectionScreen.tsx`. It replaces the retired full-screen native overlay and owns the user-facing BLE connection lifecycle.
+The legacy React Native connection UI is the screen in `mobile-rn/src/screens/ConnectionScreen.tsx`. The active mobile app is `android/`. That screen replaces the retired full-screen native overlay and owns the user-facing BLE connection lifecycle for the React Native app.
 
 See [`design.md`](design.md) for the broader BLE transport, command, and notification model.
 
@@ -60,8 +60,8 @@ ConnectionScreen opens
 
 | File | Role |
 |------|------|
-| `mobile/src/screens/ConnectionScreen.tsx` | User interface, button handlers, scan result list |
-| `mobile/src/transport/BleScaleTransport.ts` | BLE scanning, connection, service discovery, notifications, writes |
-| `mobile/src/state/scaleStore.ts` | Connection state, stored-device actions, mock mode switching |
-| `mobile/src/services/permissions.ts` | Bluetooth permission request |
-| `mobile/src/services/storage.ts` | Stored device id persistence |
+| `mobile-rn/src/screens/ConnectionScreen.tsx` | User interface, button handlers, scan result list |
+| `mobile-rn/src/transport/BleScaleTransport.ts` | BLE scanning, connection, service discovery, notifications, writes |
+| `mobile-rn/src/state/scaleStore.ts` | Connection state, stored-device actions, mock mode switching |
+| `mobile-rn/src/services/permissions.ts` | Bluetooth permission request |
+| `mobile-rn/src/services/storage.ts` | Stored device id persistence |

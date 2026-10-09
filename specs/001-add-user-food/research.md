@@ -8,7 +8,7 @@
 
 ## Decision: Capture the photo with Expo's camera launcher, not a library picker
 
-**Rationale**: The app has no camera dependency today (`mobile/package.json`, `mobile/app.json`). `expo-image-picker`'s camera launch takes one photo and returns it to the screen. The screen must not offer the photo library. The image is sent only to the existing parse endpoint, which keeps the bytes in memory and does not write a file. iOS needs `NSCameraUsageDescription`. Android needs the camera permission. Both strings are app config, not a caption catalog.
+**Rationale**: The app has no camera dependency today (`mobile-rn/package.json`, `mobile-rn/app.json`). `expo-image-picker`'s camera launch takes one photo and returns it to the screen. The screen must not offer the photo library. The image is sent only to the existing parse endpoint, which keeps the bytes in memory and does not write a file. iOS needs `NSCameraUsageDescription`. Android needs the camera permission. Both strings are app config, not a caption catalog.
 
 **Alternatives considered**: `expo-camera` with a custom viewfinder. Rejected because the flow is one shot, then a form, not a live camera session. Saving the image on the food. Rejected by the spec.
 

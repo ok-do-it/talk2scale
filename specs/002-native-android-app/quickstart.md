@@ -28,7 +28,7 @@ cd android
 ./gradlew :app:installDebug
 ```
 
-The app installs as `dev.talk2scale.android`, next to the React Native app (`dev.talk2scale`).
+The app installs as `dev.talk2scale.android`, next to the legacy React Native app (`dev.talk2scale` in `mobile-rn/`).
 
 ## Validate
 
@@ -41,4 +41,4 @@ The app installs as `dev.talk2scale.android`, next to the React Native app (`dev
 ## Measure the dev loop (SC-005, SC-006)
 
 - UI change: edit a caption, use Live Edit or Apply Changes in Android Studio, time until it shows on the phone.
-- Memory: watch peak memory of the Gradle and Kotlin daemons during `./gradlew clean :app:installDebug`, then of Metro plus Gradle during `cd mobile && npx expo run:android`. Record both numbers in the parity checklist.
+- Memory: watch peak memory of the Gradle and Kotlin daemons during `./gradlew clean :app:installDebug`, then of Metro plus Gradle during `cd mobile-rn && npx expo run:android`. Record both numbers in the parity checklist.

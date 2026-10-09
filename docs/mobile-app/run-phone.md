@@ -1,6 +1,8 @@
-# Run Mobile App on WiFi Android Phone
+# Run the legacy React Native app on a WiFi Android phone
 
-Use this flow after completing [mobile setup](setup.md).
+This flow is for the legacy React Native app in `mobile-rn/`. The active mobile app is `android/`.
+
+Use this flow after completing [legacy mobile setup](setup.md).
 
 ## Configure API URL
 
@@ -12,7 +14,7 @@ On macOS:
 ipconfig getifaddr en0
 ```
 
-If that prints `192.168.1.42`, set `mobile/.env` to:
+If that prints `192.168.1.42`, set `mobile-rn/.env` to:
 
 ```bash
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.42:8888
@@ -60,7 +62,7 @@ adb devices
 Then install the dev client:
 
 ```bash
-cd mobile
+cd mobile-rn
 npm run android
 ```
 
@@ -69,7 +71,7 @@ npm run android
 After the dev client is already installed, start Metro:
 
 ```bash
-cd mobile
+cd mobile-rn
 npx expo start --dev-client --clear
 ```
 

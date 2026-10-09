@@ -17,26 +17,28 @@ The whole idea of the project - minimize nutrition tracking efforts as much as p
 | Module | Role |
 |--------|------|
 | **Backend** (TypeScript) | API keys and proxy for Whisper (if used), LLM (food parsing), USDA, Garmin OAuth; persistence; optional job queue for offline sync |
-| **Mobile app** (React Native, Expo; see `mobile/`) | BLE to the scale, cloud STT through the backend, logging UI, dashboard, offline queue |
+| **Mobile app** (native Android; see `android/`) | BLE to the scale, cloud STT through the backend, logging UI, dashboard |
+| **Legacy mobile app** (React Native, Expo; see `mobile-rn/`) | Previous client, kept as a reference. Not the app under development |
 | **Firmware** (ESP32, PlatformIO; see `esp32/`) | HX711 reads, stability detection, BLE GATT service, tare, optional WiFi OTA |
 
-Each module will live in its own top-level directory once bootstrapped (e.g. `backend/`, `mobile/`, `esp32/`).
+Each module lives in its own top-level directory (`backend/`, `android/`, `esp32/`). The React Native client in `mobile-rn/` is legacy.
 
 ## DB Explorer
 
 A lightweight browser UI for exploring the Element table.
 Start the backend and open `http://localhost:8888/explore.html`.
 
-## Run backend + mobile app
+## Run backend + Android app
 
 Use this flow to test audio food search while adding food log items in the scale app.
 
-1. Create local env files once:
+1. Create the backend env file once:
 
 ```bash
 cp .env.example .env
-cp mobile/.env.example mobile/.env
 ```
+
+The legacy React Native app also needs `cp mobile-rn/.env.example mobile-rn/.env` if you still run it.
 
 2. Start Postgres:
 
@@ -62,11 +64,21 @@ npm run dev
 
 Wait for the backend to report that the database, embedding model, voice model, and server are ready.
 
-5. Set up and run the mobile app:
+5. Build, install, and start the Android app:
 
-- [Mobile app setup](docs/mobile-app/setup.md)
-- [Run on Android emulator](docs/mobile-app/run-emulator.md)
-- [Run on WiFi Android phone](docs/mobile-app/run-phone.md)
+```bash
+cd android
+./gradlew :app:installDebug
+adb shell am start -n dev.talk2scale.android/dev.talk2scale.MainActivity
+```
+
+The emulator default API URL is `http://10.0.2.2:8888`. On a phone, set `talk2scale.apiBaseUrl` in `android/local.properties`. See the [native Android quickstart](specs/002-native-android-app/quickstart.md).
+
+The React Native app in `mobile-rn/` is legacy:
+
+- [Legacy React Native setup](docs/mobile-app/setup.md)
+- [Run the legacy app on an Android emulator](docs/mobile-app/run-emulator.md)
+- [Run the legacy app on a WiFi Android phone](docs/mobile-app/run-phone.md)
 
 6. In the app, open the home dashboard. Swipe the top carousel to the Scale page, or tap **Add Food From Scale**. Without real BLE hardware, use mock scale mode: tap the large weight display to add a mock weight.
 
@@ -85,7 +97,7 @@ Scale (stable weight) ──BLE──► Mobile app ──► Backend ──► 
 
 ## Speech-to-text (mobile)
 
-The React Native app records a short audio clip and sends it to the backend voice endpoint. The backend transcribes and resolves the spoken food name before the app creates a food log.
+The Android app records a short audio clip and sends it to the backend voice endpoint. The backend transcribes and resolves the spoken food name before the app creates a food log. The legacy React Native app in `mobile-rn/` does the same.
 
 ## Hardware (summary)
 

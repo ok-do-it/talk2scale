@@ -35,7 +35,7 @@ A user taps **Add Nutrition** on the food-logging screen, photographs a nutritio
 | Principle | Gate | Result |
 |-----------|------|--------|
 | I. Food-Logging Product | Stay inside food logging on the existing app, API, and database | Pass. Camera, review, and save extend food logging. No firmware work. |
-| II. Existing Module Boundaries | Backend under `backend/`, mobile under `mobile/` | Pass. New route and service sit next to recipes. New screen sits next to Create Recipe. |
+| II. Existing Module Boundaries | Backend under `backend/`, mobile under the legacy React Native app `mobile-rn/` | Pass. New route and service sit next to recipes. New screen sits next to Create Recipe. |
 | III. Backend Verification Gate | `cd backend && npm run typecheck && npm run check` | Pass. Required before backend work is called finished. |
 | IV. Hard-Coded Mobile Captions | "Add Nutrition" and the review copy are literals in the rendering component | Pass. No string catalog. |
 | V. User-Owned Foods | Branded food with `source = user`, never USDA, not merged, not in catalog search or reseed | Pass. See research decision on `external_id` and catalog filters. |
@@ -70,7 +70,7 @@ backend/
 │   └── service/foodTreeService.ts        # shared list excludes source = user
 └── src/service/embeddingService.ts       # catalog search excludes source = user
 
-mobile/
+mobile-rn/                              # legacy React Native app
 ├── app.json                              # camera permission strings
 ├── src/navigation/RootStack.tsx
 ├── src/navigation/types.ts
@@ -79,7 +79,7 @@ mobile/
 └── src/services/nutritionApi.ts          # parse photo + create user food
 ```
 
-**Structure Decision**: Mobile + API inside the existing `mobile/` and `backend/` trees. The ESP32 firmware is untouched. The photo parser stays `POST /llm/nutrition-facts`. Persistence is a new create endpoint, not `POST /recipes`, because a recipe link ratio is a share of ingredients and this feature's ratio is nutrient mass divided by serving mass.
+**Structure Decision**: Mobile + API inside the legacy `mobile-rn/` and `backend/` trees. The ESP32 firmware is untouched. The photo parser stays `POST /llm/nutrition-facts`. Persistence is a new create endpoint, not `POST /recipes`, because a recipe link ratio is a share of ingredients and this feature's ratio is nutrient mass divided by serving mass.
 
 ## Complexity Tracking
 

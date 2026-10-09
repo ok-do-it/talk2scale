@@ -21,7 +21,7 @@ description: "Task list for the native Android app"
 ## Path Conventions
 
 - New app: `android/app/src/main/java/dev/talk2scale/`
-- `mobile/` is the reference for features, backend calls, and the scale protocol. Do not change it until User Story 6.
+- `mobile-rn/` is the legacy reference for features, backend calls, and the scale protocol. Do not change it until User Story 6.
 - `backend/` and `esp32/` stay unchanged (FR-015).
 
 ## Phase 1: Setup (Shared Infrastructure)
@@ -84,7 +84,7 @@ description: "Task list for the native Android app"
 
 - [X] T020 [US2] Implement search and food-log methods in `android/app/src/main/java/dev/talk2scale/data/FoodRepository.kt` and register it in `Talk2ScaleApp.kt`. `GET /search-food` returns at most 6 hits. `POST /food-logs` sends `measure_id` `1` (grams) and `amount` in grams, plus `user_id`, `element_id`, `raw_name`, and `logged_at`. `PUT /food-logs/:id` updates `element_id` and `raw_name` only. `DELETE /food-logs/:id` deletes a log. `GET /users/:userId/food-logs?from&to` uses local midnight through 23:59:59.999 as ISO-8601 UTC. Surface the API error message and keep the caller's entered text on failure.
 - [X] T021 [P] [US2] Implement `android/app/src/main/java/dev/talk2scale/ui/home/FoodLogList.kt`. `FoodLogRow` shows `id`, `name` (from `raw_name`), `loggedAt`, and `kcal` (rounded, 0 if missing). Rows are sorted newest first. A new cluster header (showing the first row's time) starts when the gap to the previous row is more than 30 minutes. Swipe right asks to delete, then the caller refreshes. Captions are literals in this file.
-- [X] T022 [US2] Implement typed search and logging in `android/app/src/main/java/dev/talk2scale/ui/entry/FoodEntryViewModel.kt` and `FoodEntryPanel.kt`. `query` is typed text. `results` is up to 6 hits from `/search-food`, fetched 300 ms after typing stops, showing `name` and type (`whole_food`, matching `mobile/src/services/nutritionApi.ts`). Show "Searching..." while loading. Search field caption is "Food name" with a clear button that empties the query. `ResolvedFood` is `rawName`, `elementId`, `amountGrams`. `amountGrams` is `spokenGrams` if set, else `lastGrams`, and must be greater than 0 when creating a new log (zero or negative shows no log is created). Picking a food with no weight shows "No weight reading yet" and does not create a log. After a new log is created, the app sends Tare. Edit mode: picking a food updates `element_id` and `raw_name` only. On backend error, show the message and keep what the user entered. Captions are literals in `FoodEntryPanel.kt`. Depends on T020.
+- [X] T022 [US2] Implement typed search and logging in `android/app/src/main/java/dev/talk2scale/ui/entry/FoodEntryViewModel.kt` and `FoodEntryPanel.kt`. `query` is typed text. `results` is up to 6 hits from `/search-food`, fetched 300 ms after typing stops, showing `name` and type (`whole_food`, matching `mobile-rn/src/services/nutritionApi.ts`). Show "Searching..." while loading. Search field caption is "Food name" with a clear button that empties the query. `ResolvedFood` is `rawName`, `elementId`, `amountGrams`. `amountGrams` is `spokenGrams` if set, else `lastGrams`, and must be greater than 0 when creating a new log (zero or negative shows no log is created). Picking a food with no weight shows "No weight reading yet" and does not create a log. After a new log is created, the app sends Tare. Edit mode: picking a food updates `element_id` and `raw_name` only. On backend error, show the message and keep what the user entered. Captions are literals in `FoodEntryPanel.kt`. Depends on T020.
 - [X] T023 [P] [US2] Implement `android/app/src/main/java/dev/talk2scale/voice/VoiceRecorder.kt` with `MediaRecorder`: `AudioSource.VOICE_RECOGNITION`, `OutputFormat.MPEG_4`, `AudioEncoder.AAC`, 44.1 kHz, mono, 128 kbps, cache file `recording.m4a`. Hold the mic to record, release to stop, auto-stop at 10 seconds. If the app goes to the background, stop and discard the clip and upload nothing. If microphone permission is denied, do not record.
 - [X] T024 [US2] Implement `android/app/src/main/java/dev/talk2scale/voice/VoiceRepository.kt`. Upload `multipart/form-data` with one part `audio`, filename `recording.m4a`, content type `audio/mp4`, to `POST /voice/transcribe`, client timeout 15 s. Response is `{ text, grams? }`. On a non-2xx status, if the body still has non-empty `text`, use it; otherwise show `error`. Depends on T008, T023.
 - [X] T025 [US2] Add voice to `android/app/src/main/java/dev/talk2scale/ui/entry/FoodEntryViewModel.kt` and `android/app/src/main/java/dev/talk2scale/ui/entry/FoodEntryPanel.kt`. `listening` is true while the mic button is held. Button captions are "Hold to speak" and "Release to send"; show "Listening..." over the field. Transcribed text fills `query` and searches immediately. `spokenGrams` is grams from the transcription and overrides the scale weight when set. `autoSelect`: after a voice search, the first hit is picked after a 3 s countdown unless the user changes the query. Empty or failed transcription shows "Food not found. Please hold the mic and repeat." Denied microphone permission explains that permission is required, and typed search still works. Depends on T022, T024.
@@ -143,17 +143,17 @@ description: "Task list for the native Android app"
 
 ## Phase 8: User Story 6 - Retire the old mobile apps (Priority: P3)
 
-**Goal**: After every parity item passes, remove `mobile/` and `android-legacy/` and point the docs at `android/`
+**Goal**: After every parity item passes, remove `mobile-rn/` and `android-legacy/` and point the docs at `android/`
 
 **Independent Test**: A new contributor following the docs can build and run the native app and does not find instructions for the removed apps
 
 ### Implementation for User Story 6
 
-- [ ] T035 [US6] On the phone, walk every item in `specs/002-native-android-app/parity-checklist.md`, including SC-003 (live weight within 5 seconds of opening with a stored scale), SC-004 (10 reference weights match the scale), SC-005 (a small UI change reaches the phone in under 30 seconds), and SC-006 (peak memory of `./gradlew clean :app:installDebug` versus `cd mobile && npx expo run:android`). Record intended differences in that file. Do not start T036 until every box passes. `mobile/` must stay in the repo and working until then (FR-017).
-- [ ] T036 [US6] Remove `mobile/` and `android-legacy/` from the repository. Depends on T035.
+- [ ] T035 [US6] On the phone, walk every item in `specs/002-native-android-app/parity-checklist.md`, including SC-003 (live weight within 5 seconds of opening with a stored scale), SC-004 (10 reference weights match the scale), SC-005 (a small UI change reaches the phone in under 30 seconds), and SC-006 (peak memory of `./gradlew clean :app:installDebug` versus `cd mobile-rn && npx expo run:android`). Record intended differences in that file. Do not start T036 until every box passes. `mobile-rn/` must stay in the repo and working until then (FR-017).
+- [ ] T036 [US6] Remove `mobile-rn/` and `android-legacy/` from the repository. Depends on T035.
 - [ ] T037 [P] [US6] Update `README.md` and `AGENTS.md` so the mobile client is the native Android app in `android/`, including build and run steps from `specs/002-native-android-app/quickstart.md`. Depends on T036.
 - [ ] T038 [P] [US6] Update `docs/mobile-app/` so BLE, permissions, and the app layout describe the Kotlin app (`BluetoothGatt`, `MediaRecorder`, `dev.talk2scale.android`) instead of React Native. Depends on T036.
-- [ ] T039 [US6] Amend `.specify/memory/constitution.md` to drop `mobile/` as a reference (Principles I and II, Technology Constraints, Development Workflow). This is a MAJOR version bump. Keep hard-coded captions, the backend verification gate, user-owned foods, and "do not commit unless the user asks." Depends on T036.
+- [ ] T039 [US6] Amend `.specify/memory/constitution.md` to drop `mobile-rn/` as a reference (Principles I and II, Technology Constraints, Development Workflow). This is a MAJOR version bump. Keep hard-coded captions, the backend verification gate, user-owned foods, and "do not commit unless the user asks." Depends on T036.
 
 **Checkpoint**: The repository has one mobile app, and the docs and constitution describe it
 
@@ -165,7 +165,7 @@ description: "Task list for the native Android app"
 
 - [ ] T040 Run `cd android && ./gradlew :app:assembleDebug :app:lintDebug` from the repository root and leave `android/` building clean.
 - [ ] T041 [P] Walk `specs/002-native-android-app/quickstart.md` against the `android/` project (JDK 21, `talk2scale.apiBaseUrl`, install id `dev.talk2scale.android`) and fix any command or path that drifted.
-- [ ] T042 [P] Check `README.md`, `AGENTS.md`, `docs/mobile-app/`, and `.specify/memory/constitution.md` for build or architecture instructions that still point at `mobile/` or `android-legacy/` (SC-007).
+- [ ] T042 [P] Check `README.md`, `AGENTS.md`, `docs/mobile-app/`, and `.specify/memory/constitution.md` for build or architecture instructions that still point at `mobile-rn/` or `android-legacy/` (SC-007).
 
 ---
 
@@ -253,7 +253,7 @@ Task: "T023 VoiceRecorder.kt"
 4. User Story 3 → nutrition carousel
 5. User Story 4 → Create Recipe
 6. User Story 5 → user switch
-7. Parity walk → only then User Story 6 (remove `mobile/` and `android-legacy/`)
+7. Parity walk → only then User Story 6 (remove `mobile-rn/` and `android-legacy/`)
 8. Polish → Gradle done-check and a doc scan
 
 ### Parallel Team Strategy
@@ -275,7 +275,7 @@ Do not split stories that edit the same file across people at the same time.
 - Do not add automated tests for this feature (FR-020)
 - Do not change `backend/` or the scale protocol
 - Do not commit unless the user asks (constitution Development Workflow)
-- Leave `mobile/` in place and working until T035 passes
+- Leave `mobile-rn/` in place and working until T035 passes
 
 ---
 

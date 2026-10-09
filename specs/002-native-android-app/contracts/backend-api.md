@@ -1,6 +1,6 @@
 # Contract: Backend API used by the app
 
-The app calls the existing backend only (FR-015). Full request and response shapes are in [docs/backend/endpoints.md](../../../docs/backend/endpoints.md). This list is binding: it is every call `mobile/src/services/*` makes, and the native app needs no others.
+The app calls the existing backend only (FR-015). Full request and response shapes are in [docs/backend/endpoints.md](../../../docs/backend/endpoints.md). This list is binding: it is every call the legacy React Native app makes from `mobile-rn/src/services/*`, and the native app needs no others.
 
 Base URL: `BuildConfig.API_BASE_URL` (default `http://10.0.2.2:8888`, see research R8).
 
